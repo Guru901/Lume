@@ -5,8 +5,8 @@ use std::{
     task::{Context, Poll},
 };
 
+use crate::filter::Filter;
 use crate::{
-    Filter,
     database::DatabaseError,
     row::Row,
     schema::{Column, Schema, Value},
@@ -25,14 +25,12 @@ impl<T: Schema> Query<T> {
         }
     }
 
-    pub fn filter<V>(mut self, column: &'static Column<V>, value: V) -> Self
-    where
-        V: Into<Value> + Debug,
-    {
-        self.filters.push(Filter {
-            column_name: column.name.to_string(),
-            value: value.into(),
-        });
+    pub fn filter(mut self, filter: Filter) -> Self {
+        self.filters.push(filter);
+        self
+    }
+
+    pub fn select(self) -> Self {
         self
     }
 }
