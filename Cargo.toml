@@ -6,3 +6,4 @@ license = "MIT"
 description = "A simple and intutive orm inspired by Drizzle"
 
 [dependencies]
+tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread"] }

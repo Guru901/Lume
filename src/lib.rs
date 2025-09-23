@@ -1,14 +1,13 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+#![allow(dead_code)]
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod database;
+pub mod operations;
+pub mod row;
+pub mod schema;
+use crate::schema::Value;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+#[derive(Debug)]
+pub struct Filter {
+    column_name: String,
+    value: Value,
 }
