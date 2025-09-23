@@ -38,7 +38,7 @@ impl<T: Schema> Query<T> {
 
 // Make Query a Future
 impl<T: Schema> Future for Query<T> {
-    type Output = Result<Vec<Row>, DatabaseError>;
+    type Output = Result<Vec<Row<T>>, DatabaseError>;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
         let rows = Vec::new();

@@ -1,14 +1,18 @@
+use std::marker::PhantomData;
+
 use crate::schema::{Column, Value};
 
 #[derive(Debug)]
-pub struct Row {
+pub struct Row<S> {
     data: std::collections::HashMap<String, Value>,
+    _phanton: PhantomData<S>,
 }
 
-impl Row {
+impl<S> Row<S> {
     pub fn new() -> Self {
         Self {
             data: std::collections::HashMap::new(),
+            _phanton: PhantomData,
         }
     }
 
