@@ -1,16 +1,54 @@
-use crate::{operations::query::Query, schema::Schema};
+use crate::{
+    operations::query::Query,
+    schema::{ColumnInfo, Schema},
+    table::get_all_tables,
+};
 
 pub struct Database;
 
 impl Database {
     pub fn query<T: Schema>(&self) -> Query<T> {
+        T::ensure_registered();
         Query::new()
+    }
+
+    pub fn generate_migration_sql() -> String {
+        let tables = get_all_tables();
+        tables
+            .iter()
+            .map(|table| table.to_create_sql())
+            .collect::<Vec<_>>()
+            .join("\n\n")
+    }
+
+    // Get schema information
+    pub fn get_table_info(table_name: &str) -> Option<Vec<ColumnInfo>> {
+        let tables = get_all_tables();
+        tables
+            .iter()
+            .find(|table| table.table_name() == table_name)
+            .map(|table| table.get_columns())
+    }
+
+    // List all registered tables
+    pub fn list_tables() -> Vec<String> {
+        let tables = get_all_tables();
+        tables
+            .iter()
+            .map(|table| table.table_name().to_string())
+            .collect()
     }
 }
 
 #[derive(Debug)]
 pub struct DatabaseError;
 
-pub fn connect(_url: &str) -> Database {
-    Database
+pub async fn connect(_url: &str) -> Result<Database, DatabaseError> {
+    create_tables().await;
+
+    Ok(Database {})
+}
+
+async fn create_tables() {
+    println!("Creating tables");
 }

@@ -1,8 +1,8 @@
-use crate::schema::{Column, Value};
+use crate::schema::Value;
 
 mod filters;
 
-pub use filters::eq;
+pub use filters::*;
 
 #[derive(Debug)]
 pub(crate) enum FilterType {
@@ -13,6 +13,20 @@ pub(crate) enum FilterType {
     Lt,  // Less Than
     Gte, // Greater Than or Equals
     Lte, // Less Than or Equals
+}
+
+impl FilterType {
+    pub(crate) fn to_sql(&self) -> &'static str {
+        match self {
+            FilterType::Eq => "=",
+            FilterType::Neq => "!=",
+            FilterType::In => "IN",
+            FilterType::Gt => ">",
+            FilterType::Lt => "<",
+            FilterType::Gte => ">=",
+            FilterType::Lte => "<=",
+        }
+    }
 }
 
 #[derive(Debug)]
