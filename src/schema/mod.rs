@@ -48,6 +48,14 @@ macro_rules! define_schema {
             )*
         }
 
+
+        // Auto-register the table when the struct is defined
+        #[allow(non_upper_case_globals)]
+        static _REGISTER: std::sync::Once = std::sync::Once::new();
+        use lume::table::register_table;
+        use lume::schema::type_to_sql_string;
+        use lume::schema::DefaultToSql;
+
         impl Schema for $struct_name {
             fn table_name() -> &'static str {
                 stringify!($struct_name)
@@ -66,69 +74,55 @@ macro_rules! define_schema {
                             let col = Self::$name();
                             ColumnInfo {
                                 name: col.name(),
-                                data_type: define_schema!(@rust_type_to_sql $type),
+                                data_type: type_to_sql_string::<$type>(),
                                 nullable: col.is_nullable(),
                                 unique: col.is_unique(),
                                 primary_key: col.is_primary_key(),
                                 indexed: col.is_indexed(),
                                 has_default: col.get_default().is_some(),
-                                default_sql: match col.get_default() {
-                                    Some(default) => define_schema!(@default_to_sql $type, Some(default)),
-                                    None => define_schema!(@default_to_sql $type, None),
-                                },
+                                default_sql: col.default_to_sql(),
                             }
                         }
                     ),*
                 ]
             }
         }
+    };
+}
 
-        // Auto-register the table when the struct is defined
-        #[allow(non_upper_case_globals)]
-        static _REGISTER: std::sync::Once = std::sync::Once::new();
-        use lume::table::register_table;
+pub fn type_to_sql_string<T: 'static>() -> &'static str {
+    use std::any::TypeId;
 
-        impl $struct_name {
+    let type_id = TypeId::of::<T>();
 
-        }
-    };
-
-    // Convert Rust types to SQL types
-    (@rust_type_to_sql String) => { "TEXT" };
-    (@rust_type_to_sql i32) => { "INTEGER" };
-    (@rust_type_to_sql i64) => { "BIGINT" };
-    (@rust_type_to_sql f32) => { "REAL" };
-    (@rust_type_to_sql f64) => { "DOUBLE PRECISION" };
-    (@rust_type_to_sql bool) => { "BOOLEAN" };
-    (@rust_type_to_sql $other:ty) => { "TEXT" }; // fallback
-
-    // Convert default values to SQL
-    (@default_to_sql String, Some($default:expr)) => {
-        Some(format!("'{}'", $default.replace('\'', "''")))
-    };
-    (@default_to_sql i32, Some($default:expr)) => {
-        Some($default.to_string())
-    };
-    (@default_to_sql i64, Some($default:expr)) => {
-        Some($default.to_string())
-    };
-    (@default_to_sql f32, Some($default:expr)) => {
-        Some($default.to_string())
-    };
-    (@default_to_sql f64, Some($default:expr)) => {
-        Some($default.to_string())
-    };
-    (@default_to_sql bool, Some($default:expr)) => {
-        Some($default.to_string())
-    };
-    (@default_to_sql $type:ty, None) => { None };
-    (@default_to_sql $type:ty, Some($default:expr)) => {
-        Some("NULL".to_string()) // fallback
-    };
+    if type_id == TypeId::of::<String>() {
+        "TEXT"
+    } else if type_id == TypeId::of::<i32>() {
+        "INTEGER"
+    } else if type_id == TypeId::of::<i64>() {
+        "BIGINT"
+    } else if type_id == TypeId::of::<f32>() {
+        "REAL"
+    } else if type_id == TypeId::of::<f64>() {
+        "DOUBLE PRECISION"
+    } else if type_id == TypeId::of::<bool>() {
+        "BOOLEAN"
+    } else {
+        "TEXT" // fallback
+    }
 }
 
 pub(crate) struct SchemaWrapper<T: Schema> {
     _phantom: PhantomData<T>,
+}
+
+// Implement Clone for SchemaWrapper<T>
+impl<T: Schema> Clone for SchemaWrapper<T> {
+    fn clone(&self) -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<T: Schema> SchemaWrapper<T> {
@@ -139,7 +133,7 @@ impl<T: Schema> SchemaWrapper<T> {
     }
 }
 
-impl<T: Schema + Sync + Send> TableDefinition for SchemaWrapper<T> {
+impl<T: Schema + Sync + Send + 'static> TableDefinition for SchemaWrapper<T> {
     fn table_name(&self) -> &'static str {
         T::table_name()
     }
@@ -201,14 +195,56 @@ impl<T: Schema + Sync + Send> TableDefinition for SchemaWrapper<T> {
 
         sql
     }
-}
 
-pub trait CloneBox {
-    fn clone_box(&self) -> Box<dyn TableDefinition>;
-}
-
-impl<T: ?Sized + TableDefinition + Clone + 'static> CloneBox for T {
     fn clone_box(&self) -> Box<dyn TableDefinition> {
         Box::new(self.clone())
+    }
+}
+
+pub trait DefaultToSql {
+    fn default_to_sql(&self) -> Option<String>;
+}
+
+// Implement for each column type
+impl DefaultToSql for Column<String> {
+    fn default_to_sql(&self) -> Option<String> {
+        self.get_default()
+            .map(|v| format!("'{}'", v.replace('\'', "''")))
+    }
+}
+
+impl DefaultToSql for Column<i32> {
+    fn default_to_sql(&self) -> Option<String> {
+        self.get_default().map(|v| v.to_string())
+    }
+}
+
+impl DefaultToSql for Column<i64> {
+    fn default_to_sql(&self) -> Option<String> {
+        self.get_default().map(|v| v.to_string())
+    }
+}
+
+impl DefaultToSql for Column<f32> {
+    fn default_to_sql(&self) -> Option<String> {
+        self.get_default().map(|v| v.to_string())
+    }
+}
+
+impl DefaultToSql for Column<f64> {
+    fn default_to_sql(&self) -> Option<String> {
+        self.get_default().map(|v| v.to_string())
+    }
+}
+
+impl DefaultToSql for Column<bool> {
+    fn default_to_sql(&self) -> Option<String> {
+        self.get_default().map(|v| {
+            if *v {
+                "TRUE".to_string()
+            } else {
+                "FALSE".to_string()
+            }
+        })
     }
 }

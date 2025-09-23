@@ -8,8 +8,11 @@ pub struct Database;
 
 impl Database {
     pub fn query<T: Schema>(&self) -> Query<T> {
-        T::ensure_registered();
         Query::new()
+    }
+
+    pub fn register_table<T: Schema>(&self) {
+        T::ensure_registered();
     }
 
     pub fn generate_migration_sql() -> String {
@@ -44,11 +47,5 @@ impl Database {
 pub struct DatabaseError;
 
 pub async fn connect(_url: &str) -> Result<Database, DatabaseError> {
-    create_tables().await;
-
     Ok(Database {})
-}
-
-async fn create_tables() {
-    println!("Creating tables");
 }
