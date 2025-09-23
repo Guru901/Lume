@@ -1,4 +1,5 @@
 use std::{
+    fmt::Debug,
     marker::PhantomData,
     pin::Pin,
     task::{Context, Poll},
@@ -26,7 +27,7 @@ impl<T: Schema> Query<T> {
 
     pub fn filter<V>(mut self, column: &'static Column<V>, value: V) -> Self
     where
-        V: Into<Value>,
+        V: Into<Value> + Debug,
     {
         self.filters.push(Filter {
             column_name: column.name.to_string(),

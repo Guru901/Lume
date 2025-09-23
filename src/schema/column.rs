@@ -1,10 +1,14 @@
-use std::marker::PhantomData;
+use std::{
+    fmt::{Debug, Display},
+    marker::PhantomData,
+};
 
 // Generic Column that knows its Rust type at compile time
 #[derive(Clone, Debug)]
 pub struct Column<T> {
     pub(crate) name: &'static str,
     default_value: Option<T>,
+    table_name: &'static str,
     nullable: bool,
     unique: bool,
     primary_key: bool,
@@ -12,12 +16,37 @@ pub struct Column<T> {
     _phantom: PhantomData<T>,
 }
 
+impl<T: Debug> Display for Column<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Column {{
+    name: {},
+    default_value: {:?},
+    nullable: {},
+    unique: {},
+    primary_key: {},
+    indexed: {},
+    table_name: {}
+}}",
+            self.name,
+            self.default_value,
+            self.nullable,
+            self.unique,
+            self.primary_key,
+            self.indexed,
+            self.table_name
+        )
+    }
+}
+
 impl<T> Column<T> {
-    pub const fn new(name: &'static str) -> Self {
+    pub const fn new(name: &'static str, table_name: &'static str) -> Self {
         Self {
             name,
             default_value: None,
             nullable: true,
+            table_name,
             unique: false,
             primary_key: false,
             indexed: false,

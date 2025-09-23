@@ -24,7 +24,7 @@ macro_rules! define_columns {
                     pub fn $name() -> &'static Column<$type> {
                         static COL: std::sync::OnceLock<Column<$type>> = std::sync::OnceLock::new();
                         COL.get_or_init(|| {
-                            Column::<$type>::new(stringify!($name))
+                            Column::<$type>::new(stringify!($name), stringify!($struct_name))
                                 $(.$($args)*)?
                         })
                     }
