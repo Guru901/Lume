@@ -1,3 +1,11 @@
+# Lume
+
+An Erganmoic and developer-friendly Schema Builder for SQL Databases.
+
+[![Crates.io](https://img.shields.io/crates/v/lume)](https://crates.io/crates/lume)
+[![Documentation](https://img.shields.io/docsrs/lume)](https://docs.rs/lume)
+[![License](https://img.shields.io/crates/l/lume)](LICENSE)
+
 ```rust
 use lume::database::{DatabaseError, connect};
 use lume::define_columns;
