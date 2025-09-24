@@ -3,7 +3,7 @@ name = "lume"
 version = "0.1.1"
 edition = "2024"
 license = "MIT"
-description = "A simple and intuitive ORM inspired by Drizzle"
+description = "A simple and intuitive Query Builder inspired by Drizzle"
 
 [dependencies]
 sqlx = { version = "0.8.6", features = ["mysql", "runtime-tokio"] }
