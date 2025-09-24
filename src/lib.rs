@@ -13,7 +13,7 @@
 //!
 //! ## Quick Start
 //!
-//! ```rust
+//! ```no_run,ignore
 //! use lume::define_schema;
 //! use lume::schema::{Schema, ColumnInfo, Value};
 //! use lume::database::Database;

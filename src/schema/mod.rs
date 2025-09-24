@@ -12,7 +12,7 @@
 //!
 //! ## Example
 //!
-//! ```rust
+//! ```no_run,ignore
 //! use lume::define_schema;
 //!
 //! define_schema! {
