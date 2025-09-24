@@ -104,8 +104,6 @@ impl<S: Schema + Debug> Row<S> {
                     }
                 };
 
-                println!("{:?}: {:?}", column.name, value);
-
                 if let Some(value) = value {
                     map.insert(column.name.to_string(), value);
                 }
