@@ -43,7 +43,7 @@ static TABLE_REGISTRY: OnceLock<Mutex<Vec<Box<dyn TableDefinition>>>> = OnceLock
 ///
 /// println!("CREATE TABLE SQL: {}", user_table.to_create_sql());
 /// ```
-pub trait TableDefinition: Send + Sync {
+pub(crate) trait TableDefinition: Send + Sync {
     /// Returns the name of this table.
     fn table_name(&self) -> &'static str;
 
@@ -130,7 +130,7 @@ pub fn register_table<T: Schema + Send + Sync + 'static>() {
 ///     println!("SQL: {}", table.to_create_sql());
 /// }
 /// ```
-pub fn get_all_tables() -> Vec<Box<dyn TableDefinition>> {
+pub(crate) fn get_all_tables() -> Vec<Box<dyn TableDefinition>> {
     let registry = TABLE_REGISTRY.get_or_init(|| Mutex::new(Vec::new()));
     let tables = registry.lock().unwrap();
     tables.iter().map(|t| t.clone_box()).collect()
