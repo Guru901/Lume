@@ -18,7 +18,6 @@ impl Database {
 
     pub async fn register_table<T: Schema>(&mut self) {
         T::ensure_registered();
-        // Use Arc::get_mut to get a mutable reference to the underlying MySqlConnection
         let mut conn = self.connection.acquire().await.unwrap();
 
         sqlx::query(&Database::generate_migration_sql())
