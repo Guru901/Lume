@@ -113,6 +113,7 @@ impl<T: Copy> Copy for Column<T> where T: Copy {}
 pub enum Value {
     String(String),
     Int(i32),
+    Long(i64),
     Float(f64),
     Bool(bool),
     Null,
@@ -123,6 +124,7 @@ impl Display for Value {
         match self {
             Value::String(s) => write!(f, "{}", s),
             Value::Int(i) => write!(f, "{}", i),
+            Value::Long(l) => write!(f, "{}", l),
             Value::Float(val) => write!(f, "{}", *val),
             Value::Bool(b) => write!(f, "{}", b),
             Value::Null => write!(f, "NULL"),
@@ -146,6 +148,12 @@ impl From<&str> for Value {
 impl From<i32> for Value {
     fn from(i: i32) -> Self {
         Value::Int(i)
+    }
+}
+
+impl From<i64> for Value {
+    fn from(i: i64) -> Self {
+        Value::Long(i)
     }
 }
 
@@ -179,6 +187,18 @@ impl TryFrom<Value> for i32 {
     fn try_from(value: Value) -> Result<Self, Self::Error> {
         match value {
             Value::Int(i) => Ok(i),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<Value> for i64 {
+    type Error = ();
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::Long(l) => Ok(l),
+            Value::Int(i) => Ok(i as i64), // Allow conversion from i32
             _ => Err(()),
         }
     }

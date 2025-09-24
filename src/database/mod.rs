@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 
 use crate::{
     operations::query::Query,
@@ -12,7 +12,7 @@ pub struct Database {
 }
 
 impl Database {
-    pub fn query<T: Schema>(&self) -> Query<T> {
+    pub fn query<T: Schema + Debug>(&self) -> Query<T> {
         Query::new(Arc::clone(&self.connection))
     }
 

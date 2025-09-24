@@ -12,7 +12,7 @@ pub struct Query<T> {
     conn: Arc<MySqlPool>,
 }
 
-impl<T: Schema> Query<T> {
+impl<T: Schema + Debug> Query<T> {
     pub fn new(conn: Arc<MySqlPool>) -> Self {
         Self {
             table: PhantomData,
@@ -30,9 +30,8 @@ impl<T: Schema> Query<T> {
         self
     }
 
-    pub async fn execute(mut self) -> Result<Vec<Row<T>>, DatabaseError> {
+    pub async fn execute(self) -> Result<Vec<Row<T>>, DatabaseError> {
         let mut sql = format!("SELECT * FROM {}", T::table_name());
-        let row = Vec::new();
         let mut conn = self.conn.acquire().await.unwrap();
 
         if !self.filters.is_empty() {
@@ -75,8 +74,10 @@ impl<T: Schema> Query<T> {
         }
 
         let data = sqlx::query(&sql).fetch_all(&mut *conn).await.unwrap();
-        println!("{:#?}", data);
+        let rows = Row::from_mysql_row(data);
 
-        Ok(row)
+        println!("{:#?}", rows[0]);
+
+        Ok(rows)
     }
 }
