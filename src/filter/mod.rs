@@ -117,23 +117,4 @@ impl Filter {
             value,
         }
     }
-
-    /// Creates an equality filter for the given column and value.
-    ///
-    /// # Arguments
-    ///
-    /// - `column_name`: The name of the column to filter on
-    /// - `value`: The value to compare against
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::filter::Filter;
-    /// use lume::schema::Value;
-    ///
-    /// let filter = Filter::eq("username", Value::String("john_doe".to_string()));
-    /// ```
-    pub fn eq(column_name: &str, value: Value) -> Self {
-        Filter::new(column_name.to_string(), FilterType::Eq, value)
-    }
 }
