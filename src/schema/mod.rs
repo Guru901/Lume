@@ -50,8 +50,6 @@ macro_rules! define_schema {
 
 
         // Auto-register the table when the struct is defined
-        #[allow(non_upper_case_globals)]
-        static _REGISTER: std::sync::Once = std::sync::Once::new();
         use lume::table::register_table;
         use lume::schema::type_to_sql_string;
         use lume::schema::DefaultToSql;
@@ -62,7 +60,9 @@ macro_rules! define_schema {
             }
 
             fn ensure_registered() {
-                _REGISTER.call_once(|| {
+                // Function-local static to avoid name collisions across macro expansions
+                static REGISTER: std::sync::Once = std::sync::Once::new();
+                REGISTER.call_once(|| {
                     register_table::<$struct_name>();
                 });
             }

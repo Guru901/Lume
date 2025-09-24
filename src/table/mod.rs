@@ -16,6 +16,13 @@ pub fn register_table<T: Schema + Send + Sync + 'static>() {
     let registry = TABLE_REGISTRY.get_or_init(|| Mutex::new(Vec::new()));
     let mut tables = registry.lock().unwrap();
 
+    // Check if table already registered; return early to keep idempotent
+    let table_name = T::table_name();
+    let already_exists = tables.iter().any(|t| t.table_name() == table_name);
+    if already_exists {
+        return;
+    }
+
     tables.push(Box::new(SchemaWrapper::<T>::new()));
 }
 
