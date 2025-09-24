@@ -76,6 +76,7 @@ impl<S: Schema + Debug> Row<S> {
     /// ```rust
     /// use lume::define_schema;
     /// use lume::row::Row;
+    /// use lume::schema::{Schema, ColumnInfo};
     ///
     /// define_schema! {
     ///     User {
@@ -104,7 +105,7 @@ impl<S: Schema + Debug> Row<S> {
     /// ```rust
     /// use lume::define_schema;
     /// use lume::row::Row;
-    /// use lume::schema::ColumnInfo;
+    /// use lume::schema::{Schema, ColumnInfo};
     ///
     /// define_schema! {
     ///     User {
@@ -152,7 +153,7 @@ impl<S: Schema + Debug> Row<S> {
     /// ```rust
     /// use lume::define_schema;
     /// use lume::row::Row;
-    /// use lume::schema::ColumnInfo;
+    /// use lume::schema::{Schema, ColumnInfo};
     ///
     /// define_schema! {
     ///     User {
@@ -217,6 +218,7 @@ impl<S: Schema + Debug> Row<S> {
     /// ```rust
     /// use lume::define_schema;
     /// use lume::row::Row;
+    /// use lume::schema::{Schema, ColumnInfo};
     /// use sqlx::mysql::MySqlRow;
     ///
     /// define_schema! {

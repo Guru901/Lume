@@ -27,10 +27,11 @@ use sqlx::MySqlPool;
 ///
 /// # Example
 ///
-/// ```rust
+/// ```no_run
 /// use lume::database::Database;
 /// use lume::define_schema;
 /// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
 ///
 /// define_schema! {
 ///     User {
@@ -71,10 +72,11 @@ impl Database {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```no_run
     /// use lume::database::Database;
     /// use lume::define_schema;
     /// use lume::schema::Schema;
+    /// use lume::schema::ColumnInfo;
     ///
     /// define_schema! {
     ///     User {
@@ -83,8 +85,12 @@ impl Database {
     ///     }
     /// }
     ///
-    /// let db = Database::connect("mysql://...").await?;
-    /// let query = db.query::<User>();
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     let query = db.query::<User>();
+    ///     Ok(())
+    /// }
     /// ```
     pub fn query<T: Schema + Debug>(&self) -> Query<T> {
         Query::new(Arc::clone(&self.connection))
@@ -106,10 +112,11 @@ impl Database {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```no_run
     /// use lume::database::Database;
     /// use lume::define_schema;
     /// use lume::schema::Schema;
+    /// use lume::schema::ColumnInfo;
     ///
     /// define_schema! {
     ///     User {
@@ -118,8 +125,12 @@ impl Database {
     ///     }
     /// }
     ///
-    /// let db = Database::connect("mysql://...").await?;
-    /// db.register_table::<User>().await?;
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     db.register_table::<User>().await?;
+    ///     Ok(())
+    /// }
     /// ```
     pub async fn register_table<T: Schema>(&self) -> Result<(), DatabaseError> {
         T::ensure_registered();
@@ -147,6 +158,8 @@ impl Database {
     /// ```rust
     /// use lume::database::Database;
     /// use lume::define_schema;
+    /// use lume::schema::Schema;
+    /// use lume::schema::ColumnInfo;
     ///
     /// define_schema! {
     ///     User {
@@ -184,6 +197,8 @@ impl Database {
     /// ```rust
     /// use lume::database::Database;
     /// use lume::define_schema;
+    /// use lume::schema::Schema;
+    /// use lume::schema::ColumnInfo;
     ///
     /// define_schema! {
     ///     User {
@@ -217,6 +232,8 @@ impl Database {
     /// ```rust
     /// use lume::database::Database;
     /// use lume::define_schema;
+    /// use lume::schema::Schema;
+    /// use lume::schema::ColumnInfo;
     ///
     /// define_schema! {
     ///     User {
@@ -249,10 +266,15 @@ impl Database {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```no_run
     /// use lume::database::Database;
+    /// use lume::database::DatabaseError;
     ///
-    /// let db = Database::connect("mysql://user:password@localhost/mydb").await?;
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), DatabaseError> {
+    ///     let db = Database::connect("mysql://user:password@localhost/mydb").await?;
+    ///     Ok(())
+    /// }
     /// ```
     pub async fn connect(url: &str) -> Result<Database, DatabaseError> {
         let conn = MySqlPool::connect(url).await.map_err(DatabaseError)?;
@@ -269,7 +291,7 @@ impl Database {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```no_run
 /// use lume::database::{Database, DatabaseError};
 ///
 /// async fn example() -> Result<(), DatabaseError> {
@@ -280,3 +302,21 @@ impl Database {
 /// ```
 #[derive(Debug)]
 pub struct DatabaseError(sqlx::Error);
+
+impl std::error::Error for DatabaseError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
+}
+
+impl std::fmt::Display for DatabaseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Database error: {}", self.0)
+    }
+}
+
+impl From<sqlx::Error> for DatabaseError {
+    fn from(err: sqlx::Error) -> Self {
+        DatabaseError(err)
+    }
+}

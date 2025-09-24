@@ -15,7 +15,8 @@
 //!
 //! ```rust
 //! use lume::define_schema;
-//! use lume::schema::Schema;
+//! use lume::schema::{Schema, ColumnInfo, Value};
+//! use lume::database::Database;
 //!
 //! // Define your database schema
 //! define_schema! {
@@ -31,12 +32,12 @@
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     // Connect to your MySQL database
-//!     let db = lume::database::connect("mysql://user:password@localhost/database").await?;
+//!     let db = Database::connect("mysql://user:password@localhost/database").await?;
 //!     
 //!     // Type-safe queries
 //!     let users = db
 //!         .query::<Users>()
-//!         .filter(lume::filter::Filter::eq("username", "john_doe"))
+//!         .filter(lume::filter::Filter::eq("username", Value::String("john_doe".to_string())))
 //!         .execute()
 //!         .await?;
 //!     

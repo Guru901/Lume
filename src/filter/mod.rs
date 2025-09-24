@@ -23,7 +23,7 @@ pub use filters::*;
 /// - `Lte`: Less than or equal (<=)
 /// - `In`: IN clause (currently unused)
 #[derive(Debug)]
-pub(crate) enum FilterType {
+pub enum FilterType {
     /// Equality operator (=)
     Eq,
     /// Not equal operator (!=)
@@ -86,9 +86,54 @@ impl FilterType {
 #[derive(Debug)]
 pub struct Filter {
     /// The name of the column to filter on
-    pub(crate) column_name: String,
+    pub column_name: String,
     /// The value to compare against
-    pub(crate) value: Value,
+    pub value: Value,
     /// The type of comparison to perform
-    pub(crate) filter_type: FilterType,
+    pub filter_type: FilterType,
+}
+
+impl Filter {
+    /// Creates a new filter with the given parameters.
+    ///
+    /// # Arguments
+    ///
+    /// - `column_name`: The name of the column to filter on
+    /// - `filter_type`: The type of comparison to perform
+    /// - `value`: The value to compare against
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lume::filter::{Filter, FilterType};
+    /// use lume::schema::Value;
+    ///
+    /// let filter = Filter::new("age".to_string(), FilterType::Gt, Value::Int(18));
+    /// ```
+    pub fn new(column_name: String, filter_type: FilterType, value: Value) -> Self {
+        Filter {
+            column_name,
+            filter_type,
+            value,
+        }
+    }
+
+    /// Creates an equality filter for the given column and value.
+    ///
+    /// # Arguments
+    ///
+    /// - `column_name`: The name of the column to filter on
+    /// - `value`: The value to compare against
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lume::filter::Filter;
+    /// use lume::schema::Value;
+    ///
+    /// let filter = Filter::eq("username", Value::String("john_doe".to_string()));
+    /// ```
+    pub fn eq(column_name: &str, value: Value) -> Self {
+        Filter::new(column_name.to_string(), FilterType::Eq, value)
+    }
 }

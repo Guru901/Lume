@@ -43,7 +43,7 @@ pub use column::Value;
 ///
 /// ```rust
 /// use lume::define_schema;
-/// use lume::schema::Schema;
+/// use lume::schema::{Schema, ColumnInfo};
 ///
 /// define_schema! {
 ///     Product {
@@ -119,11 +119,12 @@ pub struct ColumnInfo {
 ///
 /// ```rust
 /// use lume::define_schema;
+/// use lume::schema::{Schema, ColumnInfo};
 ///
 /// define_schema! {
 ///     TableName {
-///         column_name: ColumnType [constraint1().constraint2()],
-///         another_column: AnotherType,
+///         column_name: i32 [primary_key()],
+///         another_column: String [not_null()],
 ///     }
 /// }
 /// ```
@@ -140,7 +141,7 @@ pub struct ColumnInfo {
 ///
 /// ```rust
 /// use lume::define_schema;
-/// use lume::schema::Schema;
+/// use lume::schema::{Schema, ColumnInfo};
 ///
 /// define_schema! {
 ///     User {
@@ -291,24 +292,6 @@ pub fn type_to_sql_string<T: 'static>() -> &'static str {
 /// # Type Parameters
 ///
 /// - `T`: The schema type that implements [`Schema`]
-///
-/// # Example
-///
-/// ```rust
-/// use lume::define_schema;
-/// use lume::schema::{Schema, SchemaWrapper};
-/// use lume::table::TableDefinition;
-///
-/// define_schema! {
-///     User {
-///         id: i32 [primary_key()],
-///         name: String [not_null()],
-///     }
-/// }
-///
-/// let wrapper = SchemaWrapper::<User>::new();
-/// assert_eq!(wrapper.table_name(), "User");
-/// ```
 pub(crate) struct SchemaWrapper<T: Schema> {
     _phantom: PhantomData<T>,
 }
@@ -324,21 +307,6 @@ impl<T: Schema> Clone for SchemaWrapper<T> {
 
 impl<T: Schema> SchemaWrapper<T> {
     /// Creates a new `SchemaWrapper` instance.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::define_schema;
-    /// use lume::schema::SchemaWrapper;
-    ///
-    /// define_schema! {
-    ///     User {
-    ///         id: i32 [primary_key()],
-    ///     }
-    /// }
-    ///
-    /// let wrapper = SchemaWrapper::<User>::new();
-    /// ```
     pub(crate) fn new() -> Self {
         Self {
             _phantom: PhantomData,

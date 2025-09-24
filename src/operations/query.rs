@@ -28,10 +28,11 @@ use crate::{filter::Filter, schema::Value};
 ///
 /// # Example
 ///
-/// ```rust
+/// ```no_run
 /// use lume::define_schema;
 /// use lume::database::Database;
 /// use lume::filter::Filter;
+/// use lume::schema::{Schema, ColumnInfo, Value};
 ///
 /// define_schema! {
 ///     User {
@@ -41,12 +42,16 @@ use crate::{filter::Filter, schema::Value};
 ///     }
 /// }
 ///
-/// let db = Database::connect("mysql://...").await?;
-/// let users = db.query::<User>()
-///     .filter(Filter::eq("name", "John"))
-///     .filter(Filter::gt("age", 18))
-///     .execute()
-///     .await?;
+/// #[tokio::main]
+/// async fn main() -> Result<(), lume::database::DatabaseError> {
+///     let db = Database::connect("mysql://...").await?;
+///     let users = db.query::<User>()
+///         .filter(Filter::eq("name", Value::String("John".to_string())))
+///         .filter(Filter::new("age".to_string(), lume::filter::FilterType::Gt, Value::Int(18)))
+///         .execute()
+///         .await?;
+///     Ok(())
+/// }
 /// ```
 #[derive(Debug)]
 pub struct Query<T> {
@@ -71,9 +76,10 @@ impl<T: Schema + Debug> Query<T> {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```no_run
     /// use lume::define_schema;
     /// use lume::operations::query::Query;
+    /// use lume::schema::{Schema, ColumnInfo};
     /// use sqlx::MySqlPool;
     /// use std::sync::Arc;
     ///
@@ -83,8 +89,12 @@ impl<T: Schema + Debug> Query<T> {
     ///     }
     /// }
     ///
-    /// let pool = MySqlPool::connect("mysql://...").await?;
-    /// let query = Query::<User>::new(Arc::new(pool));
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), sqlx::Error> {
+    ///     let pool = MySqlPool::connect("mysql://...").await?;
+    ///     let query = Query::<User>::new(Arc::new(pool));
+    ///     Ok(())
+    /// }
     /// ```
     pub fn new(conn: Arc<MySqlPool>) -> Self {
         Self {
@@ -109,10 +119,11 @@ impl<T: Schema + Debug> Query<T> {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```no_run
     /// use lume::define_schema;
     /// use lume::database::Database;
     /// use lume::filter::Filter;
+    /// use lume::schema::{Schema, ColumnInfo, Value};
     ///
     /// define_schema! {
     ///     User {
@@ -122,10 +133,14 @@ impl<T: Schema + Debug> Query<T> {
     ///     }
     /// }
     ///
-    /// let db = Database::connect("mysql://...").await?;
-    /// let query = db.query::<User>()
-    ///     .filter(Filter::eq("name", "John"))
-    ///     .filter(Filter::gt("age", 18));
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     let query = db.query::<User>()
+    ///         .filter(Filter::eq("name", Value::String("John".to_string())))
+    ///         .filter(Filter::new("age".to_string(), lume::filter::FilterType::Gt, Value::Int(18)));
+    ///     Ok(())
+    /// }
     /// ```
     pub fn filter(mut self, filter: Filter) -> Self {
         self.filters.push(filter);
@@ -156,10 +171,11 @@ impl<T: Schema + Debug> Query<T> {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```no_run
     /// use lume::define_schema;
     /// use lume::database::Database;
     /// use lume::filter::Filter;
+    /// use lume::schema::{Schema, ColumnInfo, Value};
     ///
     /// define_schema! {
     ///     User {
@@ -168,15 +184,19 @@ impl<T: Schema + Debug> Query<T> {
     ///     }
     /// }
     ///
-    /// let db = Database::connect("mysql://...").await?;
-    /// let users = db.query::<User>()
-    ///     .filter(Filter::eq("name", "John"))
-    ///     .execute()
-    ///     .await?;
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     let users = db.query::<User>()
+    ///         .filter(Filter::eq("name", Value::String("John".to_string())))
+    ///         .execute()
+    ///         .await?;
     ///
-    /// for user in users {
-    ///     let name: Option<String> = user.get(User::name());
-    ///     println!("User: {:?}", name);
+    ///     for user in users {
+    ///         let name: Option<String> = user.get(User::name());
+    ///         println!("User: {:?}", name);
+    ///     }
+    ///     Ok(())
     /// }
     /// ```
     pub async fn execute(self) -> Result<Vec<Row<T>>, DatabaseError> {
