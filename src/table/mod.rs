@@ -23,26 +23,6 @@ static TABLE_REGISTRY: OnceLock<Mutex<Vec<Box<dyn TableDefinition>>>> = OnceLock
 /// - **Constraint Handling**: Primary keys, unique constraints, and NOT NULL
 ///
 /// # Example
-///
-/// ```rust
-/// use lume::define_schema;
-/// use lume::table::TableDefinition;
-/// use lume::schema::{Schema, ColumnInfo};
-///
-/// define_schema! {
-///     User {
-///         id: i32 [primary_key().not_null()],
-///         name: String [not_null()],
-///         email: String [unique()],
-///     }
-/// }
-///
-/// User::ensure_registered();
-/// let tables = lume::table::get_all_tables();
-/// let user_table = tables.iter().find(|t| t.table_name() == "User").unwrap();
-///
-/// println!("CREATE TABLE SQL: {}", user_table.to_create_sql());
-/// ```
 pub(crate) trait TableDefinition: Send + Sync {
     /// Returns the name of this table.
     fn table_name(&self) -> &'static str;
@@ -106,30 +86,6 @@ pub fn register_table<T: Schema + Send + Sync + 'static>() {
 /// # Returns
 ///
 /// A vector containing all registered table definitions
-///
-/// # Example
-///
-/// ```rust
-/// use lume::define_schema;
-/// use lume::schema::{Schema, ColumnInfo};
-///
-/// define_schema! {
-///     User {
-///         id: i32 [primary_key()],
-///         name: String [not_null()],
-///     }
-/// }
-///
-/// User::ensure_registered();
-///
-/// let tables = lume::table::get_all_tables();
-/// assert!(tables.len() >= 1);
-///
-/// for table in tables {
-///     println!("Table: {}", table.table_name());
-///     println!("SQL: {}", table.to_create_sql());
-/// }
-/// ```
 pub(crate) fn get_all_tables() -> Vec<Box<dyn TableDefinition>> {
     let registry = TABLE_REGISTRY.get_or_init(|| Mutex::new(Vec::new()));
     let tables = registry.lock().unwrap();

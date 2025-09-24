@@ -152,26 +152,6 @@ impl Database {
     /// # Returns
     ///
     /// A string containing all CREATE TABLE statements, separated by newlines
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::database::Database;
-    /// use lume::define_schema;
-    /// use lume::schema::Schema;
-    /// use lume::schema::ColumnInfo;
-    ///
-    /// define_schema! {
-    ///     User {
-    ///         id: i32 [primary_key()],
-    ///         name: String [not_null()],
-    ///     }
-    /// }
-    ///
-    /// User::ensure_registered();
-    /// let migration_sql = Database::generate_migration_sql();
-    /// println!("Migration SQL: {}", migration_sql);
-    /// ```
     pub(crate) fn generate_migration_sql() -> String {
         let tables = get_all_tables();
         tables
@@ -245,7 +225,7 @@ impl Database {
     /// let tables = Database::list_tables();
     /// assert!(tables.contains(&"User".to_string()));
     /// ```
-    pub(crate) fn _list_tables() -> Vec<String> {
+    pub fn list_tables() -> Vec<String> {
         let tables = get_all_tables();
         tables
             .iter()

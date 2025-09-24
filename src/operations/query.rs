@@ -33,6 +33,7 @@ use crate::{filter::Filter, schema::Value};
 /// use lume::database::Database;
 /// use lume::filter::Filter;
 /// use lume::schema::{Schema, ColumnInfo, Value};
+/// use lume::filter::eq;
 ///
 /// define_schema! {
 ///     User {
@@ -46,8 +47,7 @@ use crate::{filter::Filter, schema::Value};
 /// async fn main() -> Result<(), lume::database::DatabaseError> {
 ///     let db = Database::connect("mysql://...").await?;
 ///     let users = db.query::<User>()
-///         .filter(Filter::eq("name", Value::String("John".to_string())))
-///         .filter(Filter::new("age".to_string(), lume::filter::FilterType::Gt, Value::Int(18)))
+///         .filter(eq(User::name(), Value::String("John".to_string())))
 ///         .execute()
 ///         .await?;
 ///     Ok(())
@@ -73,29 +73,6 @@ impl<T: Schema + Debug> Query<T> {
     /// # Returns
     ///
     /// A new `Query<T>` instance ready for building queries
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use lume::define_schema;
-    /// use lume::operations::query::Query;
-    /// use lume::schema::{Schema, ColumnInfo};
-    /// use sqlx::MySqlPool;
-    /// use std::sync::Arc;
-    ///
-    /// define_schema! {
-    ///     User {
-    ///         id: i32 [primary_key()],
-    ///     }
-    /// }
-    ///
-    /// #[tokio::main]
-    /// async fn main() -> Result<(), sqlx::Error> {
-    ///     let pool = MySqlPool::connect("mysql://...").await?;
-    ///     let query = Query::<User>::new(Arc::new(pool));
-    ///     Ok(())
-    /// }
-    /// ```
     pub(crate) fn new(conn: Arc<MySqlPool>) -> Self {
         Self {
             table: PhantomData,
@@ -124,6 +101,7 @@ impl<T: Schema + Debug> Query<T> {
     /// use lume::database::Database;
     /// use lume::filter::Filter;
     /// use lume::schema::{Schema, ColumnInfo, Value};
+    /// use lume::filter::eq;
     ///
     /// define_schema! {
     ///     User {
@@ -137,8 +115,7 @@ impl<T: Schema + Debug> Query<T> {
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let query = db.query::<User>()
-    ///         .filter(Filter::eq("name", Value::String("John".to_string())))
-    ///         .filter(Filter::new("age".to_string(), lume::filter::FilterType::Gt, Value::Int(18)));
+    ///         .filter(eq(User::name(), Value::String("John".to_string())));
     ///     Ok(())
     /// }
     /// ```
@@ -176,6 +153,7 @@ impl<T: Schema + Debug> Query<T> {
     /// use lume::database::Database;
     /// use lume::filter::Filter;
     /// use lume::schema::{Schema, ColumnInfo, Value};
+    /// use lume::filter::eq;
     ///
     /// define_schema! {
     ///     User {
@@ -188,7 +166,7 @@ impl<T: Schema + Debug> Query<T> {
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let users = db.query::<User>()
-    ///         .filter(Filter::eq("name", Value::String("John".to_string())))
+    ///         .filter(eq(User::name(), Value::String("John".to_string())))
     ///         .execute()
     ///         .await?;
     ///

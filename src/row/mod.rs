@@ -25,41 +25,6 @@ use crate::schema::{Column, ColumnInfo, Schema, Value};
 /// - **Flexible Storage**: Stores values in a type-erased format
 /// - **MySQL Integration**: Built-in support for MySQL row extraction
 /// - **Value Conversion**: Automatic conversion between database and Rust types
-///
-/// # Example
-///
-/// ```rust
-/// use lume::define_schema;
-/// use lume::row::Row;
-/// use lume::schema::{ColumnInfo, Schema};
-///
-/// define_schema! {
-///     User {
-///         id: i32 [primary_key()],
-///         name: String [not_null()],
-///         email: String,
-///     }
-/// }
-///
-/// let mut row = Row::<User>::new();
-///
-/// // Insert data
-/// row.insert(ColumnInfo {
-///     name: "id",
-///     data_type: "INTEGER",
-///     nullable: false,
-///     unique: false,
-///     primary_key: true,
-///     indexed: false,
-///     has_default: false,
-///     default_sql: None,
-/// }, 42);
-///
-/// // Access data type-safely
-/// let id_col = User::id();
-/// let id: Option<i32> = row.get(id_col);
-/// assert_eq!(id, Some(42));
-/// ```
 #[derive(Debug)]
 pub struct Row<S: Schema + Debug> {
     /// The row data stored as key-value pairs
@@ -70,22 +35,6 @@ pub struct Row<S: Schema + Debug> {
 
 impl<S: Schema + Debug> Row<S> {
     /// Creates a new empty row.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::define_schema;
-    /// use lume::row::Row;
-    /// use lume::schema::{Schema, ColumnInfo};
-    ///
-    /// define_schema! {
-    ///     User {
-    ///         id: i32 [primary_key()],
-    ///     }
-    /// }
-    ///
-    /// let row = Row::<User>::new();
-    /// ```
     pub(crate) fn new() -> Self {
         Self {
             data: std::collections::HashMap::new(),
@@ -99,33 +48,6 @@ impl<S: Schema + Debug> Row<S> {
     ///
     /// - `column`: Metadata about the column
     /// - `value`: The value to insert (must implement `Into<Value>`)
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::define_schema;
-    /// use lume::row::Row;
-    /// use lume::schema::{Schema, ColumnInfo};
-    ///
-    /// define_schema! {
-    ///     User {
-    ///         id: i32 [primary_key()],
-    ///         name: String [not_null()],
-    ///     }
-    /// }
-    ///
-    /// let mut row = Row::<User>::new();
-    /// row.insert(ColumnInfo {
-    ///     name: "id",
-    ///     data_type: "INTEGER",
-    ///     nullable: false,
-    ///     unique: false,
-    ///     primary_key: true,
-    ///     indexed: false,
-    ///     has_default: false,
-    ///     default_sql: None,
-    /// }, 42);
-    /// ```
     pub(crate) fn insert<T>(&mut self, column: ColumnInfo, value: T)
     where
         T: Into<Value>,
@@ -147,38 +69,6 @@ impl<S: Schema + Debug> Row<S> {
     ///
     /// - `Some(T)`: The value if found and convertible
     /// - `None`: If the column doesn't exist or conversion fails
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::define_schema;
-    /// use lume::row::Row;
-    /// use lume::schema::{Schema, ColumnInfo};
-    ///
-    /// define_schema! {
-    ///     User {
-    ///         id: i32 [primary_key()],
-    ///         name: String [not_null()],
-    ///     }
-    /// }
-    ///
-    /// let mut row = Row::<User>::new();
-    /// row.insert(ColumnInfo {
-    ///     name: "id",
-    ///     data_type: "INTEGER",
-    ///     nullable: false,
-    ///     unique: false,
-    ///     primary_key: true,
-    ///     indexed: false,
-    ///     has_default: false,
-    ///     default_sql: None,
-    /// }, 42);
-    ///
-    /// // Type-safe access
-    /// let id_col = User::id();
-    /// let id: Option<i32> = row.get(id_col);
-    /// assert_eq!(id, Some(42));
-    /// ```
     pub fn get<T>(&self, column: &'static Column<T>) -> Option<T>
     where
         T: TryFrom<Value>,
