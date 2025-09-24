@@ -50,10 +50,11 @@ macro_rules! define_schema {
 
 
         // Auto-register the table when the struct is defined
-        use lume::table::register_table;
-        use lume::schema::type_to_sql_string;
-        use lume::schema::DefaultToSql;
-
+        #[allow(non_upper_case_globals)]
+        static _REGISTER: std::sync::Once = std::sync::Once::new();
+        use $crate::table::register_table;
+        use $crate::schema::type_to_sql_string;
+        use $crate::schema::DefaultToSql;
         impl Schema for $struct_name {
             fn table_name() -> &'static str {
                 stringify!($struct_name)
