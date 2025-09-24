@@ -16,14 +16,16 @@ impl Database {
         Query::new(Arc::clone(&self.connection))
     }
 
-    pub async fn register_table<T: Schema>(&mut self) {
+    pub async fn register_table<T: Schema>(&self) -> Result<(), DatabaseError> {
         T::ensure_registered();
-        let mut conn = self.connection.acquire().await.unwrap();
-
-        sqlx::query(&Database::generate_migration_sql())
-            .execute(&mut *conn)
-            .await
-            .unwrap();
+        let sql = Database::generate_migration_sql();
+        for stmt in sql.split(';').map(str::trim).filter(|s| !s.is_empty()) {
+            sqlx::query(stmt)
+                .execute(&*self.connection)
+                .await
+                .map_err(DatabaseError)?;
+        }
+        Ok(())
     }
 
     pub fn generate_migration_sql() -> String {
@@ -54,16 +56,12 @@ impl Database {
     }
 
     pub async fn connect(url: &str) -> Result<Database, DatabaseError> {
-        match MySqlPool::connect(url).await {
-            Ok(conn) => {
-                return Ok(Database {
-                    connection: Arc::new(conn),
-                });
-            }
-            Err(e) => return Err(DatabaseError),
-        }
+        let conn = MySqlPool::connect(url).await.map_err(DatabaseError)?;
+        Ok(Database {
+            connection: Arc::new(conn),
+        })
     }
 }
 
 #[derive(Debug)]
-pub struct DatabaseError;
+pub struct DatabaseError(sqlx::Error);
