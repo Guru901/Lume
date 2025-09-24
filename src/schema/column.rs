@@ -119,6 +119,19 @@ pub enum Value {
     Null,
 }
 
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::String(s) => write!(f, "{}", s),
+            Value::Int(i) => write!(f, "{}", i),
+            Value::Long(l) => write!(f, "{}", l),
+            Value::Float(val) => write!(f, "{}", *val),
+            Value::Bool(b) => write!(f, "{}", b),
+            Value::Null => write!(f, "NULL"),
+        }
+    }
+}
+
 // Implement From for common types
 impl From<String> for Value {
     fn from(s: String) -> Self {
