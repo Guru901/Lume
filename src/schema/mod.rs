@@ -96,15 +96,15 @@ pub fn type_to_sql_string<T: 'static>() -> &'static str {
     let type_id = TypeId::of::<T>();
 
     if type_id == TypeId::of::<String>() {
-        "TEXT"
+        "VARCHAR(255)"
     } else if type_id == TypeId::of::<i32>() {
         "INTEGER"
     } else if type_id == TypeId::of::<i64>() {
         "BIGINT"
     } else if type_id == TypeId::of::<f32>() {
-        "REAL"
+        "FLOAT"
     } else if type_id == TypeId::of::<f64>() {
-        "DOUBLE PRECISION"
+        "DOUBLE"
     } else if type_id == TypeId::of::<bool>() {
         "BOOLEAN"
     } else {
