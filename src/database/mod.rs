@@ -172,7 +172,7 @@ impl Database {
     /// let migration_sql = Database::generate_migration_sql();
     /// println!("Migration SQL: {}", migration_sql);
     /// ```
-    pub fn generate_migration_sql() -> String {
+    pub(crate) fn generate_migration_sql() -> String {
         let tables = get_all_tables();
         tables
             .iter()
@@ -245,7 +245,7 @@ impl Database {
     /// let tables = Database::list_tables();
     /// assert!(tables.contains(&"User".to_string()));
     /// ```
-    pub fn list_tables() -> Vec<String> {
+    pub(crate) fn _list_tables() -> Vec<String> {
         let tables = get_all_tables();
         tables
             .iter()

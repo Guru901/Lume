@@ -96,7 +96,7 @@ impl<T: Schema + Debug> Query<T> {
     ///     Ok(())
     /// }
     /// ```
-    pub fn new(conn: Arc<MySqlPool>) -> Self {
+    pub(crate) fn new(conn: Arc<MySqlPool>) -> Self {
         Self {
             table: PhantomData,
             filters: Vec::new(),

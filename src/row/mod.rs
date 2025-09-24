@@ -86,7 +86,7 @@ impl<S: Schema + Debug> Row<S> {
     ///
     /// let row = Row::<User>::new();
     /// ```
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             data: std::collections::HashMap::new(),
             _phanton: PhantomData,
@@ -126,7 +126,7 @@ impl<S: Schema + Debug> Row<S> {
     ///     default_sql: None,
     /// }, 42);
     /// ```
-    pub fn insert<T>(&mut self, column: ColumnInfo, value: T)
+    pub(crate) fn insert<T>(&mut self, column: ColumnInfo, value: T)
     where
         T: Into<Value>,
     {
