@@ -54,7 +54,7 @@ define_schema! {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Connect to your MySQL database
-    let db = lume::database::connect("mysql://user:password@localhost/database").await?;
+    let db = Database::connect("mysql://user:password@localhost/database").await?;
 
     // Create tables (if they don't exist)
     Users::ensure_registered();
