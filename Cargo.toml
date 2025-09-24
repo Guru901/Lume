@@ -6,4 +6,5 @@ license = "MIT"
 description = "A simple and intutive orm inspired by Drizzle"
 
 [dependencies]
+sqlx = { version = "0.8.6", features = ["mysql", "runtime-tokio"] }
 tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread"] }

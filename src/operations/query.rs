@@ -1,9 +1,6 @@
-use std::{
-    fmt::Debug,
-    marker::PhantomData,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::{fmt::Debug, marker::PhantomData, sync::Arc};
+
+use sqlx::MySqlPool;
 
 use crate::{database::DatabaseError, row::Row, schema::Schema};
 use crate::{filter::Filter, schema::Value};
@@ -12,13 +9,15 @@ use crate::{filter::Filter, schema::Value};
 pub struct Query<T> {
     table: PhantomData<T>,
     filters: Vec<Filter>,
+    conn: Arc<MySqlPool>,
 }
 
 impl<T: Schema> Query<T> {
-    pub fn new() -> Self {
+    pub fn new(conn: Arc<MySqlPool>) -> Self {
         Self {
             table: PhantomData,
             filters: Vec::new(),
+            conn,
         }
     }
 
@@ -30,14 +29,11 @@ impl<T: Schema> Query<T> {
     pub fn select(self) -> Self {
         self
     }
-}
 
-// Make Query a Future
-impl<T: Schema + Debug> Future for Query<T> {
-    type Output = Result<Vec<Row<T>>, DatabaseError>;
-
-    fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+    pub async fn execute(mut self) -> Result<Vec<Row<T>>, DatabaseError> {
         let mut sql = format!("SELECT * FROM {}", T::table_name());
+        let row = Vec::new();
+        let mut conn = self.conn.acquire().await.unwrap();
 
         if !self.filters.is_empty() {
             let filter_sql = format!(" WHERE ");
@@ -78,8 +74,9 @@ impl<T: Schema + Debug> Future for Query<T> {
             }
         }
 
-        println!("{}", sql);
-        let rows = Vec::new();
-        Poll::Ready(Ok(rows))
+        let data = sqlx::query(&sql).fetch_all(&mut *conn).await.unwrap();
+        println!("{:#?}", data);
+
+        Ok(row)
     }
 }

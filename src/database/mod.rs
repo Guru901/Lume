@@ -1,18 +1,30 @@
+use std::sync::Arc;
+
 use crate::{
     operations::query::Query,
     schema::{ColumnInfo, Schema},
     table::get_all_tables,
 };
+use sqlx::MySqlPool;
 
-pub struct Database;
+pub struct Database {
+    connection: Arc<MySqlPool>,
+}
 
 impl Database {
     pub fn query<T: Schema>(&self) -> Query<T> {
-        Query::new()
+        Query::new(Arc::clone(&self.connection))
     }
 
-    pub fn register_table<T: Schema>(&self) {
+    pub async fn register_table<T: Schema>(&mut self) {
         T::ensure_registered();
+        // Use Arc::get_mut to get a mutable reference to the underlying MySqlConnection
+        let mut conn = self.connection.acquire().await.unwrap();
+
+        sqlx::query(&Database::generate_migration_sql())
+            .execute(&mut *conn)
+            .await
+            .unwrap();
     }
 
     pub fn generate_migration_sql() -> String {
@@ -41,11 +53,18 @@ impl Database {
             .map(|table| table.table_name().to_string())
             .collect()
     }
+
+    pub async fn connect(url: &str) -> Result<Database, DatabaseError> {
+        match MySqlPool::connect(url).await {
+            Ok(conn) => {
+                return Ok(Database {
+                    connection: Arc::new(conn),
+                });
+            }
+            Err(e) => return Err(DatabaseError),
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct DatabaseError;
-
-pub async fn connect(_url: &str) -> Result<Database, DatabaseError> {
-    Ok(Database {})
-}

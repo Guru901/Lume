@@ -146,7 +146,7 @@ impl<T: Schema + Sync + Send + 'static> TableDefinition for SchemaWrapper<T> {
         let table_name = self.table_name();
         let columns = self.get_columns();
 
-        let mut sql = format!("CREATE TABLE {} (\n", table_name);
+        let mut sql = format!("CREATE TABLE IF NOT EXISTS {} (\n", table_name);
 
         let column_definitions: Vec<String> = columns
             .iter()
