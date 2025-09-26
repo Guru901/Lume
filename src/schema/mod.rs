@@ -36,7 +36,7 @@ use std::marker::PhantomData;
 use crate::table::TableDefinition;
 pub use column::Column;
 pub use column::Value;
-pub use column::check_type;
+pub use column::convert_to_value;
 
 /// Core trait that all database schemas must implement.
 ///
@@ -78,6 +78,12 @@ pub trait Schema {
     /// It's automatically called when using the generated schema methods.
     fn ensure_registered();
 
+    /// Returns a map of column names to their corresponding values for this schema instance.
+    ///
+    /// This method is used to extract the values of all fields in the schema as a
+    /// `HashMap<String, Value>`, where each key is the column name and each value is
+    /// the associated database value. This is primarily used for insert and update
+    /// operations to serialize the struct into a form suitable for database interaction.
     fn values(&self) -> HashMap<String, Value>;
 }
 
@@ -212,7 +218,7 @@ macro_rules! define_schema {
         use $crate::schema::DefaultToSql;
         use std::collections::HashMap;
         use $crate::schema::Value;
-        use $crate::schema::check_type;
+        use $crate::schema::convert_to_value;
 
 
         impl Schema for $struct_name {
@@ -225,7 +231,7 @@ macro_rules! define_schema {
                 $(
                     map.insert(
                         stringify!($name).to_string(),
-                        check_type(&self.$name)
+                        convert_to_value(&self.$name)
                     );
                 )*
                 map

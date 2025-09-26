@@ -81,7 +81,7 @@ impl Database {
     /// use lume::schema::ColumnInfo;
     ///
     /// define_schema! {
-    ///     User {
+    ///     Users {
     ///         id: i32 [primary_key()],
     ///         name: String [not_null()],
     ///     }
@@ -90,7 +90,7 @@ impl Database {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let query = db.query::<User>();
+    ///     let query = db.query::<Users>();
     ///     Ok(())
     /// }
     /// ```
@@ -117,7 +117,7 @@ impl Database {
     /// use lume::schema::ColumnInfo;
     ///
     /// define_schema! {
-    ///     User {
+    ///     Users {
     ///         id: i32 [primary_key()],
     ///         name: String [not_null()],
     ///     }

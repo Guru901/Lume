@@ -363,7 +363,7 @@ impl<T: Copy> Copy for Column<T> where T: Copy {}
 /// assert_eq!(extracted_int, Ok(42));
 /// assert_eq!(extracted_bool, Ok(true));
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     /// String/text value
     String(String),
@@ -504,9 +504,51 @@ impl<T: IntoValue> IntoValue for Option<T> {
     }
 }
 
-pub fn check_type<T: Any>(value: &T) -> Value {
+/// Converts a reference to a value of any supported type into a [`Value`] enum.
+///
+/// This function attempts to downcast the provided reference to a known supported type
+/// (`String`, `i32`, `i64`, `f32`, `f64`, `bool`, or their `Option` variants) and
+/// returns the corresponding [`Value`] variant. If the type is not supported, it
+/// returns [`Value::Null`] and triggers a debug assertion failure in debug builds.
+///
+/// # Type Parameters
+///
+/// - `T`: The type of the value, which must implement [`Any`].
+///
+/// # Arguments
+///
+/// * `value` - A reference to the value to convert.
+///
+/// # Returns
+///
+/// A [`Value`] representing the input value, or [`Value::Null`] if the type is unsupported.
+///
+/// # Panics
+///
+/// This function will trigger a debug assertion failure if called with an unsupported type.
+///
+/// # Examples
+///
+/// ```
+/// use lume::schema::{convert_to_value, Value};
+///
+/// let int_val = 42i32;
+/// assert_eq!(convert_to_value(&int_val), Value::Int(42));
+///
+/// let float_val = 3.14f64;
+/// assert_eq!(convert_to_value(&float_val), Value::Float(3.14));
+///
+/// let opt_str: Option<&str> = Some("hello");
+/// assert_eq!(convert_to_value(&opt_str), Value::String("hello".to_string()));
+///
+/// let none_val: Option<i32> = None;
+/// assert_eq!(convert_to_value(&none_val), Value::Null);
+/// ```
+pub fn convert_to_value<T: Any>(value: &T) -> Value {
     if let Some(s) = <dyn Any>::downcast_ref::<String>(value) {
         Value::String(s.clone())
+    } else if let Some(s) = <dyn Any>::downcast_ref::<&str>(value) {
+        Value::String((*s).to_string())
     } else if let Some(i) = <dyn Any>::downcast_ref::<i32>(value) {
         Value::Int(*i)
     } else if let Some(l) = <dyn Any>::downcast_ref::<i64>(value) {
@@ -520,6 +562,15 @@ pub fn check_type<T: Any>(value: &T) -> Value {
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<&str>>(value) {
         opt.map(|s| Value::String(s.to_string()))
             .unwrap_or(Value::Null)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<String>>(value) {
+        opt.as_ref()
+            .map(|s| Value::String(s.clone()))
+            .unwrap_or(Value::Null)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<&String>>(value) {
+        match opt {
+            Some(s) => Value::String((*s).clone()),
+            None => Value::Null,
+        }
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<i32>>(value) {
         opt.map(Value::Int).unwrap_or(Value::Null)
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<i64>>(value) {
@@ -533,7 +584,7 @@ pub fn check_type<T: Any>(value: &T) -> Value {
     } else {
         debug_assert!(
             false,
-            "Unsupported type in check_type: {}",
+            "Unsupported type in convert_to_value: {}",
             std::any::type_name::<T>()
         );
         Value::Null
