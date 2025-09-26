@@ -363,7 +363,7 @@ impl<T: Copy> Copy for Column<T> where T: Copy {}
 /// assert_eq!(extracted_int, Ok(42));
 /// assert_eq!(extracted_bool, Ok(true));
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     /// String/text value
     String(String),

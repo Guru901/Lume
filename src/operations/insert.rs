@@ -24,6 +24,7 @@ use std::sync::Arc;
 /// use lume::database::Database;
 /// use lume::define_schema;
 /// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
 ///
 /// define_schema! {
 ///     User {
@@ -95,6 +96,7 @@ impl<T: Schema + Debug> Insert<T> {
     /// # use lume::database::Database;
     /// # use lume::define_schema;
     /// # use lume::schema::Schema;
+    /// # use lume::schema::ColumnInfo;
     /// # define_schema! {
     /// #     User {
     /// #         id: i32 [primary_key()],
