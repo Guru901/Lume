@@ -5,6 +5,35 @@ use crate::{
     schema::{Column, Value},
 };
 
+/// Creates an equality filter (`=`) for the specified column and value.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `value` - The value to compare against. Can be any type that converts into [`Value`].
+///
+/// # Returns
+///
+/// A [`Filter`] representing the equality condition.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::eq;
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///         age: i32,
+///     }
+/// }
+///
+/// let filter = eq(User::name(), "Alice");
+/// ```
 pub fn eq<T, V>(column: &'static Column<T>, value: V) -> Filter
 where
     V: Into<Value>,
@@ -16,6 +45,35 @@ where
     }
 }
 
+/// Creates a not-equal filter (`!=`) for the specified column and value.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `value` - The value to compare against. Can be any type that converts into [`Value`].
+///
+/// # Returns
+///
+/// A [`Filter`] representing the not-equal condition.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::ne;
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///         age: i32,
+///     }
+/// }
+///
+/// let filter = ne(User::age(), 30);
+/// ```
 pub fn ne<T, V>(column: &'static Column<T>, value: V) -> Filter
 where
     V: Into<Value>,
@@ -27,6 +85,35 @@ where
     }
 }
 
+/// Creates a greater-than filter (`>`) for the specified column and value.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `value` - The value to compare against. Can be any type that converts into [`Value`].
+///
+/// # Returns
+///
+/// A [`Filter`] representing the greater-than condition.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::gt;
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///         age: i32,
+///     }
+/// }
+///
+/// let filter = gt(User::age(), 18);
+/// ```
 pub fn gt<T, V>(column: &'static Column<T>, value: V) -> Filter
 where
     V: Into<Value>,
@@ -38,6 +125,35 @@ where
     }
 }
 
+/// Creates a greater-than-or-equal filter (`>=`) for the specified column and value.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `value` - The value to compare against. Can be any type that converts into [`Value`].
+///
+/// # Returns
+///
+/// A [`Filter`] representing the greater-than-or-equal condition.
+///
+/// # Example
+///
+/// ```
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///         age: i32,
+///     }
+/// }
+///
+/// use lume::filter::gte;
+/// let filter = gte(User::age(), 18);
+/// ```
 pub fn gte<T, V>(column: &'static Column<T>, value: V) -> Filter
 where
     V: Into<Value>,
@@ -49,6 +165,35 @@ where
     }
 }
 
+/// Creates a less-than filter (`<`) for the specified column and value.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `value` - The value to compare against. Can be any type that converts into [`Value`].
+///
+/// # Returns
+///
+/// A [`Filter`] representing the less-than condition.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::lt;
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///         age: i32,
+///     }
+/// }
+///
+/// let filter = lt(User::age(), 65);
+/// ```
 pub fn lt<T, V>(column: &'static Column<T>, value: V) -> Filter
 where
     V: Into<Value>,
@@ -60,6 +205,35 @@ where
     }
 }
 
+/// Creates a less-than-or-equal filter (`<=`) for the specified column and value.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `value` - The value to compare against. Can be any type that converts into [`Value`].
+///
+/// # Returns
+///
+/// A [`Filter`] representing the less-than-or-equal condition.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::lte;
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///         age: i32,
+///     }
+/// }
+///
+/// let filter = lte(User::age(), 29);
+/// ```
 pub fn lte<T, V>(column: &'static Column<T>, value: V) -> Filter
 where
     V: Into<Value>,
