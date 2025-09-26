@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! # Operations Module
 //!
 //! This module provides database operation implementations including queries and inserts.

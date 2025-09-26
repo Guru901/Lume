@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! # Filter Module
 //!
 //! This module provides query filtering functionality for building WHERE clauses.

@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! # Lume
 //!
 //! A type-safe, ergonomic schema builder and ORM for SQL databases, inspired by Drizzle ORM.

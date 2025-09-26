@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 use crate::{
     filter::{Filter, FilterType},
     schema::{Column, Value},

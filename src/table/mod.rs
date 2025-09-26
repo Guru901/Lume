@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! # Table Module
 //!
 //! This module provides table registry functionality and the `TableDefinition` trait

@@ -2,7 +2,6 @@
 mod tests {
     use crate::define_schema;
     use crate::row::Row;
-    use crate::schema::Value;
     use crate::schema::{ColumnInfo, Schema};
     use crate::table::TableDefinition;
 

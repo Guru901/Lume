@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! # Row Module
 //!
 //! This module provides the row abstraction for type-safe database data access.

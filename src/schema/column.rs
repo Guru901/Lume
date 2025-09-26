@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! # Column Module
 //!
 //! This module provides the core column definition functionality for Lume.
@@ -5,6 +7,7 @@
 //! the `Value` enum for database value storage and conversion.
 
 use std::{
+    any::Any,
     fmt::{Debug, Display},
     marker::PhantomData,
 };
@@ -469,5 +472,70 @@ impl TryFrom<Value> for bool {
             Value::Bool(b) => Ok(b),
             _ => Err(()),
         }
+    }
+}
+
+// Better approach: Use a trait for type-safe conversion
+pub trait IntoValue {
+    fn into_db_value(self) -> Value;
+}
+
+impl IntoValue for f32 {
+    fn into_db_value(self) -> Value {
+        Value::Float(self as f64)
+    }
+}
+
+impl<T> IntoValue for T
+where
+    Value: From<T>,
+{
+    fn into_db_value(self) -> Value {
+        Value::from(self)
+    }
+}
+
+impl<T: IntoValue> IntoValue for Option<T> {
+    fn into_db_value(self) -> Value {
+        match self {
+            Some(v) => v.into_db_value(),
+            None => Value::Null,
+        }
+    }
+}
+
+pub fn check_type<T: Any>(value: &T) -> Value {
+    if let Some(s) = <dyn Any>::downcast_ref::<String>(value) {
+        Value::String(s.clone())
+    } else if let Some(i) = <dyn Any>::downcast_ref::<i32>(value) {
+        Value::Int(*i)
+    } else if let Some(l) = <dyn Any>::downcast_ref::<i64>(value) {
+        Value::Long(*l)
+    } else if let Some(f) = <dyn Any>::downcast_ref::<f32>(value) {
+        Value::Float(*f as f64)
+    } else if let Some(f) = <dyn Any>::downcast_ref::<f64>(value) {
+        Value::Float(*f)
+    } else if let Some(b) = <dyn Any>::downcast_ref::<bool>(value) {
+        Value::Bool(*b)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<&str>>(value) {
+        opt.map(|s| Value::String(s.to_string()))
+            .unwrap_or(Value::Null)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<i32>>(value) {
+        opt.map(Value::Int).unwrap_or(Value::Null)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<i64>>(value) {
+        opt.map(Value::Long).unwrap_or(Value::Null)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<f32>>(value) {
+        opt.map(|f| Value::Float(f as f64)).unwrap_or(Value::Null)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<f64>>(value) {
+        opt.map(Value::Float).unwrap_or(Value::Null)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<bool>>(value) {
+        opt.map(Value::Bool).unwrap_or(Value::Null)
+    } else {
+        debug_assert!(
+            false,
+            "Unsupported type in check_type: {}",
+            std::any::type_name::<T>()
+        );
+        Value::Null
     }
 }
