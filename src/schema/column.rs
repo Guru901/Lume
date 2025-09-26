@@ -533,6 +533,20 @@ pub fn check_type<T: Any>(value: &T) -> Value {
         Value::Float(*f)
     } else if let Some(b) = <dyn Any>::downcast_ref::<bool>(value) {
         Value::Bool(*b)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<String>>(value) {
+        opt.as_ref()
+            .map(|s| Value::String(s.clone()))
+            .unwrap_or(Value::Null)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<i32>>(value) {
+        opt.map(Value::Int).unwrap_or(Value::Null)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<i64>>(value) {
+        opt.map(Value::Long).unwrap_or(Value::Null)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<f32>>(value) {
+        opt.map(|f| Value::Float(f as f64)).unwrap_or(Value::Null)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<f64>>(value) {
+        opt.map(Value::Float).unwrap_or(Value::Null)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<bool>>(value) {
+        opt.map(Value::Bool).unwrap_or(Value::Null)
     } else {
         Value::Null
     }
