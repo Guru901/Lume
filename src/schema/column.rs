@@ -547,6 +547,8 @@ impl<T: IntoValue> IntoValue for Option<T> {
 pub fn convert_to_value<T: Any>(value: &T) -> Value {
     if let Some(s) = <dyn Any>::downcast_ref::<String>(value) {
         Value::String(s.clone())
+    } else if let Some(s) = <dyn Any>::downcast_ref::<&str>(value) {
+        Value::String((*s).to_string())
     } else if let Some(i) = <dyn Any>::downcast_ref::<i32>(value) {
         Value::Int(*i)
     } else if let Some(l) = <dyn Any>::downcast_ref::<i64>(value) {
@@ -560,6 +562,15 @@ pub fn convert_to_value<T: Any>(value: &T) -> Value {
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<&str>>(value) {
         opt.map(|s| Value::String(s.to_string()))
             .unwrap_or(Value::Null)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<String>>(value) {
+        opt.as_ref()
+            .map(|s| Value::String(s.clone()))
+            .unwrap_or(Value::Null)
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<&String>>(value) {
+        match opt {
+            Some(s) => Value::String((*s).clone()),
+            None => Value::Null,
+        }
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<i32>>(value) {
         opt.map(Value::Int).unwrap_or(Value::Null)
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<i64>>(value) {
@@ -573,7 +584,7 @@ pub fn convert_to_value<T: Any>(value: &T) -> Value {
     } else {
         debug_assert!(
             false,
-            "Unsupported type in check_type: {}",
+            "Unsupported type in convert_to_value: {}",
             std::any::type_name::<T>()
         );
         Value::Null
