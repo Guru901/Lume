@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 use crate::database::DatabaseError;
 use crate::schema::{Schema, Value};
 use sqlx::MySqlPool;
@@ -7,11 +9,21 @@ use std::sync::Arc;
 pub struct Insert<T: Schema + Debug> {
     data: T,
     conn: Arc<MySqlPool>,
+    returning: bool,
 }
 
 impl<T: Schema + Debug> Insert<T> {
     pub fn new(data: T, conn: Arc<MySqlPool>) -> Self {
-        Self { data, conn }
+        Self {
+            data,
+            conn,
+            returning: false,
+        }
+    }
+
+    pub fn returning(mut self) -> Self {
+        self.returning = true;
+        self
     }
 
     pub async fn execute(self) -> Result<(), DatabaseError> {
@@ -33,8 +45,6 @@ impl<T: Schema + Debug> Insert<T> {
             sql.push_str("?");
         }
         sql.push_str(")");
-
-        println!("{}", sql);
 
         let mut query = sqlx::query(&sql);
         let values = self.data.values();
@@ -112,6 +122,7 @@ impl<T: Schema + Debug> Insert<T> {
         }
 
         query.execute(&mut *conn).await?;
+
         Ok(())
     }
 }

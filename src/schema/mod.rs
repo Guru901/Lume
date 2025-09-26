@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! # Schema Module
 //!
 //! This module provides the core schema definition functionality for Lume.

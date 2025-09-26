@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! # Column Module
 //!
 //! This module provides the core column definition functionality for Lume.

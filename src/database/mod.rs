@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! # Database Module
 //!
 //! This module provides database connection and management functionality.

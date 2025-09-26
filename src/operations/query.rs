@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! # Query Module
 //!
 //! This module provides type-safe query building and execution functionality.
