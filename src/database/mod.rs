@@ -98,6 +98,46 @@ impl Database {
         Query::new(Arc::clone(&self.connection))
     }
 
+    /// Creates a new type-safe insert for the specified schema type.
+    ///
+    /// # Arguments
+    ///
+    /// - `T`: The schema type to insert (must implement `Schema + Debug`)
+    ///
+    /// # Returns
+    ///
+    /// A `Insert<T>` instance that can be used to insert data into the database
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::database::Database;
+    /// use lume::define_schema;
+    /// use lume::schema::Schema;
+    /// use lume::schema::ColumnInfo;
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///
+    ///     db.insert(Users {
+    ///         id: 1,
+    ///         name: "guru".to_string(),
+    ///     })
+    ///     .execute()
+    ///     .await
+    ///     .unwrap();
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn insert<T: Schema + Debug>(&self, data: T) -> Insert<T> {
         Insert::new(data, Arc::clone(&self.connection))
     }
