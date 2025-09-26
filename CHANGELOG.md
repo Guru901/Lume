@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0] - 2025-09-24
+
+- Added mutations support.
+- Added `db.mutation()` method for executing mutations.
+- Added docs
+
 ## [0.1.2] - 2025-09-24
 
 - Added details in `Cargo.toml`.
