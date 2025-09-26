@@ -37,7 +37,7 @@ pub struct Row<S: Schema + Debug> {
 
 impl<S: Schema + Debug> Row<S> {
     /// Creates a new empty row.
-    pub(crate) fn new() -> Self {
+    pub(crate) fn _new() -> Self {
         Self {
             data: std::collections::HashMap::new(),
             _phanton: PhantomData,
@@ -50,7 +50,7 @@ impl<S: Schema + Debug> Row<S> {
     ///
     /// - `column`: Metadata about the column
     /// - `value`: The value to insert (must implement `Into<Value>`)
-    pub(crate) fn insert<T>(&mut self, column: ColumnInfo, value: T)
+    pub(crate) fn _insert<T>(&mut self, column: ColumnInfo, value: T)
     where
         T: Into<Value>,
     {

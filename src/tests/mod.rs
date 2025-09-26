@@ -70,7 +70,7 @@ mod tests {
 
     #[test]
     fn test_row_creation_and_manipulation() {
-        let mut row = Row::<TestUser>::new();
+        let mut row = Row::<TestUser>::_new();
 
         // Test inserting values
         let id_col = TestUser::id();
@@ -79,7 +79,7 @@ mod tests {
         let age_col = TestUser::age();
         let is_active_col = TestUser::is_active();
 
-        row.insert(
+        row._insert(
             ColumnInfo {
                 name: "id",
                 data_type: "INTEGER",
@@ -93,7 +93,7 @@ mod tests {
             42,
         );
 
-        row.insert(
+        row._insert(
             ColumnInfo {
                 name: "username",
                 data_type: "VARCHAR(255)",
@@ -107,7 +107,7 @@ mod tests {
             "testuser".to_string(),
         );
 
-        row.insert(
+        row._insert(
             ColumnInfo {
                 name: "email",
                 data_type: "VARCHAR(255)",
@@ -121,7 +121,7 @@ mod tests {
             "test@example.com".to_string(),
         );
 
-        row.insert(
+        row._insert(
             ColumnInfo {
                 name: "age",
                 data_type: "INTEGER",
@@ -135,7 +135,7 @@ mod tests {
             25,
         );
 
-        row.insert(
+        row._insert(
             ColumnInfo {
                 name: "is_active",
                 data_type: "BOOLEAN",
