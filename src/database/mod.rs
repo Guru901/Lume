@@ -7,7 +7,7 @@
 use std::{fmt::Debug, sync::Arc};
 
 use crate::{
-    operations::query::Query,
+    operations::{insert::Insert, query::Query},
     schema::{ColumnInfo, Schema},
     table::get_all_tables,
 };
@@ -94,6 +94,10 @@ impl Database {
     /// ```
     pub fn query<T: Schema + Debug>(&self) -> Query<T> {
         Query::new(Arc::clone(&self.connection))
+    }
+
+    pub fn insert<T: Schema + Debug>(&self, data: T) -> Insert<T> {
+        Insert::new(data, Arc::clone(&self.connection))
     }
 
     /// Registers a schema type and creates its corresponding database table.

@@ -28,11 +28,13 @@
 
 mod column;
 
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use crate::table::TableDefinition;
 pub use column::Column;
 pub use column::Value;
+pub use column::check_type;
 
 /// Core trait that all database schemas must implement.
 ///
@@ -73,6 +75,8 @@ pub trait Schema {
     /// This method is idempotent and can be called multiple times safely.
     /// It's automatically called when using the generated schema methods.
     fn ensure_registered();
+
+    fn values(&self) -> HashMap<String, Value>;
 }
 
 /// Metadata information for a database column.
@@ -180,7 +184,11 @@ macro_rules! define_schema {
         }
     ) => {
         #[derive(Debug)]
-        pub struct $struct_name;
+        pub struct $struct_name {
+            $(
+                pub $name: $type,
+            )*
+        }
 
         impl $struct_name {
             $(
@@ -194,18 +202,32 @@ macro_rules! define_schema {
             )*
         }
 
-
         // Auto-register the table when the struct is defined
         #[allow(non_upper_case_globals)]
         static _REGISTER: std::sync::Once = std::sync::Once::new();
         use $crate::table::register_table;
         use $crate::schema::type_to_sql_string;
         use $crate::schema::DefaultToSql;
+        use std::collections::HashMap;
+        use $crate::schema::Value;
+        use $crate::schema::check_type;
+
+
         impl Schema for $struct_name {
             fn table_name() -> &'static str {
                 stringify!($struct_name)
             }
 
+            fn values(&self) -> HashMap<String, Value> {
+                let mut map = HashMap::new();
+                $(
+                    map.insert(
+                        stringify!($name).to_string(),
+                        check_type(&self.$name)
+                    );
+                )*
+                map
+            }
             fn ensure_registered() {
                 // Function-local static to avoid name collisions across macro expansions
                 static REGISTER: std::sync::Once = std::sync::Once::new();
@@ -219,6 +241,7 @@ macro_rules! define_schema {
                     $(
                         {
                             let col = Self::$name();
+
                             ColumnInfo {
                                 name: col.name(),
                                 data_type: type_to_sql_string::<$type>(),

@@ -5,6 +5,7 @@
 //! the `Value` enum for database value storage and conversion.
 
 use std::{
+    any::Any,
     fmt::{Debug, Display},
     marker::PhantomData,
 };
@@ -469,5 +470,70 @@ impl TryFrom<Value> for bool {
             Value::Bool(b) => Ok(b),
             _ => Err(()),
         }
+    }
+}
+
+// Better approach: Use a trait for type-safe conversion
+pub trait IntoValue {
+    fn into_db_value(self) -> Value;
+}
+
+impl IntoValue for String {
+    fn into_db_value(self) -> Value {
+        Value::String(self)
+    }
+}
+
+impl IntoValue for &str {
+    fn into_db_value(self) -> Value {
+        Value::String(self.to_string())
+    }
+}
+
+impl IntoValue for i32 {
+    fn into_db_value(self) -> Value {
+        Value::Int(self)
+    }
+}
+
+impl IntoValue for i64 {
+    fn into_db_value(self) -> Value {
+        Value::Long(self)
+    }
+}
+
+impl IntoValue for f32 {
+    fn into_db_value(self) -> Value {
+        Value::Float(self as f64)
+    }
+}
+
+impl IntoValue for f64 {
+    fn into_db_value(self) -> Value {
+        Value::Float(self)
+    }
+}
+
+impl IntoValue for bool {
+    fn into_db_value(self) -> Value {
+        Value::Bool(self)
+    }
+}
+
+pub fn check_type<T: Any>(value: &T) -> Value {
+    if let Some(s) = <dyn Any>::downcast_ref::<String>(value) {
+        Value::String(s.clone())
+    } else if let Some(i) = <dyn Any>::downcast_ref::<i32>(value) {
+        Value::Int(*i)
+    } else if let Some(l) = <dyn Any>::downcast_ref::<i64>(value) {
+        Value::Long(*l)
+    } else if let Some(f) = <dyn Any>::downcast_ref::<f32>(value) {
+        Value::Float(*f as f64)
+    } else if let Some(f) = <dyn Any>::downcast_ref::<f64>(value) {
+        Value::Float(*f)
+    } else if let Some(b) = <dyn Any>::downcast_ref::<bool>(value) {
+        Value::Bool(*b)
+    } else {
+        Value::Null
     }
 }

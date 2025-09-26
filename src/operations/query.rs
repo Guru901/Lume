@@ -223,8 +223,6 @@ impl<T: Schema + Debug> Query<T> {
         let data = sqlx::query(&sql).fetch_all(&mut *conn).await.unwrap();
         let rows = Row::from_mysql_row(data);
 
-        println!("{:#?}", rows[0]);
-
         Ok(rows)
     }
 }
