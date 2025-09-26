@@ -28,8 +28,12 @@ tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 ### Basic Usage
 
 ```rust
-use lume::define_schema;
-use lume::schema::Schema;
+use lume::{
+    database::Database,
+    define_schema,
+    filter::eq,
+    schema::{ColumnInfo, Schema},
+};
 
 // Define your database schema
 define_schema! {
@@ -41,14 +45,6 @@ define_schema! {
         is_active: bool [default_value(true)],
         created_at: i64 [not_null()],
     }
-
-    Posts {
-        id: i32 [primary_key().not_null()],
-        title: String [not_null()],
-        content: String,
-        author_id: i32 [not_null()],
-        published: bool [default_value(false)],
-    }
 }
 
 #[tokio::main]
@@ -58,20 +54,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create tables (if they don't exist)
     Users::ensure_registered();
-    Posts::ensure_registered();
 
     // Type-safe queries
     let users = db
         .query::<Users>()
-        .filter(lume::filter::Filter::eq("username", "john_doe"))
+        .filter(eq(Users::username(), "john_doe"))
         .execute()
         .await?;
 
     for user in users {
         let username: Option<String> = user.get(Users::username());
         let age: Option<i32> = user.get(Users::age());
-        println!("User: {} (age: {})", username.unwrap_or_default(), age.unwrap_or(0));
+        println!(
+            "User: {} (age: {})",
+            username.unwrap_or_default(),
+            age.unwrap_or(0)
+        );
     }
+
+    db.insert(Users {
+        id: 0,
+        age: 25,
+        username: "john_doe".to_string(),
+        email: "john.doe@example.com".to_string(),
+        is_active: true,
+        created_at: 1677721600,
+    })
+    .execute()
+    .await
+    .unwrap();
 
     Ok(())
 }

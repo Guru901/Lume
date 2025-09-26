@@ -1,6 +1,10 @@
 # Changelog
 
-## [0.2.0] - 2025-09-24
+## [0.2.1] - 2025-09-27
+
+- Fixed wrong readme examples
+
+## [0.2.0] - 2025-09-27
 
 - Added mutations support.
 - Added `db.mutation()` method for executing mutations.
