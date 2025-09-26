@@ -32,7 +32,7 @@ use crate::{filter::Filter, schema::Value};
 /// use lume::define_schema;
 /// use lume::database::Database;
 /// use lume::filter::Filter;
-/// use lume::schema::{Schema, ColumnInfo, Value};
+/// use lume::schema::{Schema, ColumnInfo};
 /// use lume::filter::eq;
 ///
 /// define_schema! {
@@ -100,7 +100,7 @@ impl<T: Schema + Debug> Query<T> {
     /// use lume::define_schema;
     /// use lume::database::Database;
     /// use lume::filter::Filter;
-    /// use lume::schema::{Schema, ColumnInfo, Value};
+    /// use lume::schema::{Schema, ColumnInfo};
     /// use lume::filter::eq;
     ///
     /// define_schema! {
@@ -152,7 +152,7 @@ impl<T: Schema + Debug> Query<T> {
     /// use lume::define_schema;
     /// use lume::database::Database;
     /// use lume::filter::Filter;
-    /// use lume::schema::{Schema, ColumnInfo, Value};
+    /// use lume::schema::{Schema, ColumnInfo};
     /// use lume::filter::eq;
     ///
     /// define_schema! {
