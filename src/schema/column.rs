@@ -478,45 +478,27 @@ pub trait IntoValue {
     fn into_db_value(self) -> Value;
 }
 
-impl IntoValue for String {
-    fn into_db_value(self) -> Value {
-        Value::String(self)
-    }
-}
-
-impl IntoValue for &str {
-    fn into_db_value(self) -> Value {
-        Value::String(self.to_string())
-    }
-}
-
-impl IntoValue for i32 {
-    fn into_db_value(self) -> Value {
-        Value::Int(self)
-    }
-}
-
-impl IntoValue for i64 {
-    fn into_db_value(self) -> Value {
-        Value::Long(self)
-    }
-}
-
 impl IntoValue for f32 {
     fn into_db_value(self) -> Value {
         Value::Float(self as f64)
     }
 }
 
-impl IntoValue for f64 {
+impl<T> IntoValue for T
+where
+    Value: From<T>,
+{
     fn into_db_value(self) -> Value {
-        Value::Float(self)
+        Value::from(self)
     }
 }
 
-impl IntoValue for bool {
+impl<T: IntoValue> IntoValue for Option<T> {
     fn into_db_value(self) -> Value {
-        Value::Bool(self)
+        match self {
+            Some(v) => v.into_db_value(),
+            None => Value::Null,
+        }
     }
 }
 
@@ -533,9 +515,8 @@ pub fn check_type<T: Any>(value: &T) -> Value {
         Value::Float(*f)
     } else if let Some(b) = <dyn Any>::downcast_ref::<bool>(value) {
         Value::Bool(*b)
-    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<String>>(value) {
-        opt.as_ref()
-            .map(|s| Value::String(s.clone()))
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<&str>>(value) {
+        opt.map(|s| Value::String(s.to_string()))
             .unwrap_or(Value::Null)
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<i32>>(value) {
         opt.map(Value::Int).unwrap_or(Value::Null)
@@ -548,6 +529,11 @@ pub fn check_type<T: Any>(value: &T) -> Value {
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<bool>>(value) {
         opt.map(Value::Bool).unwrap_or(Value::Null)
     } else {
+        debug_assert!(
+            false,
+            "Unsupported type in check_type: {}",
+            std::any::type_name::<T>()
+        );
         Value::Null
     }
 }
