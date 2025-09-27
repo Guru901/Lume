@@ -12,7 +12,7 @@ use std::{fmt::Debug, sync::Arc};
 use crate::{
     operations::{insert::Insert, query::Query},
     row::Row,
-    schema::{ColumnInfo, Schema},
+    schema::{ColumnInfo, Schema, Select},
     table::get_all_tables,
 };
 use sqlx::MySqlPool;
@@ -96,7 +96,7 @@ impl Database {
     ///     Ok(())
     /// }
     /// ```
-    pub fn query<T: Schema + Debug>(&self) -> Query<T> {
+    pub fn query<T: Schema + Debug, S: Select + Debug>(&self) -> Query<T, S> {
         Query::new(Arc::clone(&self.connection))
     }
 

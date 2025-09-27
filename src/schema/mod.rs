@@ -87,6 +87,12 @@ pub trait Schema {
     fn values(&self) -> HashMap<String, Value>;
 }
 
+pub trait Select {
+    fn default() -> Self;
+
+    fn get_selected(self) -> Vec<String>;
+}
+
 /// Metadata information for a database column.
 ///
 /// This struct contains all the necessary information about a column
@@ -185,11 +191,13 @@ pub struct ColumnInfo {
 #[macro_export]
 macro_rules! define_schema {
     (
-        $($struct_name:ident {
+        $(
+            $struct_name:ident {
             $(
                 $name:ident: $type:ty $([ $($args:tt)* ])?
             ),* $(,)?
-        })*
+        }
+    )*
     ) => {
              // Auto-register the table when the struct is defined
              #[allow(non_upper_case_globals)]
@@ -200,6 +208,8 @@ macro_rules! define_schema {
              use std::collections::HashMap;
              use $crate::schema::Value;
              use $crate::schema::convert_to_value;
+             use $crate::schema::Select;
+             use paste::paste;
 
         $(
         #[derive(Debug)]
@@ -208,6 +218,48 @@ macro_rules! define_schema {
                 pub $name: $type,
             )*
         }
+
+        paste! {
+            #[derive(Debug)]
+            pub struct [<Query $struct_name>] {
+                $(
+                    pub $name: bool,
+                )*
+            }
+
+            impl Default for [<Query $struct_name>] {
+                fn default() -> Self {
+                    Self {
+                        $(
+                            $name: true,
+                        )*
+                    }
+                }
+            }
+
+            impl Select for [<Query $struct_name>] {
+                fn default() -> Self {
+                    Self {
+                        $(
+                            $name: true,
+                        )*
+                    }
+                }
+
+                fn get_selected(self) -> Vec<String> {
+                    let mut vec = Vec::new();
+
+                    $(
+                        if self.$name {
+                            vec.push(stringify!($name).to_string())
+                        }
+                    )*
+
+                    vec
+                }
+            }
+        }
+
 
         impl $struct_name {
             $(

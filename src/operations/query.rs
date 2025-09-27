@@ -9,6 +9,7 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use sqlx::MySqlPool;
 
+use crate::schema::Select;
 use crate::{database::DatabaseError, row::Row, schema::Schema};
 use crate::{filter::Filter, schema::Value};
 
@@ -56,16 +57,18 @@ use crate::{filter::Filter, schema::Value};
 /// }
 /// ```
 #[derive(Debug)]
-pub struct Query<T> {
+pub struct Query<T, S> {
     /// Phantom data to maintain schema type information
     table: PhantomData<T>,
     /// List of filters to apply to the query
     filters: Vec<Filter>,
     /// Database connection pool
     conn: Arc<MySqlPool>,
+
+    select: S,
 }
 
-impl<T: Schema + Debug> Query<T> {
+impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// Creates a new query builder for the specified schema type.
     ///
     /// # Arguments
@@ -79,6 +82,7 @@ impl<T: Schema + Debug> Query<T> {
         Self {
             table: PhantomData,
             filters: Vec::new(),
+            select: S::default(),
             conn,
         }
     }
@@ -134,7 +138,8 @@ impl<T: Schema + Debug> Query<T> {
     /// # Returns
     ///
     /// The query builder instance for method chaining
-    pub fn select(self) -> Self {
+    pub fn select(mut self, select_schema: S) -> Self {
+        self.select = select_schema;
         self
     }
 
@@ -180,7 +185,10 @@ impl<T: Schema + Debug> Query<T> {
     /// }
     /// ```
     pub async fn execute(self) -> Result<Vec<Row<T>>, DatabaseError> {
-        let mut sql = format!("SELECT * FROM {}", T::table_name());
+        let mut sql = format!("SELECT ");
+        sql.push_str(self.select.get_selected().join(", ").as_str());
+        sql.push_str(format!(" FROM {}", T::table_name()).as_str());
+
         let mut conn = self.conn.acquire().await.unwrap();
 
         if !self.filters.is_empty() {
