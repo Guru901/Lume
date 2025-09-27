@@ -65,7 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Type-safe queries
     let users = db
-        .query::<Users>()
+        .query::<Users, QueryUsers>()
         .filter(eq(Users::username(), "john_doe"))
         .execute()
         .await?;
@@ -137,14 +137,14 @@ define_schema! {
 ```rust
 // Filter by equality
 let active_users = db
-    .query::<Users>()
+    .query::<Users, QueryUsers>()
     .filter(Filter::eq("is_active", true))
     .execute()
     .await?;
 
 // Multiple filters
 let young_active_users = db
-    .query::<Users>()
+    .query::<Users, QueryUsers>()
     .filter(Filter::eq("is_active", true))
     .filter(Filter::lt("age", 25))
     .execute()
@@ -202,7 +202,7 @@ Lume provides comprehensive error handling:
 ```rust
 use lume::database::DatabaseError;
 
-match db.query::<Users>().execute().await {
+match db.query::<Users, QueryUsers>().execute().await {
     Ok(users) => {
         println!("Found {} users", users.len());
     }

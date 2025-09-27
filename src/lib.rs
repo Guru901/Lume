@@ -38,7 +38,7 @@
 //!     
 //!     // Type-safe queries
 //!     let users = db
-//!         .query::<Users>()
+//!         .query::<Users, QueryUsers>()
 //!         .filter(lume::filter::Filter::eq("username", Value::String("john_doe".to_string())))
 //!         .execute()
 //!         .await?;
