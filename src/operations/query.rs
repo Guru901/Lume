@@ -49,7 +49,7 @@ use crate::{filter::Filter, schema::Value};
 /// #[tokio::main]
 /// async fn main() -> Result<(), lume::database::DatabaseError> {
 ///     let db = Database::connect("mysql://...").await?;
-///     let users = db.query::<User>()
+///     let users = db.query::<User, QueryUser>()
 ///         .filter(eq(User::name(), Value::String("John".to_string())))
 ///         .execute()
 ///         .await?;
@@ -120,7 +120,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let query = db.query::<User>()
+    ///     let query = db.query::<User, QueryUser>()
     ///         .filter(eq(User::name(), Value::String("John".to_string())));
     ///     Ok(())
     /// }
@@ -172,7 +172,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let users = db.query::<User>()
+    ///     let users = db.query::<User, QueryUser>()
     ///         .filter(eq(User::name(), Value::String("John".to_string())))
     ///         .execute()
     ///         .await?;
