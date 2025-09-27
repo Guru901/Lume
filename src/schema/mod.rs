@@ -206,6 +206,9 @@ macro_rules! define_schema {
              use $crate::schema::type_to_sql_string;
              use $crate::schema::DefaultToSql;
              use std::collections::HashMap;
+             use $crate::schema::Value;
+
+
         $(
         #[derive(Debug)]
         pub struct $struct_name {
@@ -275,7 +278,7 @@ macro_rules! define_schema {
                 stringify!($struct_name)
             }
 
-            fn values(&self) -> HashMap<String, $crate::schema::Value> {
+            fn values(&self) -> HashMap<String, Value> {
                 let mut map = HashMap::new();
                 $(
                     map.insert(

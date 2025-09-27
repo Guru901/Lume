@@ -163,7 +163,26 @@ impl Database {
     /// # Example
     ///
     /// ```no_run
-    /// let users = db.sql::<User>("SELECT * FROM User WHERE age > 18").await?;
+    /// use lume::database::Database;
+    /// use lume::database::DatabaseError;
+    /// use lume::define_schema;
+    /// use lume::schema::ColumnInfo;
+    /// use lume::schema::Schema;
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key().not_null()],
+    ///         name: String [not_null()],
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     let users = db.sql::<User>("SELECT * FROM User WHERE age > 18").await?;
+    ///
+    ///     Ok(())
+    /// }
     /// ```
 
     pub async fn sql<T: Schema + Debug>(&self, sql: &str) -> Result<Vec<Row<T>>, DatabaseError> {
