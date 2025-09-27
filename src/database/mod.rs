@@ -6,10 +6,12 @@
 //! It includes the `Database` struct for managing MySQL connections and
 //! executing database operations.
 
+use sqlx::Executor;
 use std::{fmt::Debug, sync::Arc};
 
 use crate::{
     operations::{insert::Insert, query::Query},
+    row::Row,
     schema::{ColumnInfo, Schema},
     table::get_all_tables,
 };
@@ -140,6 +142,13 @@ impl Database {
     /// ```
     pub fn insert<T: Schema + Debug>(&self, data: T) -> Insert<T> {
         Insert::new(data, Arc::clone(&self.connection))
+    }
+
+    pub async fn sql<T: Schema + Debug>(&self, sql: &str) -> Result<Vec<Row<T>>, DatabaseError> {
+        let mut conn = self.connection.acquire().await?;
+        let rows = conn.fetch_all(sql).await?;
+        let rows = Row::from_mysql_row(rows);
+        Ok(rows)
     }
 
     /// Registers a schema type and creates its corresponding database table.
