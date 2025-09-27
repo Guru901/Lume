@@ -185,12 +185,23 @@ pub struct ColumnInfo {
 #[macro_export]
 macro_rules! define_schema {
     (
-        $struct_name:ident {
+        $($struct_name:ident {
             $(
                 $name:ident: $type:ty $([ $($args:tt)* ])?
             ),* $(,)?
-        }
+        })*
     ) => {
+             // Auto-register the table when the struct is defined
+             #[allow(non_upper_case_globals)]
+             static _REGISTER: std::sync::Once = std::sync::Once::new();
+             use $crate::table::register_table;
+             use $crate::schema::type_to_sql_string;
+             use $crate::schema::DefaultToSql;
+             use std::collections::HashMap;
+             use $crate::schema::Value;
+             use $crate::schema::convert_to_value;
+
+        $(
         #[derive(Debug)]
         pub struct $struct_name {
             $(
@@ -210,15 +221,6 @@ macro_rules! define_schema {
             )*
         }
 
-        // Auto-register the table when the struct is defined
-        #[allow(non_upper_case_globals)]
-        static _REGISTER: std::sync::Once = std::sync::Once::new();
-        use $crate::table::register_table;
-        use $crate::schema::type_to_sql_string;
-        use $crate::schema::DefaultToSql;
-        use std::collections::HashMap;
-        use $crate::schema::Value;
-        use $crate::schema::convert_to_value;
 
 
         impl Schema for $struct_name {
@@ -265,6 +267,7 @@ macro_rules! define_schema {
                 ]
             }
         }
+        )*
     };
 }
 

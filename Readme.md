@@ -45,6 +45,13 @@ define_schema! {
         is_active: bool [default_value(true)],
         created_at: i64 [not_null()],
     }
+
+    Posts {
+        id: i32 [primary_key().not_null()],
+        title: String [not_null()],
+        content: String,
+        created_at: i64 [not_null()],
+    }
 }
 
 #[tokio::main]
@@ -53,7 +60,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db = Database::connect("mysql://user:password@localhost/database").await?;
 
     // Create tables (if they don't exist)
-    Users::ensure_registered();
+    db.register_table::<Users>().await?;
+    db.register_table::<Posts>().await?;
 
     // Type-safe queries
     let users = db

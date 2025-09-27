@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.2] - 2025-09-27
+
+- Fixed wrong readme examples
+
 ## [0.2.1] - 2025-09-27
 
 - Fixed wrong readme examples
