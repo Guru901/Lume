@@ -66,6 +66,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Type-safe queries
     let users = db
         .query::<Users, QueryUsers>()
+        .select(QueryUsers {
+            username: true,
+            age: true,
+            ..Default::default()
+        })
         .filter(eq(Users::username(), "john_doe"))
         .execute()
         .await?;
@@ -91,6 +96,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .execute()
     .await
     .unwrap();
+
+    let posts = db
+        .sql::<Posts>("SELECT * FROM Users WHERE age > 18")
+        .await
+        .unwrap();
+
+    for post in posts {
+        let title: Option<String> = post.get(Posts::title());
+        println!("Post: {}", title.unwrap_or_default());
+    }
 
     Ok(())
 }
