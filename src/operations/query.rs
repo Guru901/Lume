@@ -130,14 +130,19 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         self
     }
 
-    /// Specifies that this is a SELECT query.
+    /// Specifies which columns to select in the query.
     ///
-    /// This method is currently a no-op but is included for API completeness
-    /// and future extensibility.
+    /// This method accepts a selection schema that determines which columns
+    /// will be included in the SELECT clause of the SQL query.
+    ///
+    /// # Arguments
+    ///
+    /// - `select_schema`: The selection schema specifying which columns to include
     ///
     /// # Returns
     ///
     /// The query builder instance for method chaining
+
     pub fn select(mut self, select_schema: S) -> Self {
         self.select = select_schema;
         self
