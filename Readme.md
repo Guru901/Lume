@@ -65,7 +65,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Type-safe queries
     let users = db
-        .query::<Users>()
+        .query::<Users, QueryUsers>()
+        .select(QueryUsers {
+            username: true,
+            age: true,
+            ..Default::default()
+        })
         .filter(eq(Users::username(), "john_doe"))
         .execute()
         .await?;
@@ -91,6 +96,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .execute()
     .await
     .unwrap();
+
+    let posts = db
+        .sql::<Posts>("SELECT * FROM Users WHERE age > 18")
+        .await
+        .unwrap();
+
+    for post in posts {
+        let title: Option<String> = post.get(Posts::title());
+        println!("Post: {}", title.unwrap_or_default());
+    }
 
     Ok(())
 }
@@ -137,14 +152,14 @@ define_schema! {
 ```rust
 // Filter by equality
 let active_users = db
-    .query::<Users>()
+    .query::<Users, QueryUsers>()
     .filter(Filter::eq("is_active", true))
     .execute()
     .await?;
 
 // Multiple filters
 let young_active_users = db
-    .query::<Users>()
+    .query::<Users, QueryUsers>()
     .filter(Filter::eq("is_active", true))
     .filter(Filter::lt("age", 25))
     .execute()
@@ -202,7 +217,7 @@ Lume provides comprehensive error handling:
 ```rust
 use lume::database::DatabaseError;
 
-match db.query::<Users>().execute().await {
+match db.query::<Users, QueryUsers>().execute().await {
     Ok(users) => {
         println!("Found {} users", users.len());
     }

@@ -6,11 +6,13 @@
 //! It includes the `Database` struct for managing MySQL connections and
 //! executing database operations.
 
+use sqlx::Executor;
 use std::{fmt::Debug, sync::Arc};
 
 use crate::{
     operations::{insert::Insert, query::Query},
-    schema::{ColumnInfo, Schema},
+    row::Row,
+    schema::{ColumnInfo, Schema, Select},
     table::get_all_tables,
 };
 use sqlx::MySqlPool;
@@ -51,7 +53,7 @@ use sqlx::MySqlPool;
 ///     db.register_table::<User>().await?;
 ///     
 ///     // Execute type-safe queries
-///     let users = db.query::<User>().execute().await?;
+///     let users = db.query::<User, QueryUser>().execute().await?;
 ///     
 ///     Ok(())
 /// }
@@ -90,11 +92,11 @@ impl Database {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let query = db.query::<Users>();
+    ///     let query = db.query::<Users, QueryUsers>();
     ///     Ok(())
     /// }
     /// ```
-    pub fn query<T: Schema + Debug>(&self) -> Query<T> {
+    pub fn query<T: Schema + Debug, S: Select + Debug>(&self) -> Query<T, S> {
         Query::new(Arc::clone(&self.connection))
     }
 
@@ -140,6 +142,54 @@ impl Database {
     /// ```
     pub fn insert<T: Schema + Debug>(&self, data: T) -> Insert<T> {
         Insert::new(data, Arc::clone(&self.connection))
+    }
+
+    /// Executes a raw SQL query and returns typed rows.
+    ///
+    /// # Safety
+    ///
+    /// This method bypasses the query builder's type safety. Ensure the SQL
+    /// query returns columns that match the schema type `T`.
+    ///
+    /// # Arguments
+    ///
+    /// - `sql`: The raw SQL query to execute
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(Vec<Row<T>>)`: A vector of typed rows
+    /// - `Err(DatabaseError)`: If there was an error executing the query
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::database::Database;
+    /// use lume::database::DatabaseError;
+    /// use lume::define_schema;
+    /// use lume::schema::ColumnInfo;
+    /// use lume::schema::Schema;
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key().not_null()],
+    ///         name: String [not_null()],
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     let users = db.sql::<User>("SELECT * FROM User WHERE age > 18").await?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+
+    pub async fn sql<T: Schema + Debug>(&self, sql: &str) -> Result<Vec<Row<T>>, DatabaseError> {
+        let mut conn = self.connection.acquire().await?;
+        let rows = conn.fetch_all(sql).await?;
+        let rows = Row::from_mysql_row(rows);
+        Ok(rows)
     }
 
     /// Registers a schema type and creates its corresponding database table.

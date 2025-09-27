@@ -9,17 +9,19 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use sqlx::MySqlPool;
 
+use crate::schema::Select;
 use crate::{database::DatabaseError, row::Row, schema::Schema};
 use crate::{filter::Filter, schema::Value};
 
 /// A type-safe query builder for database operations.
 ///
-/// The `Query<T>` struct provides a fluent interface for building and executing
+/// The `Query<T, S>` struct provides a fluent interface for building and executing
 /// database queries with compile-time type safety.
 ///
 /// # Type Parameters
 ///
 /// - `T`: The schema type to query (must implement `Schema + Debug`)
+/// - `S`: The selection type for column specification (must implement `Select + Debug`)
 ///
 /// # Features
 ///
@@ -48,7 +50,7 @@ use crate::{filter::Filter, schema::Value};
 /// #[tokio::main]
 /// async fn main() -> Result<(), lume::database::DatabaseError> {
 ///     let db = Database::connect("mysql://...").await?;
-///     let users = db.query::<User>()
+///     let users = db.query::<User, QueryUser>()
 ///         .filter(eq(User::name(), Value::String("John".to_string())))
 ///         .execute()
 ///         .await?;
@@ -56,16 +58,18 @@ use crate::{filter::Filter, schema::Value};
 /// }
 /// ```
 #[derive(Debug)]
-pub struct Query<T> {
+pub struct Query<T, S> {
     /// Phantom data to maintain schema type information
     table: PhantomData<T>,
     /// List of filters to apply to the query
     filters: Vec<Filter>,
     /// Database connection pool
     conn: Arc<MySqlPool>,
+
+    select: S,
 }
 
-impl<T: Schema + Debug> Query<T> {
+impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// Creates a new query builder for the specified schema type.
     ///
     /// # Arguments
@@ -79,6 +83,7 @@ impl<T: Schema + Debug> Query<T> {
         Self {
             table: PhantomData,
             filters: Vec::new(),
+            select: S::default(),
             conn,
         }
     }
@@ -116,7 +121,7 @@ impl<T: Schema + Debug> Query<T> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let query = db.query::<User>()
+    ///     let query = db.query::<User, QueryUser>()
     ///         .filter(eq(User::name(), Value::String("John".to_string())));
     ///     Ok(())
     /// }
@@ -126,15 +131,21 @@ impl<T: Schema + Debug> Query<T> {
         self
     }
 
-    /// Specifies that this is a SELECT query.
+    /// Specifies which columns to select in the query.
     ///
-    /// This method is currently a no-op but is included for API completeness
-    /// and future extensibility.
+    /// This method accepts a selection schema that determines which columns
+    /// will be included in the SELECT clause of the SQL query.
+    ///
+    /// # Arguments
+    ///
+    /// - `select_schema`: The selection schema specifying which columns to include
     ///
     /// # Returns
     ///
     /// The query builder instance for method chaining
-    pub fn select(self) -> Self {
+
+    pub fn select(mut self, select_schema: S) -> Self {
+        self.select = select_schema;
         self
     }
 
@@ -167,7 +178,7 @@ impl<T: Schema + Debug> Query<T> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let users = db.query::<User>()
+    ///     let users = db.query::<User, QueryUser>()
     ///         .filter(eq(User::name(), Value::String("John".to_string())))
     ///         .execute()
     ///         .await?;
@@ -180,7 +191,10 @@ impl<T: Schema + Debug> Query<T> {
     /// }
     /// ```
     pub async fn execute(self) -> Result<Vec<Row<T>>, DatabaseError> {
-        let mut sql = format!("SELECT * FROM {}", T::table_name());
+        let mut sql = format!("SELECT ");
+        sql.push_str(self.select.get_selected().join(", ").as_str());
+        sql.push_str(format!(" FROM {}", T::table_name()).as_str());
+
         let mut conn = self.conn.acquire().await.unwrap();
 
         if !self.filters.is_empty() {
