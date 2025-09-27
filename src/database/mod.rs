@@ -144,6 +144,28 @@ impl Database {
         Insert::new(data, Arc::clone(&self.connection))
     }
 
+    /// Executes a raw SQL query and returns typed rows.
+    ///
+    /// # Safety
+    ///
+    /// This method bypasses the query builder's type safety. Ensure the SQL
+    /// query returns columns that match the schema type `T`.
+    ///
+    /// # Arguments
+    ///
+    /// - `sql`: The raw SQL query to execute
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(Vec<Row<T>>)`: A vector of typed rows
+    /// - `Err(DatabaseError)`: If there was an error executing the query
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// let users = db.sql::<User>("SELECT * FROM User WHERE age > 18").await?;
+    /// ```
+
     pub async fn sql<T: Schema + Debug>(&self, sql: &str) -> Result<Vec<Row<T>>, DatabaseError> {
         let mut conn = self.connection.acquire().await?;
         let rows = conn.fetch_all(sql).await?;

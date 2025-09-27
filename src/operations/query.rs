@@ -15,12 +15,13 @@ use crate::{filter::Filter, schema::Value};
 
 /// A type-safe query builder for database operations.
 ///
-/// The `Query<T>` struct provides a fluent interface for building and executing
+/// The `Query<T, S>` struct provides a fluent interface for building and executing
 /// database queries with compile-time type safety.
 ///
 /// # Type Parameters
 ///
 /// - `T`: The schema type to query (must implement `Schema + Debug`)
+/// - `S`: The selection type for column specification (must implement `Select + Debug`)
 ///
 /// # Features
 ///
