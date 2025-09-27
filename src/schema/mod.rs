@@ -90,7 +90,7 @@ pub trait Schema {
 pub trait Select {
     fn default() -> Self;
 
-    fn get_selected(self) -> Vec<String>;
+    fn get_selected(self) -> Vec<&'static str>;
 }
 
 /// Metadata information for a database column.
@@ -206,11 +206,6 @@ macro_rules! define_schema {
              use $crate::schema::type_to_sql_string;
              use $crate::schema::DefaultToSql;
              use std::collections::HashMap;
-             use $crate::schema::Value;
-             use $crate::schema::convert_to_value;
-             use $crate::schema::Select;
-             use paste::paste;
-
         $(
         #[derive(Debug)]
         pub struct $struct_name {
@@ -219,7 +214,7 @@ macro_rules! define_schema {
             )*
         }
 
-        paste! {
+        paste::paste! {
             #[derive(Debug)]
             pub struct [<Query $struct_name>] {
                 $(
@@ -237,7 +232,7 @@ macro_rules! define_schema {
                 }
             }
 
-            impl Select for [<Query $struct_name>] {
+            impl $crate::schema::Select for [<Query $struct_name>] {
                 fn default() -> Self {
                     Self {
                         $(
@@ -246,12 +241,12 @@ macro_rules! define_schema {
                     }
                 }
 
-                fn get_selected(self) -> Vec<String> {
+                fn get_selected(self) -> Vec<&'static str> {
                     let mut vec = Vec::new();
 
                     $(
                         if self.$name {
-                            vec.push(stringify!($name).to_string())
+                            vec.push(stringify!($name))
                         }
                     )*
 
@@ -280,12 +275,12 @@ macro_rules! define_schema {
                 stringify!($struct_name)
             }
 
-            fn values(&self) -> HashMap<String, Value> {
+            fn values(&self) -> HashMap<String, $crate::schema::Value> {
                 let mut map = HashMap::new();
                 $(
                     map.insert(
                         stringify!($name).to_string(),
-                        convert_to_value(&self.$name)
+                        $crate::schema::convert_to_value(&self.$name)
                     );
                 )*
                 map
