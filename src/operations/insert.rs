@@ -169,10 +169,34 @@ impl<T: Schema + Debug> Insert<T> {
             };
 
             match value {
-                Value::Int(v) => {
+                Value::Int8(v) => {
                     query = query.bind(*v);
                 }
-                Value::Float(v) => {
+                Value::Int16(v) => {
+                    query = query.bind(*v);
+                }
+                Value::Int32(v) => {
+                    query = query.bind(*v);
+                }
+                Value::Int64(v) => {
+                    query = query.bind(*v);
+                }
+                Value::UInt8(v) => {
+                    query = query.bind(*v);
+                }
+                Value::UInt16(v) => {
+                    query = query.bind(*v);
+                }
+                Value::UInt32(v) => {
+                    query = query.bind(*v);
+                }
+                Value::UInt64(v) => {
+                    query = query.bind(*v);
+                }
+                Value::Float32(v) => {
+                    query = query.bind(*v);
+                }
+                Value::Float64(v) => {
                     query = query.bind(*v);
                 }
                 Value::Bool(v) => {
@@ -185,11 +209,29 @@ impl<T: Schema + Debug> Insert<T> {
                     "VARCHAR(255)" | "TEXT" => {
                         query = query.bind(None::<&str>);
                     }
+                    "TINYINT" => {
+                        query = query.bind(None::<i8>);
+                    }
+                    "SMALLINT" => {
+                        query = query.bind(None::<i16>);
+                    }
                     "INTEGER" => {
                         query = query.bind(None::<i32>);
                     }
                     "BIGINT" => {
                         query = query.bind(None::<i64>);
+                    }
+                    "TINYINT UNSIGNED" => {
+                        query = query.bind(None::<u8>);
+                    }
+                    "SMALLINT UNSIGNED" => {
+                        query = query.bind(None::<u16>);
+                    }
+                    "INTEGER UNSIGNED" => {
+                        query = query.bind(None::<u32>);
+                    }
+                    "BIGINT UNSIGNED" => {
+                        query = query.bind(None::<u64>);
                     }
                     "FLOAT" => {
                         query = query.bind(None::<f32>);
@@ -204,9 +246,6 @@ impl<T: Schema + Debug> Insert<T> {
                         query = query.bind(None::<&str>);
                     }
                 },
-                Value::Long(v) => {
-                    query = query.bind(*v);
-                }
             }
         }
 

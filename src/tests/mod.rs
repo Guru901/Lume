@@ -167,24 +167,24 @@ mod tests {
             _ => panic!("Expected String variant"),
         }
 
-        let int_val: Value = 42.into();
+        let int_val: Value = 42i32.into();
         let int_val_clone = int_val.clone();
         match int_val {
-            Value::Int(i) => assert_eq!(i, 42),
-            _ => panic!("Expected Int variant"),
+            Value::Int32(i) => assert_eq!(i, 42),
+            _ => panic!("Expected Int32 variant"),
         }
 
         let long_val: Value = 1234567890123456789i64.into();
         let long_val_clone = long_val.clone();
         match long_val {
-            Value::Long(l) => assert_eq!(l, 1234567890123456789i64),
-            _ => panic!("Expected Long variant"),
+            Value::Int64(l) => assert_eq!(l, 1234567890123456789i64),
+            _ => panic!("Expected Int64 variant"),
         }
 
-        let float_val: Value = 3.14.into();
+        let float_val: Value = 3.14f64.into();
         match float_val {
-            Value::Float(f) => assert_eq!(f, 3.14),
-            _ => panic!("Expected Float variant"),
+            Value::Float64(f) => assert_eq!(f, 3.14),
+            _ => panic!("Expected Float64 variant"),
         }
 
         let bool_val: Value = true.into();

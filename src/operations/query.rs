@@ -149,6 +149,22 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         self
     }
 
+    /// Adds a left join to the query.
+    ///
+    /// This method is currently a placeholder for future join functionality.
+    ///
+    /// # Arguments
+    ///
+    /// - `filter`: The join condition (currently unused)
+    ///
+    /// # Returns
+    ///
+    /// The query builder instance for method chaining
+    pub fn left_join<LeftJoinSchema: Schema + Debug>(self, _filter: Filter) -> Self {
+        // TODO: Implement actual join functionality
+        self
+    }
+
     /// Executes the query and returns the results.
     ///
     /// This method builds and executes the SQL query, returning type-safe
@@ -202,37 +218,42 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             sql.push_str(&filter_sql);
 
             for (i, filter) in self.filters.iter().enumerate() {
-                match &filter.value {
-                    Value::String(_) => {
-                        let filter_sql = format!(
-                            "{} {} '{}' {}",
-                            filter.column_name,
-                            filter.filter_type.to_sql(),
-                            filter.value,
-                            if i == self.filters.len() - 1 {
-                                ""
-                            } else {
-                                " AND "
-                            }
-                        );
-                        sql.push_str(&filter_sql);
-                    }
-                    _ => {
-                        let filter_sql = format!(
-                            "{} {} {} {}",
-                            filter.column_name,
-                            filter.filter_type.to_sql(),
-                            filter.value,
-                            if i == self.filters.len() - 1 {
-                                ""
-                            } else {
-                                " AND "
-                            }
-                        );
+                if let Some(value) = &filter.value {
+                    match value {
+                        Value::String(_) => {
+                            let filter_sql = format!(
+                                "{} {} '{}' {}",
+                                filter.column_one,
+                                filter.filter_type.to_sql(),
+                                value,
+                                if i == self.filters.len() - 1 {
+                                    ""
+                                } else {
+                                    " AND "
+                                }
+                            );
+                            sql.push_str(&filter_sql);
+                        }
 
-                        sql.push_str(&filter_sql);
+                        _ => {
+                            let filter_sql = format!(
+                                "{} {} {} {}",
+                                filter.column_one,
+                                filter.filter_type.to_sql(),
+                                value,
+                                if i == self.filters.len() - 1 {
+                                    ""
+                                } else {
+                                    " AND "
+                                }
+                            );
+
+                            sql.push_str(&filter_sql);
+                        }
                     }
                 }
+
+                // TODO: Implement joins
             }
         }
 

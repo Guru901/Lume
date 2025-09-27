@@ -145,29 +145,92 @@ impl<S: Schema + Debug> Row<S> {
                             None
                         }
                     }
+                    "TINYINT" => {
+                        if let Ok(val) = row.try_get::<i8, _>(column.name) {
+                            Some(Value::Int8(val))
+                        } else if let Ok(val) = row.try_get::<Option<i8>, _>(column.name) {
+                            val.map(Value::Int8)
+                        } else {
+                            None
+                        }
+                    }
+                    "SMALLINT" => {
+                        if let Ok(val) = row.try_get::<i16, _>(column.name) {
+                            Some(Value::Int16(val))
+                        } else if let Ok(val) = row.try_get::<Option<i16>, _>(column.name) {
+                            val.map(Value::Int16)
+                        } else {
+                            None
+                        }
+                    }
                     "INTEGER" => {
                         if let Ok(val) = row.try_get::<i32, _>(column.name) {
-                            Some(Value::Int(val))
+                            Some(Value::Int32(val))
                         } else if let Ok(val) = row.try_get::<Option<i32>, _>(column.name) {
-                            val.map(Value::Int)
+                            val.map(Value::Int32)
                         } else {
                             None
                         }
                     }
                     "BIGINT" => {
                         if let Ok(val) = row.try_get::<i64, _>(column.name) {
-                            Some(Value::Long(val))
+                            Some(Value::Int64(val))
                         } else if let Ok(val) = row.try_get::<Option<i64>, _>(column.name) {
-                            val.map(Value::Long)
+                            val.map(Value::Int64)
                         } else {
                             None
                         }
                     }
-                    "REAL" | "DOUBLE PRECISION" => {
+                    "TINYINT UNSIGNED" => {
+                        if let Ok(val) = row.try_get::<u8, _>(column.name) {
+                            Some(Value::UInt8(val))
+                        } else if let Ok(val) = row.try_get::<Option<u8>, _>(column.name) {
+                            val.map(Value::UInt8)
+                        } else {
+                            None
+                        }
+                    }
+                    "SMALLINT UNSIGNED" => {
+                        if let Ok(val) = row.try_get::<u16, _>(column.name) {
+                            Some(Value::UInt16(val))
+                        } else if let Ok(val) = row.try_get::<Option<u16>, _>(column.name) {
+                            val.map(Value::UInt16)
+                        } else {
+                            None
+                        }
+                    }
+                    "INTEGER UNSIGNED" => {
+                        if let Ok(val) = row.try_get::<u32, _>(column.name) {
+                            Some(Value::UInt32(val))
+                        } else if let Ok(val) = row.try_get::<Option<u32>, _>(column.name) {
+                            val.map(Value::UInt32)
+                        } else {
+                            None
+                        }
+                    }
+                    "BIGINT UNSIGNED" => {
+                        if let Ok(val) = row.try_get::<u64, _>(column.name) {
+                            Some(Value::UInt64(val))
+                        } else if let Ok(val) = row.try_get::<Option<u64>, _>(column.name) {
+                            val.map(Value::UInt64)
+                        } else {
+                            None
+                        }
+                    }
+                    "FLOAT" => {
+                        if let Ok(val) = row.try_get::<f32, _>(column.name) {
+                            Some(Value::Float32(val))
+                        } else if let Ok(val) = row.try_get::<Option<f32>, _>(column.name) {
+                            val.map(Value::Float32)
+                        } else {
+                            None
+                        }
+                    }
+                    "REAL" | "DOUBLE PRECISION" | "DOUBLE" => {
                         if let Ok(val) = row.try_get::<f64, _>(column.name) {
-                            Some(Value::Float(val))
+                            Some(Value::Float64(val))
                         } else if let Ok(val) = row.try_get::<Option<f64>, _>(column.name) {
-                            val.map(Value::Float)
+                            val.map(Value::Float64)
                         } else {
                             None
                         }

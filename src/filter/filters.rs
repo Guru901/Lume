@@ -34,13 +34,23 @@ use crate::{
 ///
 /// let filter = eq(User::name(), "Alice");
 /// ```
-pub fn eq<T, V>(column: &'static Column<T>, value: V) -> Filter
+pub fn eq_value<T, V>(column: &'static Column<T>, value: V) -> Filter
 where
     V: Into<Value>,
 {
     Filter {
-        column_name: column.name().to_string(),
-        value: value.into(),
+        column_one: column.name().to_string(),
+        value: Some(value.into()),
+        column_two: None,
+        filter_type: FilterType::Eq,
+    }
+}
+
+pub fn eq_column<T>(column_1: &'static Column<T>, column_2: &'static Column<T>) -> Filter {
+    Filter {
+        column_one: column_1.name().to_string(),
+        value: None,
+        column_two: Some(column_2.name().to_string()),
         filter_type: FilterType::Eq,
     }
 }
@@ -79,8 +89,9 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_name: column.name().to_string(),
-        value: value.into(),
+        column_one: column.name().to_string(),
+        value: Some(value.into()),
+        column_two: None,
         filter_type: FilterType::Neq,
     }
 }
@@ -119,8 +130,9 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_name: column.name().to_string(),
-        value: value.into(),
+        column_one: column.name().to_string(),
+        value: Some(value.into()),
+        column_two: None,
         filter_type: FilterType::Gt,
     }
 }
@@ -159,8 +171,9 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_name: column.name().to_string(),
-        value: value.into(),
+        column_one: column.name().to_string(),
+        value: Some(value.into()),
+        column_two: None,
         filter_type: FilterType::Gte,
     }
 }
@@ -199,8 +212,9 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_name: column.name().to_string(),
-        value: value.into(),
+        column_one: column.name().to_string(),
+        value: Some(value.into()),
+        column_two: None,
         filter_type: FilterType::Lt,
     }
 }
@@ -239,8 +253,9 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_name: column.name().to_string(),
-        value: value.into(),
+        column_one: column.name().to_string(),
+        value: Some(value.into()),
+        column_two: None,
         filter_type: FilterType::Lte,
     }
 }
