@@ -231,7 +231,7 @@ macro_rules! define_schema {
                 fn default() -> Self {
                     Self {
                         $(
-                            $name: true,
+                            $name: false,
                         )*
                     }
                 }
