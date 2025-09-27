@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.0] - 2025-09-27
+
+- Added `db.sql()` method for executing raw SQL queries
+- Added `db.query().select()` method for specifying which columns to select
+- `define_schema!` macro now supports multiple schemas with just one marco call
+
 ## [0.2.2] - 2025-09-27
 
 - Fixed wrong readme examples
