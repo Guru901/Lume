@@ -9,9 +9,10 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use sqlx::MySqlPool;
 
-use crate::schema::Select;
+use crate::filter::Filter;
+use crate::schema::{ColumnInfo, Select};
+use crate::{StartingSql, filter_sql, get_starting_sql, joins_sql, select_sql};
 use crate::{database::DatabaseError, row::Row, schema::Schema};
-use crate::{filter::Filter, schema::Value};
 
 /// A type-safe query builder for database operations.
 ///
@@ -37,7 +38,7 @@ use crate::{filter::Filter, schema::Value};
 /// use lume::database::Database;
 /// use lume::filter::Filter;
 /// use lume::schema::{Schema, ColumnInfo};
-/// use lume::filter::eq;
+/// use lume::filter::eq_value;
 ///
 /// define_schema! {
 ///     User {
@@ -51,7 +52,7 @@ use crate::{filter::Filter, schema::Value};
 /// async fn main() -> Result<(), lume::database::DatabaseError> {
 ///     let db = Database::connect("mysql://...").await?;
 ///     let users = db.query::<User, QueryUser>()
-///         .filter(eq(User::name(), Value::String("John".to_string())))
+///         .filter(eq_value(User::name(), Value::String("John".to_string())))
 ///         .execute()
 ///         .await?;
 ///     Ok(())
@@ -66,7 +67,27 @@ pub struct Query<T, S> {
     /// Database connection pool
     conn: Arc<MySqlPool>,
 
-    select: S,
+    select: Option<S>,
+
+    joins: Vec<JoinInfo>,
+}
+
+/// Information about a join operation
+#[derive(Debug)]
+pub(crate) struct JoinInfo {
+    /// The table to join
+    pub(crate) table_name: String,
+    /// The join condition (column-to-column comparison)
+    pub(crate) condition: Filter,
+
+    pub(crate) join_type: JoinType,
+
+    pub(crate) columns: Vec<ColumnInfo>,
+}
+
+#[derive(Debug)]
+pub(crate) enum JoinType {
+    Left,
 }
 
 impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
@@ -83,7 +104,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         Self {
             table: PhantomData,
             filters: Vec::new(),
-            select: S::default(),
+            select: None,
+            joins: Vec::new(),
             conn,
         }
     }
@@ -108,7 +130,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// use lume::database::Database;
     /// use lume::filter::Filter;
     /// use lume::schema::{Schema, ColumnInfo};
-    /// use lume::filter::eq;
+    /// use lume::filter::eq_value;
     ///
     /// define_schema! {
     ///     User {
@@ -122,7 +144,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let query = db.query::<User, QueryUser>()
-    ///         .filter(eq(User::name(), Value::String("John".to_string())));
+    ///         .filter(eq_value(User::name(), Value::String("John".to_string())));
     ///     Ok(())
     /// }
     /// ```
@@ -145,7 +167,29 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// The query builder instance for method chaining
 
     pub fn select(mut self, select_schema: S) -> Self {
-        self.select = select_schema;
+        self.select = Some(select_schema);
+        self
+    }
+
+    /// Adds a left join to the query.
+    ///
+    /// This method is currently a placeholder for future join functionality.
+    ///
+    /// # Arguments
+    ///
+    /// - `filter`: The join condition (currently unused)
+    ///
+    /// # Returns
+    ///
+    /// The query builder instance for method chaining
+    pub fn left_join<LeftJoinSchema: Schema + Debug>(mut self, filter: Filter) -> Self {
+        self.joins.push(JoinInfo {
+            table_name: LeftJoinSchema::table_name().to_string(),
+            condition: filter,
+            join_type: JoinType::Left,
+            columns: LeftJoinSchema::get_all_columns(),
+        });
+
         self
     }
 
@@ -166,7 +210,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// use lume::database::Database;
     /// use lume::filter::Filter;
     /// use lume::schema::{Schema, ColumnInfo};
-    /// use lume::filter::eq;
+    /// use lume::filter::eq_value;
     ///
     /// define_schema! {
     ///     User {
@@ -179,7 +223,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let users = db.query::<User, QueryUser>()
-    ///         .filter(eq(User::name(), Value::String("John".to_string())))
+    ///         .filter(eq_value(User::name(), Value::String("John".to_string())))
     ///         .execute()
     ///         .await?;
     ///
@@ -191,53 +235,20 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     /// ```
     pub async fn execute(self) -> Result<Vec<Row<T>>, DatabaseError> {
-        let mut sql = format!("SELECT ");
-        sql.push_str(self.select.get_selected().join(", ").as_str());
-        sql.push_str(format!(" FROM {}", T::table_name()).as_str());
+        let sql = get_starting_sql(StartingSql::Select);
+        let sql = select_sql(sql, self.select, T::table_name());
+        let sql = joins_sql(sql, &self.joins);
+        let sql = filter_sql(sql, self.filters);
 
-        let mut conn = self.conn.acquire().await.unwrap();
+        println!("SQL: {}", sql);
 
-        if !self.filters.is_empty() {
-            let filter_sql = format!(" WHERE ");
-            sql.push_str(&filter_sql);
+        let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
+        let data = sqlx::query(&sql)
+            .fetch_all(&mut *conn)
+            .await
+            .map_err(DatabaseError::from)?;
 
-            for (i, filter) in self.filters.iter().enumerate() {
-                match &filter.value {
-                    Value::String(_) => {
-                        let filter_sql = format!(
-                            "{} {} '{}' {}",
-                            filter.column_name,
-                            filter.filter_type.to_sql(),
-                            filter.value,
-                            if i == self.filters.len() - 1 {
-                                ""
-                            } else {
-                                " AND "
-                            }
-                        );
-                        sql.push_str(&filter_sql);
-                    }
-                    _ => {
-                        let filter_sql = format!(
-                            "{} {} {} {}",
-                            filter.column_name,
-                            filter.filter_type.to_sql(),
-                            filter.value,
-                            if i == self.filters.len() - 1 {
-                                ""
-                            } else {
-                                " AND "
-                            }
-                        );
-
-                        sql.push_str(&filter_sql);
-                    }
-                }
-            }
-        }
-
-        let data = sqlx::query(&sql).fetch_all(&mut *conn).await.unwrap();
-        let rows = Row::from_mysql_row(data);
+        let rows = Row::from_mysql_row(data, Some(&self.joins));
 
         Ok(rows)
     }

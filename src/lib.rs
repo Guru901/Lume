@@ -39,7 +39,7 @@
 //!     // Type-safe queries
 //!     let users = db
 //!         .query::<Users, QueryUsers>()
-//!         .filter(lume::filter::Filter::eq("username", Value::String("john_doe".to_string())))
+//!         .filter(lume::filter::Filter::eq_value("username", Value::String("john_doe".to_string())))
 //!         .execute()
 //!         .await?;
 //!     
@@ -69,6 +69,12 @@
 //! - `indexed()` - Creates an index on the column
 //! - `default_value(value)` - Sets a default value
 
+use crate::{
+    filter::Filter,
+    operations::query::{JoinInfo, JoinType},
+    schema::{Select, Value},
+};
+
 /// Database connection and management functionality
 pub mod database;
 
@@ -88,3 +94,108 @@ pub mod schema;
 pub mod table;
 
 mod tests;
+
+pub(crate) enum StartingSql {
+    Select,
+    Insert,
+}
+
+pub(crate) fn get_starting_sql(starting_sql: StartingSql) -> String {
+    match starting_sql {
+        StartingSql::Select => "SELECT ".to_string(),
+        StartingSql::Insert => "INSERT INTO ".to_string(),
+    }
+}
+
+pub(crate) fn select_sql<S: Select>(
+    mut sql: String,
+    select: Option<S>,
+    table_name: &str,
+) -> String {
+    if select.is_some() {
+        sql.push_str(&select.unwrap().get_selected().join(", "));
+    } else {
+        sql.push_str("*");
+    }
+
+    sql.push_str(format!(" FROM {}", table_name).as_str());
+    sql
+}
+
+pub(crate) fn joins_sql(mut sql: String, joins: &Vec<JoinInfo>) -> String {
+    if joins.is_empty() {
+        return sql;
+    }
+
+    for join in joins {
+        let join_type = match join.join_type {
+            JoinType::Left => "LEFT JOIN",
+        };
+
+        let join_table = &join.table_name;
+
+        sql.push_str(&format!(
+            " {} {} ON {}.{} = {}.{}",
+            join_type,
+            join_table,
+            join.condition.column_one.0,
+            join.condition.column_one.1,
+            join.condition.column_two.as_ref().unwrap().0,
+            join.condition.column_two.as_ref().unwrap().1
+        ));
+    }
+
+    sql
+}
+
+pub(crate) fn filter_sql(mut sql: String, filters: Vec<Filter>) -> String {
+    if filters.is_empty() {
+        return sql;
+    }
+
+    sql.push_str(" WHERE ");
+
+    for (i, filter) in filters.iter().enumerate() {
+        if let Some(value) = &filter.value {
+            match value {
+                Value::String(inner) => {
+                    let escaped = inner.replace('\'', "''");
+                    let filter_sql = format!(
+                        "{}.{} {} '{}'",
+                        filter.column_one.0,
+                        filter.column_one.1,
+                        filter.filter_type.to_sql(),
+                        escaped
+                    );
+                    sql.push_str(&filter_sql);
+                }
+                _ => {
+                    let filter_sql = format!(
+                        "{}.{} {} {}",
+                        filter.column_one.0,
+                        filter.column_one.1,
+                        filter.filter_type.to_sql(),
+                        value
+                    );
+                    sql.push_str(&filter_sql);
+                }
+            }
+        }
+        if let Some(column) = &filter.column_two {
+            sql.push_str(&format!(
+                "{}.{} {} {}.{}",
+                filter.column_one.0,
+                filter.column_one.1,
+                filter.filter_type.to_sql(),
+                column.0,
+                column.1
+            ));
+        }
+
+        if i < filters.len() - 1 {
+            sql.push_str(" AND ");
+        }
+    }
+
+    sql
+}

@@ -19,7 +19,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use lume::filter::eq;
+/// use lume::filter::eq_value;
 /// use lume::define_schema;
 /// use lume::schema::Schema;
 /// use lume::schema::ColumnInfo;
@@ -32,15 +32,67 @@ use crate::{
 ///     }
 /// }
 ///
-/// let filter = eq(User::name(), "Alice");
+/// let filter = eq_value(User::name(), "Alice");
 /// ```
-pub fn eq<T, V>(column: &'static Column<T>, value: V) -> Filter
+pub fn eq_value<T, V>(column: &'static Column<T>, value: V) -> Filter
 where
     V: Into<Value>,
 {
     Filter {
-        column_name: column.name().to_string(),
-        value: value.into(),
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(value.into()),
+        column_two: None,
+        filter_type: FilterType::Eq,
+    }
+}
+
+/// Creates an equality filter (`=`) for joining two columns.
+///
+/// This function is used for join conditions where you want to compare
+/// two columns from different tables.
+///
+/// # Arguments
+///
+/// * `column_1` - The first column to compare (from the main table)
+/// * `column_2` - The second column to compare (from the joined table)
+///
+/// # Returns
+///
+/// A [`Filter`] representing the column-to-column equality condition.
+///
+/// # Example
+///
+/// ```rust
+/// use lume::filter::eq_column;
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///     }
+///     Post {
+///         id: i32 [primary_key()],
+///         user_id: i32 [not_null()],
+///         title: String [not_null()],
+///     }
+/// }
+///
+/// let join_filter = eq_column(User::id(), Post::user_id());
+/// ```
+pub fn eq_column<T>(column_1: &'static Column<T>, column_2: &'static Column<T>) -> Filter {
+    Filter {
+        column_one: (
+            column_1.table_name().to_string(),
+            column_1.name().to_string(),
+        ),
+        value: None,
+        column_two: Some((
+            column_2.table_name().to_string(),
+            column_2.name().to_string(),
+        )),
         filter_type: FilterType::Eq,
     }
 }
@@ -79,8 +131,9 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_name: column.name().to_string(),
-        value: value.into(),
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(value.into()),
+        column_two: None,
         filter_type: FilterType::Neq,
     }
 }
@@ -119,8 +172,9 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_name: column.name().to_string(),
-        value: value.into(),
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(value.into()),
+        column_two: None,
         filter_type: FilterType::Gt,
     }
 }
@@ -159,8 +213,9 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_name: column.name().to_string(),
-        value: value.into(),
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(value.into()),
+        column_two: None,
         filter_type: FilterType::Gte,
     }
 }
@@ -199,8 +254,9 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_name: column.name().to_string(),
-        value: value.into(),
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(value.into()),
+        column_two: None,
         filter_type: FilterType::Lt,
     }
 }
@@ -239,8 +295,9 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_name: column.name().to_string(),
-        value: value.into(),
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(value.into()),
+        column_two: None,
         filter_type: FilterType::Lte,
     }
 }

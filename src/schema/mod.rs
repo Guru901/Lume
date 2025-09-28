@@ -283,7 +283,7 @@ macro_rules! define_schema {
 
                     $(
                         if self.$name {
-                            vec.push(stringify!($name))
+                            vec.push(stringify!($struct_name.$name))
                         }
                     )*
 
@@ -363,8 +363,14 @@ macro_rules! define_schema {
 /// # Supported Types
 ///
 /// - `String` → `"VARCHAR(255)"`
+/// - `i8` → `"TINYINT"`
+/// - `i16` → `"SMALLINT"`
 /// - `i32` → `"INTEGER"`
 /// - `i64` → `"BIGINT"`
+/// - `u8` → `"TINYINT UNSIGNED"`
+/// - `u16` → `"SMALLINT UNSIGNED"`
+/// - `u32` → `"INTEGER UNSIGNED"`
+/// - `u64` → `"BIGINT UNSIGNED"`
 /// - `f32` → `"FLOAT"`
 /// - `f64` → `"DOUBLE"`
 /// - `bool` → `"BOOLEAN"`
@@ -378,6 +384,7 @@ macro_rules! define_schema {
 /// assert_eq!(type_to_sql_string::<String>(), "VARCHAR(255)");
 /// assert_eq!(type_to_sql_string::<i32>(), "INTEGER");
 /// assert_eq!(type_to_sql_string::<i64>(), "BIGINT");
+/// assert_eq!(type_to_sql_string::<u64>(), "BIGINT UNSIGNED");
 /// assert_eq!(type_to_sql_string::<bool>(), "BOOLEAN");
 /// ```
 pub fn type_to_sql_string<T: 'static>() -> &'static str {
@@ -387,10 +394,22 @@ pub fn type_to_sql_string<T: 'static>() -> &'static str {
 
     if type_id == TypeId::of::<String>() {
         "VARCHAR(255)"
+    } else if type_id == TypeId::of::<i8>() {
+        "TINYINT"
+    } else if type_id == TypeId::of::<i16>() {
+        "SMALLINT"
     } else if type_id == TypeId::of::<i32>() {
         "INTEGER"
     } else if type_id == TypeId::of::<i64>() {
         "BIGINT"
+    } else if type_id == TypeId::of::<u8>() {
+        "TINYINT UNSIGNED"
+    } else if type_id == TypeId::of::<u16>() {
+        "SMALLINT UNSIGNED"
+    } else if type_id == TypeId::of::<u32>() {
+        "INTEGER UNSIGNED"
+    } else if type_id == TypeId::of::<u64>() {
+        "BIGINT UNSIGNED"
     } else if type_id == TypeId::of::<f32>() {
         "FLOAT"
     } else if type_id == TypeId::of::<f64>() {
@@ -577,5 +596,42 @@ impl DefaultToSql for Column<bool> {
                 "FALSE".to_string()
             }
         })
+    }
+}
+
+// Implement DefaultToSql for all integer types
+impl DefaultToSql for Column<i8> {
+    fn default_to_sql(&self) -> Option<String> {
+        self.get_default().map(|v| v.to_string())
+    }
+}
+
+impl DefaultToSql for Column<i16> {
+    fn default_to_sql(&self) -> Option<String> {
+        self.get_default().map(|v| v.to_string())
+    }
+}
+
+impl DefaultToSql for Column<u8> {
+    fn default_to_sql(&self) -> Option<String> {
+        self.get_default().map(|v| v.to_string())
+    }
+}
+
+impl DefaultToSql for Column<u16> {
+    fn default_to_sql(&self) -> Option<String> {
+        self.get_default().map(|v| v.to_string())
+    }
+}
+
+impl DefaultToSql for Column<u32> {
+    fn default_to_sql(&self) -> Option<String> {
+        self.get_default().map(|v| v.to_string())
+    }
+}
+
+impl DefaultToSql for Column<u64> {
+    fn default_to_sql(&self) -> Option<String> {
+        self.get_default().map(|v| v.to_string())
     }
 }

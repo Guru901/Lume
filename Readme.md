@@ -31,7 +31,7 @@ tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 use lume::{
     database::Database,
     define_schema,
-    filter::eq,
+    filter::eq_value,
     schema::{ColumnInfo, Schema},
 };
 
@@ -71,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             age: true,
             ..Default::default()
         })
-        .filter(eq(Users::username(), "john_doe"))
+        .filter(eq_value(Users::username(), "john_doe"))
         .execute()
         .await?;
 
@@ -153,14 +153,14 @@ define_schema! {
 // Filter by equality
 let active_users = db
     .query::<Users, QueryUsers>()
-    .filter(Filter::eq("is_active", true))
+    .filter(Filter::eq_value("is_active", true))
     .execute()
     .await?;
 
 // Multiple filters
 let young_active_users = db
     .query::<Users, QueryUsers>()
-    .filter(Filter::eq("is_active", true))
+    .filter(Filter::eq_value("is_active", true))
     .filter(Filter::lt("age", 25))
     .execute()
     .await?;

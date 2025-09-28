@@ -80,43 +80,20 @@ impl FilterType {
 /// use lume::filter::FilterType;
 ///
 /// let filter = Filter {
-///     column_name: "age".to_string(),
+///     column_one: ("users".to_string(), "age".to_string()),
 ///     filter_type: FilterType::Gt,
-///     value: Value::Int(18),
+///     value: Some(Value::Int8(18)),
+///     column_two: None,
 /// };
 /// ```
 #[derive(Debug)]
 pub struct Filter {
     /// The name of the column to filter on
-    pub column_name: String,
+    pub column_one: (String, String),
     /// The value to compare against
-    pub value: Value,
+    pub value: Option<Value>,
+    /// The name of the column to filter on (for joins)
+    pub column_two: Option<(String, String)>,
     /// The type of comparison to perform
     pub filter_type: FilterType,
-}
-
-impl Filter {
-    /// Creates a new filter with the given parameters.
-    ///
-    /// # Arguments
-    ///
-    /// - `column_name`: The name of the column to filter on
-    /// - `filter_type`: The type of comparison to perform
-    /// - `value`: The value to compare against
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::filter::{Filter, FilterType};
-    /// use lume::schema::Value;
-    ///
-    /// let filter = Filter::new("age".to_string(), FilterType::Gt, Value::Int(18));
-    /// ```
-    pub fn new(column_name: String, filter_type: FilterType, value: Value) -> Self {
-        Filter {
-            column_name,
-            filter_type,
-            value,
-        }
-    }
 }
