@@ -161,13 +161,6 @@ impl<S: Schema + Debug> Row<S> {
                 }
             }
 
-            // Note: For joined tables, we would need to know the schema of the joined table
-            // to extract its columns properly. This is a simplified approach that focuses
-            // on the main table columns. In a full implementation, you'd want to:
-            // 1. Know the schema of each joined table
-            // 2. Extract columns from joined tables with proper type information
-            // 3. Handle column name prefixes (table.column format)
-
             rows_.push(Self {
                 data: map,
                 _phanton: PhantomData,
