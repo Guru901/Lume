@@ -39,7 +39,7 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_one: column.name().to_string(),
+        column_one: (column.table_name().to_string(), column.name().to_string()),
         value: Some(value.into()),
         column_two: None,
         filter_type: FilterType::Eq,
@@ -83,7 +83,10 @@ where
 /// ```
 pub fn eq_column<T>(column_1: &'static Column<T>, column_2: &'static Column<T>) -> Filter {
     Filter {
-        column_one: column_1.name().to_string(),
+        column_one: (
+            column_1.table_name().to_string(),
+            column_1.name().to_string(),
+        ),
         value: None,
         column_two: Some((
             column_2.table_name().to_string(),
@@ -127,7 +130,7 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_one: column.name().to_string(),
+        column_one: (column.table_name().to_string(), column.name().to_string()),
         value: Some(value.into()),
         column_two: None,
         filter_type: FilterType::Neq,
@@ -168,7 +171,7 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_one: column.name().to_string(),
+        column_one: (column.table_name().to_string(), column.name().to_string()),
         value: Some(value.into()),
         column_two: None,
         filter_type: FilterType::Gt,
@@ -209,7 +212,7 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_one: column.name().to_string(),
+        column_one: (column.table_name().to_string(), column.name().to_string()),
         value: Some(value.into()),
         column_two: None,
         filter_type: FilterType::Gte,
@@ -250,7 +253,7 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_one: column.name().to_string(),
+        column_one: (column.table_name().to_string(), column.name().to_string()),
         value: Some(value.into()),
         column_two: None,
         filter_type: FilterType::Lt,
@@ -291,7 +294,7 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_one: column.name().to_string(),
+        column_one: (column.table_name().to_string(), column.name().to_string()),
         value: Some(value.into()),
         column_two: None,
         filter_type: FilterType::Lte,
