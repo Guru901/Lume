@@ -158,13 +158,14 @@ pub(crate) fn filter_sql(mut sql: String, filters: Vec<Filter>) -> String {
     for (i, filter) in filters.iter().enumerate() {
         if let Some(value) = &filter.value {
             match value {
-                Value::String(_) => {
+                Value::String(inner) => {
+                    let escaped = inner.replace('\'', "''");
                     let filter_sql = format!(
                         "{}.{} {} '{}'",
                         filter.column_one.0,
                         filter.column_one.1,
                         filter.filter_type.to_sql(),
-                        value
+                        escaped
                     );
                     sql.push_str(&filter_sql);
                 }
@@ -182,8 +183,12 @@ pub(crate) fn filter_sql(mut sql: String, filters: Vec<Filter>) -> String {
         }
         if let Some(column) = &filter.column_two {
             sql.push_str(&format!(
-                "{}.{} = {}.{}",
-                filter.column_one.0, filter.column_one.1, column.0, column.1
+                "{}.{} {} {}.{}",
+                filter.column_one.0,
+                filter.column_one.1,
+                filter.filter_type.to_sql(),
+                column.0,
+                column.1
             ));
         }
 

@@ -242,9 +242,11 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
 
         println!("SQL: {}", sql);
 
-        let mut conn = self.conn.acquire().await.unwrap();
-
-        let data = sqlx::query(&sql).fetch_all(&mut *conn).await.unwrap();
+        let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
+        let data = sqlx::query(&sql)
+            .fetch_all(&mut *conn)
+            .await
+            .map_err(DatabaseError::from)?;
 
         let rows = Row::from_mysql_row(data, Some(&self.joins));
 

@@ -155,7 +155,7 @@ impl<S: Schema + Debug> Row<S> {
                         let value =
                             Self::extract_column_value(&row, &column.name, &column.data_type);
                         if let Some(value) = value {
-                            map.insert(column.name.to_string(), value);
+                            map.entry(column.name.to_string()).or_insert(value);
                         }
                     }
                 }
