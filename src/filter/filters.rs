@@ -46,11 +46,49 @@ where
     }
 }
 
+/// Creates an equality filter (`=`) for joining two columns.
+///
+/// This function is used for join conditions where you want to compare
+/// two columns from different tables.
+///
+/// # Arguments
+///
+/// * `column_1` - The first column to compare (from the main table)
+/// * `column_2` - The second column to compare (from the joined table)
+///
+/// # Returns
+///
+/// A [`Filter`] representing the column-to-column equality condition.
+///
+/// # Example
+///
+/// ```rust
+/// use lume::filter::eq_column;
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///     }
+///     Post {
+///         id: i32 [primary_key()],
+///         user_id: i32 [not_null()],
+///         title: String [not_null()],
+///     }
+/// }
+///
+/// let join_filter = eq_column(User::id(), Post::user_id());
+/// ```
 pub fn eq_column<T>(column_1: &'static Column<T>, column_2: &'static Column<T>) -> Filter {
     Filter {
         column_one: column_1.name().to_string(),
         value: None,
-        column_two: Some(column_2.name().to_string()),
+        column_two: Some((
+            column_2.table_name().to_string(),
+            column_2.name().to_string(),
+        )),
         filter_type: FilterType::Eq,
     }
 }

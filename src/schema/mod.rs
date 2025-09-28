@@ -283,7 +283,7 @@ macro_rules! define_schema {
 
                     $(
                         if self.$name {
-                            vec.push(stringify!($name))
+                            vec.push(stringify!($struct_name.$name))
                         }
                     )*
 

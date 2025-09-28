@@ -66,7 +66,19 @@ pub struct Query<T, S> {
     /// Database connection pool
     conn: Arc<MySqlPool>,
 
-    select: S,
+    select: Option<S>,
+
+    /// Join information for the query
+    joins: Vec<JoinInfo>,
+}
+
+/// Information about a join operation
+#[derive(Debug)]
+pub struct JoinInfo {
+    /// The table to join
+    pub table_name: String,
+    /// The join condition (column-to-column comparison)
+    pub condition: Filter,
 }
 
 impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
@@ -83,7 +95,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         Self {
             table: PhantomData,
             filters: Vec::new(),
-            select: S::default(),
+            select: None,
+            joins: Vec::new(),
             conn,
         }
     }
@@ -207,57 +220,73 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     /// ```
     pub async fn execute(self) -> Result<Vec<Row<T>>, DatabaseError> {
-        let mut sql = format!("SELECT ");
-        sql.push_str(self.select.get_selected().join(", ").as_str());
-        sql.push_str(format!(" FROM {}", T::table_name()).as_str());
+        let mut sql = String::from("SELECT ");
+        if self.select.is_some() {
+            sql.push_str(&self.select.unwrap().get_selected().join(", "));
+        } else {
+            sql.push_str("*");
+        }
+        sql.push_str(" FROM ");
+        sql.push_str(T::table_name());
 
-        let mut conn = self.conn.acquire().await.unwrap();
+        // Add LEFT JOIN clauses
+        for join in &self.joins {
+            sql.push_str(&format!(
+                " LEFT JOIN {} ON {}.{} = {}.{}",
+                join.table_name,
+                T::table_name(),
+                join.condition.column_one,
+                join.table_name,
+                join.condition.column_two.as_ref().unwrap().1
+            ));
+        }
 
-        if !self.filters.is_empty() {
-            let filter_sql = format!(" WHERE ");
-            sql.push_str(&filter_sql);
+        // Separate join filters from WHERE filters
+        let (_join_filters, where_filters): (Vec<_>, Vec<_>) = self
+            .filters
+            .into_iter()
+            .partition(|filter| filter.column_two.is_some());
 
-            for (i, filter) in self.filters.iter().enumerate() {
+        // Add WHERE clause for non-join filters
+        if !where_filters.is_empty() {
+            sql.push_str(" WHERE ");
+
+            for (i, filter) in where_filters.iter().enumerate() {
                 if let Some(value) = &filter.value {
                     match value {
                         Value::String(_) => {
                             let filter_sql = format!(
-                                "{} {} '{}' {}",
+                                "{}.{} {} '{}'",
+                                T::table_name(),
                                 filter.column_one,
                                 filter.filter_type.to_sql(),
-                                value,
-                                if i == self.filters.len() - 1 {
-                                    ""
-                                } else {
-                                    " AND "
-                                }
+                                value
                             );
                             sql.push_str(&filter_sql);
                         }
-
                         _ => {
                             let filter_sql = format!(
-                                "{} {} {} {}",
+                                "{}.{} {} {}",
+                                T::table_name(),
                                 filter.column_one,
                                 filter.filter_type.to_sql(),
-                                value,
-                                if i == self.filters.len() - 1 {
-                                    ""
-                                } else {
-                                    " AND "
-                                }
+                                value
                             );
-
                             sql.push_str(&filter_sql);
                         }
                     }
                 }
 
-                // TODO: Implement joins
+                if i < where_filters.len() - 1 {
+                    sql.push_str(" AND ");
+                }
             }
         }
 
+        let mut conn = self.conn.acquire().await.unwrap();
+
         let data = sqlx::query(&sql).fetch_all(&mut *conn).await.unwrap();
+
         let rows = Row::from_mysql_row(data);
 
         Ok(rows)

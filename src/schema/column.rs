@@ -232,6 +232,20 @@ impl<T> Column<T> {
         self.name
     }
 
+    /// Returns the name of the table this column belongs to
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lume::schema::Column;
+    ///
+    /// let col = Column::<String>::new("username", "users");
+    /// assert_eq!(col.table_name(), "users");
+    /// ```
+    pub fn table_name(&self) -> &'static str {
+        self.table_name
+    }
+
     /// Returns a reference to the default value, if any.
     ///
     /// # Returns
