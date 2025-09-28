@@ -5,16 +5,14 @@
 //! This module provides type-safe query building and execution functionality.
 //! It includes the `Query<T>` struct for building and executing database queries.
 
-use std::any::Any;
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use sqlx::MySqlPool;
-use tokio::io::Join;
 
-use crate::schema::{Column, ColumnInfo, Select};
+use crate::filter::Filter;
+use crate::schema::{ColumnInfo, Select};
 use crate::{StartingSql, filter_sql, get_starting_sql, joins_sql, select_sql};
 use crate::{database::DatabaseError, row::Row, schema::Schema};
-use crate::{filter::Filter, schema::Value};
 
 /// A type-safe query builder for database operations.
 ///
