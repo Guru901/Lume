@@ -5,12 +5,13 @@
 //! This module provides type-safe query building and execution functionality.
 //! It includes the `Query<T>` struct for building and executing database queries.
 
+use std::any::Any;
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use sqlx::MySqlPool;
 use tokio::io::Join;
 
-use crate::schema::Select;
+use crate::schema::{Column, ColumnInfo, Select};
 use crate::{StartingSql, filter_sql, get_starting_sql, joins_sql, select_sql};
 use crate::{database::DatabaseError, row::Row, schema::Schema};
 use crate::{filter::Filter, schema::Value};
@@ -70,12 +71,12 @@ pub struct Query<T, S> {
 
     select: Option<S>,
 
-    joins: Vec<JoinInfo<T>>,
+    joins: Vec<JoinInfo>,
 }
 
 /// Information about a join operation
 #[derive(Debug)]
-pub(crate) struct JoinInfo<T> {
+pub(crate) struct JoinInfo {
     /// The table to join
     pub(crate) table_name: String,
     /// The join condition (column-to-column comparison)
@@ -83,18 +84,7 @@ pub(crate) struct JoinInfo<T> {
 
     pub(crate) join_type: JoinType,
 
-    pub(crate) table_type: PhantomData<T>,
-}
-
-impl<T: Schema> JoinInfo<T> {
-    fn new(table_name: String, condition: Filter, join_type: JoinType) -> Self {
-        Self {
-            table_name,
-            condition,
-            join_type,
-            table_type: PhantomData,
-        }
-    }
+    pub(crate) columns: Vec<ColumnInfo>,
 }
 
 #[derive(Debug)]
@@ -199,7 +189,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             table_name: LeftJoinSchema::table_name().to_string(),
             condition: filter,
             join_type: JoinType::Left,
-            table_type: PhantomData,
+            columns: LeftJoinSchema::get_all_columns(),
         });
 
         self
@@ -249,7 +239,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     pub async fn execute(self) -> Result<Vec<Row<T>>, DatabaseError> {
         let sql = get_starting_sql(StartingSql::Select);
         let sql = select_sql(sql, self.select, T::table_name());
-        let sql = joins_sql(sql, &self.joins, T::table_name());
+        let sql = joins_sql(sql, &self.joins);
         let sql = filter_sql(sql, self.filters);
 
         println!("SQL: {}", sql);

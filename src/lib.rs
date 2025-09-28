@@ -122,7 +122,7 @@ pub(crate) fn select_sql<S: Select>(
     sql
 }
 
-pub(crate) fn joins_sql<T>(mut sql: String, joins: &Vec<JoinInfo<T>>, table_name: &str) -> String {
+pub(crate) fn joins_sql(mut sql: String, joins: &Vec<JoinInfo>) -> String {
     if joins.is_empty() {
         return sql;
     }

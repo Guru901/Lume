@@ -188,7 +188,7 @@ impl Database {
     pub async fn sql<T: Schema + Debug>(&self, sql: &str) -> Result<Vec<Row<T>>, DatabaseError> {
         let mut conn = self.connection.acquire().await?;
         let rows = conn.fetch_all(sql).await?;
-        let rows = Row::from_mysql_row::<T>(rows, None);
+        let rows = Row::from_mysql_row(rows, None);
         Ok(rows)
     }
 

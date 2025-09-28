@@ -132,10 +132,7 @@ impl<S: Schema + Debug> Row<S> {
     /// This would typically be called with MySQL query results
     /// let mysql_rows: Vec<MySqlRow> = sqlx::query("SELECT * FROM users").fetch_all(&pool).await?;
     /// let lume_rows: Vec<Row<User>> = Row::from_mysql_row(mysql_rows);
-    pub(crate) fn from_mysql_row<JoinSchema: Schema + Debug>(
-        rows: Vec<MySqlRow>,
-        joins: Option<&Vec<JoinInfo<JoinSchema>>>,
-    ) -> Vec<Self> {
+    pub(crate) fn from_mysql_row(rows: Vec<MySqlRow>, joins: Option<&Vec<JoinInfo>>) -> Vec<Self> {
         let mut rows_: Vec<Self> = Vec::new();
 
         for row in rows {
@@ -151,8 +148,8 @@ impl<S: Schema + Debug> Row<S> {
             }
 
             if joins.is_some() {
-                for _join in joins.unwrap() {
-                    let joined_column = JoinSchema::get_all_columns();
+                for join in joins.unwrap() {
+                    let joined_column = &join.columns;
 
                     for column in joined_column {
                         let value =
