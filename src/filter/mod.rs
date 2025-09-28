@@ -80,9 +80,10 @@ impl FilterType {
 /// use lume::filter::FilterType;
 ///
 /// let filter = Filter {
-///     column_name: "age".to_string(),
+///     column_one: ("users".to_string(), "age".to_string()),
 ///     filter_type: FilterType::Gt,
-///     value: Value::Int(18),
+///     value: Some(Value::Int8(18)),
+///     column_two: None,
 /// };
 /// ```
 #[derive(Debug)]

@@ -38,7 +38,7 @@ use crate::{database::DatabaseError, row::Row, schema::Schema};
 /// use lume::database::Database;
 /// use lume::filter::Filter;
 /// use lume::schema::{Schema, ColumnInfo};
-/// use lume::filter::eq;
+/// use lume::filter::eq_value;
 ///
 /// define_schema! {
 ///     User {
@@ -52,7 +52,7 @@ use crate::{database::DatabaseError, row::Row, schema::Schema};
 /// async fn main() -> Result<(), lume::database::DatabaseError> {
 ///     let db = Database::connect("mysql://...").await?;
 ///     let users = db.query::<User, QueryUser>()
-///         .filter(eq(User::name(), Value::String("John".to_string())))
+///         .filter(eq_value(User::name(), Value::String("John".to_string())))
 ///         .execute()
 ///         .await?;
 ///     Ok(())
@@ -130,7 +130,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// use lume::database::Database;
     /// use lume::filter::Filter;
     /// use lume::schema::{Schema, ColumnInfo};
-    /// use lume::filter::eq;
+    /// use lume::filter::eq_value;
     ///
     /// define_schema! {
     ///     User {
@@ -144,7 +144,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let query = db.query::<User, QueryUser>()
-    ///         .filter(eq(User::name(), Value::String("John".to_string())));
+    ///         .filter(eq_value(User::name(), Value::String("John".to_string())));
     ///     Ok(())
     /// }
     /// ```
@@ -210,7 +210,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// use lume::database::Database;
     /// use lume::filter::Filter;
     /// use lume::schema::{Schema, ColumnInfo};
-    /// use lume::filter::eq;
+    /// use lume::filter::eq_value;
     ///
     /// define_schema! {
     ///     User {
@@ -223,7 +223,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let users = db.query::<User, QueryUser>()
-    ///         .filter(eq(User::name(), Value::String("John".to_string())))
+    ///         .filter(eq_value(User::name(), Value::String("John".to_string())))
     ///         .execute()
     ///         .await?;
     ///

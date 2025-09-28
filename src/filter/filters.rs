@@ -19,7 +19,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use lume::filter::eq;
+/// use lume::filter::eq_value;
 /// use lume::define_schema;
 /// use lume::schema::Schema;
 /// use lume::schema::ColumnInfo;
@@ -32,7 +32,7 @@ use crate::{
 ///     }
 /// }
 ///
-/// let filter = eq(User::name(), "Alice");
+/// let filter = eq_value(User::name(), "Alice");
 /// ```
 pub fn eq_value<T, V>(column: &'static Column<T>, value: V) -> Filter
 where
@@ -66,6 +66,7 @@ where
 /// use lume::filter::eq_column;
 /// use lume::define_schema;
 /// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
 ///
 /// define_schema! {
 ///     User {
