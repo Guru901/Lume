@@ -67,9 +67,6 @@ pub struct Query<T, S> {
     conn: Arc<MySqlPool>,
 
     select: Option<S>,
-
-    /// Join information for the query
-    joins: Vec<JoinInfo>,
 }
 
 /// Information about a join operation
@@ -96,7 +93,6 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             table: PhantomData,
             filters: Vec::new(),
             select: None,
-            joins: Vec::new(),
             conn,
         }
     }
@@ -158,7 +154,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// The query builder instance for method chaining
 
     pub fn select(mut self, select_schema: S) -> Self {
-        self.select = select_schema;
+        self.select = Some(select_schema);
         self
     }
 
@@ -229,18 +225,6 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         sql.push_str(" FROM ");
         sql.push_str(T::table_name());
 
-        // Add LEFT JOIN clauses
-        for join in &self.joins {
-            sql.push_str(&format!(
-                " LEFT JOIN {} ON {}.{} = {}.{}",
-                join.table_name,
-                T::table_name(),
-                join.condition.column_one,
-                join.table_name,
-                join.condition.column_two.as_ref().unwrap().1
-            ));
-        }
-
         // Separate join filters from WHERE filters
         let (_join_filters, where_filters): (Vec<_>, Vec<_>) = self
             .filters
@@ -282,6 +266,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
                 }
             }
         }
+
+        println!("SQL: {}", sql);
 
         let mut conn = self.conn.acquire().await.unwrap();
 

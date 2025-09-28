@@ -27,12 +27,17 @@ use crate::schema::{Column, ColumnInfo, Schema, Value};
 /// - **Flexible Storage**: Stores values in a type-erased format
 /// - **MySQL Integration**: Built-in support for MySQL row extraction
 /// - **Value Conversion**: Automatic conversion between database and Rust types
-#[derive(Debug)]
 pub struct Row<S: Schema + Debug> {
     /// The row data stored as key-value pairs
     data: std::collections::HashMap<String, Value>,
     /// Phantom data to maintain schema type information
     _phanton: PhantomData<S>,
+}
+
+impl<S: Schema + Debug> Debug for Row<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Row").field("data", &self.data).finish()
+    }
 }
 
 impl<S: Schema + Debug> Row<S> {

@@ -92,7 +92,7 @@ pub struct Filter {
     /// The value to compare against
     pub value: Option<Value>,
     /// The name of the column to filter on (for joins)
-    pub column_two: Option<String>,
+    pub column_two: Option<(String, String)>,
     /// The type of comparison to perform
     pub filter_type: FilterType,
 }
