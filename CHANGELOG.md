@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.0] - 2025-09-29
+
+- Added left join support
+
 ## [0.3.0] - 2025-09-27
 
 - Added `db.sql()` method for executing raw SQL queries
