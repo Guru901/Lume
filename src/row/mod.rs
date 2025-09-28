@@ -155,9 +155,8 @@ impl<S: Schema + Debug> Row<S> {
                         let value =
                             Self::extract_column_value(&row, &column.name, &column.data_type);
                         if let Some(value) = value {
-                            if map.contains_key(column.name.as_str()) {
-                                let fq_key =
-                                    format!("{}.{}", join.table_name, column.name);
+                            if map.contains_key(column.name) {
+                                let fq_key = format!("{}.{}", join.table_name, column.name);
                                 map.entry(fq_key).or_insert(value);
                             } else {
                                 map.insert(column.name.to_string(), value);
