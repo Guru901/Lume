@@ -130,6 +130,10 @@ pub(crate) fn joins_sql(mut sql: String, joins: &Vec<JoinInfo>) -> String {
     for join in joins {
         let join_type = match join.join_type {
             JoinType::Left => "LEFT JOIN",
+            JoinType::Inner => "INNER JOIN",
+            JoinType::Right => "RIGHT JOIN",
+            JoinType::Full => "FULL JOIN",
+            JoinType::Cross => "CROSS JOIN",
         };
 
         let join_table = &join.table_name;

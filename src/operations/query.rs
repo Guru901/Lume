@@ -88,6 +88,10 @@ pub(crate) struct JoinInfo {
 #[derive(Debug)]
 pub(crate) enum JoinType {
     Left,
+    Inner,
+    Right,
+    Full,
+    Cross,
 }
 
 impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
@@ -173,21 +177,281 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
 
     /// Adds a left join to the query.
     ///
-    /// This method is currently a placeholder for future join functionality.
+    /// This method joins the specified schema table to the current query using a LEFT JOIN.
+    /// All records from the left table (current query) are returned, along with matching
+    /// records from the right table (joined table).
     ///
     /// # Arguments
     ///
-    /// - `filter`: The join condition (currently unused)
+    /// - `filter`: The join condition specifying how tables should be joined
     ///
     /// # Returns
     ///
     /// The query builder instance for method chaining
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::define_schema;
+    /// use lume::database::Database;
+    /// use lume::filter::Filter;
+    /// use lume::schema::{Schema, ColumnInfo};
+    /// use lume::filter::eq_column;
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///     }
+    ///
+    ///     Post {
+    ///         id: i32 [primary_key()],
+    ///         user_id: i32,
+    ///         title: String,
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     let results = db.query::<User, QueryUser>()
+    ///         .left_join::<Post>(eq_column(User::id(), Post::user_id()))
+    ///         .execute()
+    ///         .await?;
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn left_join<LeftJoinSchema: Schema + Debug>(mut self, filter: Filter) -> Self {
         self.joins.push(JoinInfo {
             table_name: LeftJoinSchema::table_name().to_string(),
             condition: filter,
             join_type: JoinType::Left,
             columns: LeftJoinSchema::get_all_columns(),
+        });
+
+        self
+    }
+
+    /// Adds an inner join to the query.
+    ///
+    /// This method joins the specified schema table to the current query using an INNER JOIN.
+    /// Only records that have matching values in both tables are returned.
+    ///
+    /// # Arguments
+    ///
+    /// - `filter`: The join condition specifying how tables should be joined
+    ///
+    /// # Returns
+    ///
+    /// The query builder instance for method chaining
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::define_schema;
+    /// use lume::database::Database;
+    /// use lume::filter::Filter;
+    /// use lume::schema::{Schema, ColumnInfo};
+    /// use lume::filter::eq_column;
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///     }
+    ///
+    ///     Post {
+    ///         id: i32 [primary_key()],
+    ///         user_id: i32,
+    ///         title: String,
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     let results = db.query::<User, QueryUser>()
+    ///         .inner_join::<Post>(eq_column(User::id(), Post::user_id()))
+    ///         .execute()
+    ///         .await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn inner_join<InnerJoinSchema: Schema + Debug>(mut self, filter: Filter) -> Self {
+        self.joins.push(JoinInfo {
+            table_name: InnerJoinSchema::table_name().to_string(),
+            condition: filter,
+            join_type: JoinType::Inner,
+            columns: InnerJoinSchema::get_all_columns(),
+        });
+
+        self
+    }
+
+    /// Adds a right join to the query.
+    ///
+    /// This method joins the specified schema table to the current query using a RIGHT JOIN.
+    /// All records from the right table (joined table) are returned, along with matching
+    /// records from the left table (current query).
+    ///
+    /// # Arguments
+    ///
+    /// - `filter`: The join condition specifying how tables should be joined
+    ///
+    /// # Returns
+    ///
+    /// The query builder instance for method chaining
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::define_schema;
+    /// use lume::database::Database;
+    /// use lume::filter::Filter;
+    /// use lume::schema::{Schema, ColumnInfo};
+    /// use lume::filter::eq_column;
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///     }
+    ///
+    ///     Post {
+    ///         id: i32 [primary_key()],
+    ///         user_id: i32,
+    ///         title: String,
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     let results = db.query::<User, QueryUser>()
+    ///         .right_join::<Post>(eq_column(User::id(), Post::user_id()))
+    ///         .execute()
+    ///         .await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn right_join<RightJoinSchema: Schema + Debug>(mut self, filter: Filter) -> Self {
+        self.joins.push(JoinInfo {
+            table_name: RightJoinSchema::table_name().to_string(),
+            condition: filter,
+            join_type: JoinType::Right,
+            columns: RightJoinSchema::get_all_columns(),
+        });
+
+        self
+    }
+
+    /// Adds a full outer join to the query.
+    ///
+    /// This method joins the specified schema table to the current query using a FULL OUTER JOIN.
+    /// All records from both tables are returned, with NULL values for non-matching records.
+    ///
+    /// # Arguments
+    ///
+    /// - `filter`: The join condition specifying how tables should be joined
+    ///
+    /// # Returns
+    ///
+    /// The query builder instance for method chaining
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::define_schema;
+    /// use lume::database::Database;
+    /// use lume::filter::Filter;
+    /// use lume::schema::{Schema, ColumnInfo};
+    /// use lume::filter::eq_column;
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///     }
+    ///
+    ///     Post {
+    ///         id: i32 [primary_key()],
+    ///         user_id: i32,
+    ///         title: String,
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     let results = db.query::<User, QueryUser>()
+    ///         .full_join::<Post>(eq_column(User::id(), Post::user_id()))
+    ///         .execute()
+    ///         .await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn full_join<FullJoinSchema: Schema + Debug>(mut self, filter: Filter) -> Self {
+        self.joins.push(JoinInfo {
+            table_name: FullJoinSchema::table_name().to_string(),
+            condition: filter,
+            join_type: JoinType::Full,
+            columns: FullJoinSchema::get_all_columns(),
+        });
+
+        self
+    }
+
+    /// Adds a cross join to the query.
+    ///
+    /// This method joins the specified schema table to the current query using a CROSS JOIN.
+    /// This produces a Cartesian product of all records from both tables.
+    ///
+    /// # Arguments
+    ///
+    /// - `filter`: The join condition (note: cross joins typically don't use conditions)
+    ///
+    /// # Returns
+    ///
+    /// The query builder instance for method chaining
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::define_schema;
+    /// use lume::database::Database;
+    /// use lume::filter::Filter;
+    /// use lume::schema::{Schema, ColumnInfo};
+    /// use lume::filter::eq_column;
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///     }
+    ///
+    ///     Post {
+    ///         id: i32 [primary_key()],
+    ///         user_id: i32,
+    ///         title: String,
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     let results = db.query::<User, QueryUser>()
+    ///         .cross_join::<Post>(eq_column(User::id(), Post::user_id()))
+    ///         .execute()
+    ///         .await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn cross_join<CrossJoinSchema: Schema + Debug>(mut self, filter: Filter) -> Self {
+        self.joins.push(JoinInfo {
+            table_name: CrossJoinSchema::table_name().to_string(),
+            condition: filter,
+            join_type: JoinType::Cross,
+            columns: CrossJoinSchema::get_all_columns(),
         });
 
         self
