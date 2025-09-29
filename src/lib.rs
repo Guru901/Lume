@@ -69,14 +69,6 @@
 //! - `indexed()` - Creates an index on the column
 //! - `default_value(value)` - Sets a default value
 
-use std::collections::HashMap;
-
-use crate::{
-    filter::Filter,
-    operations::query::{JoinInfo, JoinType},
-    schema::{ColumnInfo, Select, Value},
-};
-
 /// Database connection and management functionality
 pub mod database;
 
