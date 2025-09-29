@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.1] - 2025-09-29
+
+- Added support for all join types
+
 ## [0.4.0] - 2025-09-29
 
 - Added left join support
