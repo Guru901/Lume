@@ -10,8 +10,8 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 use sqlx::MySqlPool;
 
 use crate::filter::Filter;
-use crate::schema::{ColumnInfo, Select};
-use crate::{StartingSql, filter_sql, get_starting_sql, joins_sql, select_sql};
+use crate::schema::{ColumnInfo, Select, Value};
+use crate::{StartingSql, get_starting_sql};
 use crate::{database::DatabaseError, row::Row, schema::Schema};
 
 /// A type-safe query builder for database operations.
@@ -446,10 +446,10 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     ///     Ok(())
     /// }
     /// ```
-    pub fn cross_join<CrossJoinSchema: Schema + Debug>(mut self, filter: Filter) -> Self {
+    pub fn cross_join<CrossJoinSchema: Schema + Debug>(mut self) -> Self {
         self.joins.push(JoinInfo {
             table_name: CrossJoinSchema::table_name().to_string(),
-            condition: filter,
+            condition: Filter::default(),
             join_type: JoinType::Cross,
             columns: CrossJoinSchema::get_all_columns(),
         });
@@ -500,11 +500,9 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// ```
     pub async fn execute(self) -> Result<Vec<Row<T>>, DatabaseError> {
         let sql = get_starting_sql(StartingSql::Select, T::table_name());
-        let sql = select_sql(sql, self.select, T::table_name());
-        let sql = joins_sql(sql, &self.joins);
-        let sql = filter_sql(sql, self.filters);
-
-        println!("SQL: {}", sql);
+        let sql = Self::select_sql(sql, self.select, T::table_name());
+        let sql = Self::joins_sql(sql, &self.joins);
+        let sql = Self::filter_sql(sql, self.filters);
 
         let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
         let data = sqlx::query(&sql)
@@ -515,5 +513,102 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         let rows = Row::from_mysql_row(data, Some(&self.joins));
 
         Ok(rows)
+    }
+
+    pub(crate) fn select_sql(mut sql: String, select: Option<S>, table_name: &str) -> String {
+        if select.is_some() {
+            sql.push_str(&select.unwrap().get_selected().join(", "));
+        } else {
+            sql.push_str("*");
+        }
+
+        sql.push_str(format!(" FROM {}", table_name).as_str());
+        sql
+    }
+
+    pub(crate) fn joins_sql(mut sql: String, joins: &Vec<JoinInfo>) -> String {
+        if joins.is_empty() {
+            return sql;
+        }
+
+        for join in joins {
+            let join_type = match join.join_type {
+                JoinType::Left => "LEFT JOIN",
+                JoinType::Inner => "INNER JOIN",
+                JoinType::Right => "RIGHT JOIN",
+                JoinType::Full => "FULL JOIN",
+                JoinType::Cross => "CROSS JOIN",
+            };
+
+            let join_table = &join.table_name;
+
+            if join_type == "CROSS JOIN" {
+                sql.push_str(&format!(" {} {}", join_type, join_table,));
+            } else {
+                sql.push_str(&format!(
+                    " {} {} ON {}.{} = {}.{}",
+                    join_type,
+                    join_table,
+                    join.condition.column_one.0,
+                    join.condition.column_one.1,
+                    join.condition.column_two.as_ref().unwrap().0,
+                    join.condition.column_two.as_ref().unwrap().1
+                ));
+            }
+        }
+
+        sql
+    }
+
+    pub(crate) fn filter_sql(mut sql: String, filters: Vec<Filter>) -> String {
+        if filters.is_empty() {
+            return sql;
+        }
+
+        sql.push_str(" WHERE ");
+
+        for (i, filter) in filters.iter().enumerate() {
+            if let Some(value) = &filter.value {
+                match value {
+                    Value::String(inner) => {
+                        let escaped = inner.replace('\'', "''");
+                        let filter_sql = format!(
+                            "{}.{} {} '{}'",
+                            filter.column_one.0,
+                            filter.column_one.1,
+                            filter.filter_type.to_sql(),
+                            escaped
+                        );
+                        sql.push_str(&filter_sql);
+                    }
+                    _ => {
+                        let filter_sql = format!(
+                            "{}.{} {} {}",
+                            filter.column_one.0,
+                            filter.column_one.1,
+                            filter.filter_type.to_sql(),
+                            value
+                        );
+                        sql.push_str(&filter_sql);
+                    }
+                }
+            }
+            if let Some(column) = &filter.column_two {
+                sql.push_str(&format!(
+                    "{}.{} {} {}.{}",
+                    filter.column_one.0,
+                    filter.column_one.1,
+                    filter.filter_type.to_sql(),
+                    column.0,
+                    column.1
+                ));
+            }
+
+            if i < filters.len() - 1 {
+                sql.push_str(" AND ");
+            }
+        }
+
+        sql
     }
 }

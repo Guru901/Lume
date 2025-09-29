@@ -7,8 +7,8 @@
 //! returning of inserted rows and handles value binding for various SQL types.
 
 use crate::database::DatabaseError;
-use crate::schema::{Schema, Value};
-use crate::{StartingSql, get_starting_sql, insert_sql};
+use crate::schema::{ColumnInfo, Schema, Value};
+use crate::{StartingSql, get_starting_sql};
 use sqlx::MySqlPool;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -115,7 +115,7 @@ impl<T: Schema + Debug> Insert<T> {
     /// ```
     pub async fn execute(self) -> Result<(), DatabaseError> {
         let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-        let sql = insert_sql(sql, T::get_all_columns());
+        let sql = Self::insert_sql(sql, T::get_all_columns());
 
         let mut conn = self.conn.acquire().await?;
 
@@ -236,5 +236,25 @@ impl<T: Schema + Debug> Insert<T> {
         query.execute(&mut *conn).await?;
 
         Ok(())
+    }
+
+    pub(crate) fn insert_sql(mut sql: String, columns: Vec<ColumnInfo>) -> String {
+        for (i, col) in columns.iter().enumerate() {
+            if i > 0 {
+                sql.push_str(", ");
+            }
+            sql.push_str(&col.name);
+        }
+        sql.push_str(") VALUES (");
+
+        for (i, _col) in columns.iter().enumerate() {
+            if i > 0 {
+                sql.push_str(", ");
+            }
+            sql.push_str("?");
+        }
+        sql.push_str(")");
+
+        sql
     }
 }
