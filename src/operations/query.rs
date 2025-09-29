@@ -345,6 +345,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         self
     }
 
+    #[cfg(not(feature = "mysql"))]
     /// Adds a full outer join to the query.
     ///
     /// This method joins the specified schema table to the current query using a FULL OUTER JOIN.

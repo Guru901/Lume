@@ -14,3 +14,7 @@ description = "A simple and intuitive Query Builder inspired by Drizzle"
 paste = "1.0.15"
 sqlx = { version = "0.8.6", features = ["mysql", "runtime-tokio"] }
 tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread"] }
+
+[features]
+default = ["mysql"]
+mysql = []
