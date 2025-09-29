@@ -421,7 +421,6 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// use lume::database::Database;
     /// use lume::filter::Filter;
     /// use lume::schema::{Schema, ColumnInfo};
-    /// use lume::filter::eq_column;
     ///
     /// define_schema! {
     ///     User {
@@ -440,7 +439,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let results = db.query::<User, QueryUser>()
-    ///         .cross_join::<Post>(eq_column(User::id(), Post::user_id()))
+    ///         .cross_join::<Post>()
     ///         .execute()
     ///         .await?;
     ///     Ok(())
