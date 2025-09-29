@@ -8,6 +8,7 @@
 
 use crate::database::DatabaseError;
 use crate::schema::{Schema, Value};
+use crate::{StartingSql, get_starting_sql, insert_sql};
 use sqlx::MySqlPool;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -113,32 +114,15 @@ impl<T: Schema + Debug> Insert<T> {
     /// # }
     /// ```
     pub async fn execute(self) -> Result<(), DatabaseError> {
-        let mut sql = format!("INSERT INTO `{}` (", T::table_name());
+        let sql = get_starting_sql(StartingSql::Insert, T::table_name());
+        let sql = insert_sql(sql, T::get_all_columns());
+
         let mut conn = self.conn.acquire().await?;
 
-        // Build the column list for the INSERT statement.
-        for (i, col) in T::get_all_columns().iter().enumerate() {
-            if i > 0 {
-                sql.push_str(", ");
-            }
-            sql.push_str(&col.name);
-        }
-        sql.push_str(") VALUES (");
-
-        // Build the placeholders for the VALUES clause.
-        for (i, _col) in T::get_all_columns().iter().enumerate() {
-            if i > 0 {
-                sql.push_str(", ");
-            }
-            sql.push_str("?");
-        }
-        sql.push_str(")");
-
-        let mut query = sqlx::query(&sql);
         let values = self.data.values();
         let columns = T::get_all_columns();
+        let mut query = sqlx::query(&sql);
 
-        // Bind each value to the query, handling NULLs and type mapping.
         for col in columns.iter() {
             let Some(value) = values.get(col.name) else {
                 // If a value is missing, bind NULL using the column's SQL type.

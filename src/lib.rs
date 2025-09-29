@@ -69,10 +69,12 @@
 //! - `indexed()` - Creates an index on the column
 //! - `default_value(value)` - Sets a default value
 
+use std::collections::HashMap;
+
 use crate::{
     filter::Filter,
     operations::query::{JoinInfo, JoinType},
-    schema::{Select, Value},
+    schema::{ColumnInfo, Select, Value},
 };
 
 /// Database connection and management functionality
@@ -100,10 +102,10 @@ pub(crate) enum StartingSql {
     Insert,
 }
 
-pub(crate) fn get_starting_sql(starting_sql: StartingSql) -> String {
+pub(crate) fn get_starting_sql(starting_sql: StartingSql, table_name: &str) -> String {
     match starting_sql {
         StartingSql::Select => "SELECT ".to_string(),
-        StartingSql::Insert => "INSERT INTO ".to_string(),
+        StartingSql::Insert => format!("INSERT INTO `{}` (", table_name),
     }
 }
 
@@ -200,6 +202,26 @@ pub(crate) fn filter_sql(mut sql: String, filters: Vec<Filter>) -> String {
             sql.push_str(" AND ");
         }
     }
+
+    sql
+}
+
+pub fn insert_sql(mut sql: String, columns: Vec<ColumnInfo>) -> String {
+    for (i, col) in columns.iter().enumerate() {
+        if i > 0 {
+            sql.push_str(", ");
+        }
+        sql.push_str(&col.name);
+    }
+    sql.push_str(") VALUES (");
+
+    for (i, _col) in columns.iter().enumerate() {
+        if i > 0 {
+            sql.push_str(", ");
+        }
+        sql.push_str("?");
+    }
+    sql.push_str(")");
 
     sql
 }

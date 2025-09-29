@@ -499,7 +499,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     /// ```
     pub async fn execute(self) -> Result<Vec<Row<T>>, DatabaseError> {
-        let sql = get_starting_sql(StartingSql::Select);
+        let sql = get_starting_sql(StartingSql::Select, T::table_name());
         let sql = select_sql(sql, self.select, T::table_name());
         let sql = joins_sql(sql, &self.joins);
         let sql = filter_sql(sql, self.filters);
