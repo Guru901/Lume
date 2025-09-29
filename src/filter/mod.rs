@@ -97,3 +97,14 @@ pub struct Filter {
     /// The type of comparison to perform
     pub filter_type: FilterType,
 }
+
+impl Default for Filter {
+    fn default() -> Self {
+        Filter {
+            value: Some(Value::Null),
+            filter_type: FilterType::Eq,
+            column_one: ("".to_string(), "".to_string()),
+            column_two: None,
+        }
+    }
+}
