@@ -115,6 +115,18 @@ pub struct AndFilter {
     pub(crate) filter2: Box<dyn Filtered>,
 }
 
+/// Trait for filter types that can be used in query WHERE clauses.
+///
+/// This trait provides a unified interface for both simple filters ([`Filter`])
+/// and composite OR filters ([`OrFilter`]). It enables dynamic dispatch of
+/// filter operations during query building.
+///
+/// # Contract
+///
+/// Implementors must ensure:
+/// - When `is_or_filter()` returns `true`, both `filter1()` and `filter2()` must return `Some`
+/// - When `is_or_filter()` returns `false`, both `filter1()` and `filter2()` must return `None`
+/// - At least one of `value()` or `column_two()` should return `Some` for simple comparisons
 pub trait Filtered: Debug {
     fn value(&self) -> Option<&Value>;
     fn column_one(&self) -> Option<&(String, String)>;
