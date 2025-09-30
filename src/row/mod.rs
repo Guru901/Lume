@@ -175,27 +175,6 @@ impl<S: Schema + Debug> Row<S> {
         rows_
     }
 
-    pub(crate) fn from_mysql_result(
-        result: MySqlQueryResult,
-        returning: &Vec<&'static str>,
-    ) -> Vec<Self> {
-        let mut rows_ = Vec::new();
-
-        let last_id = result.last_insert_id();
-        for col in returning.iter() {
-            let map: HashMap<String, Value> = vec![(col.to_string(), Value::UInt64(last_id))]
-                .into_iter()
-                .collect();
-
-            rows_.push(Self {
-                data: map,
-                _phanton: PhantomData,
-            });
-        }
-
-        rows_
-    }
-
     /// Extracts a column value from a MySQL row based on column name and data type
     fn extract_column_value(row: &MySqlRow, column_name: &str, data_type: &str) -> Option<Value> {
         use sqlx::Row as _;
