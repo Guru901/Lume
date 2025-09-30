@@ -21,7 +21,7 @@ Add Lume to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-lume = "0.1"
+lume = "0.4"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 ```
 
