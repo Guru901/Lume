@@ -534,6 +534,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         let sql = Self::joins_sql(sql, &self.joins);
         let sql = Self::filter_sql(sql, self.filters);
 
+        println!("SQL: {sql}");
+
         let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
         let data = sqlx::query(&sql)
             .fetch_all(&mut *conn)
@@ -612,7 +614,12 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         sql.push_str(" WHERE ");
 
         for (i, filter) in filters.iter().enumerate() {
-            if filter.is_or_filter() {
+            if filter.is_or_filter() || filter.is_and_filter() {
+                let sql_command = if filter.is_or_filter() {
+                    " OR "
+                } else {
+                    " AND "
+                };
                 let filter1 = filter.filter1().unwrap();
                 let filter2 = filter.filter2().unwrap();
 
@@ -630,7 +637,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
                             );
 
                             sql.push_str(&filter_sql);
-                            sql.push_str(" OR ")
+                            sql.push_str(sql_command)
                         }
                         _ => {
                             let filter_sql = format!(
@@ -642,7 +649,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
                             );
 
                             sql.push_str(&filter_sql);
-                            sql.push_str(" OR ")
+                            sql.push_str(sql_command)
                         }
                     }
                 } else {
@@ -655,7 +662,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
                         filter1.column_two().unwrap().1
                     ));
 
-                    sql.push_str(" OR ")
+                    sql.push_str(sql_command)
                 }
 
                 if let Some(value) = filter2.value() {
@@ -665,9 +672,9 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
 
                             let filter_sql = format!(
                                 "{}.{} {} '{}'",
-                                filter1.column_one().unwrap().0,
-                                filter1.column_one().unwrap().1,
-                                filter1.filter_type().to_sql(),
+                                filter2.column_one().unwrap().0,
+                                filter2.column_one().unwrap().1,
+                                filter2.filter_type().to_sql(),
                                 escaped
                             );
 

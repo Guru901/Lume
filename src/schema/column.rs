@@ -199,8 +199,8 @@ impl<T> Column<T> {
     ///
     /// assert_eq!(col.get_default(), Some(&"Anonymous".to_string()));
     /// ```
-    pub fn default_value(mut self, value: T) -> Self {
-        self.default_value = Some(value);
+    pub fn default_value<K: Into<T>>(mut self, value: K) -> Self {
+        self.default_value = Some(value.into());
         self
     }
 

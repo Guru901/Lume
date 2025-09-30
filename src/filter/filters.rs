@@ -1,7 +1,7 @@
 #![warn(missing_docs)]
 
 use crate::{
-    filter::{Filter, FilterType, OrFilter},
+    filter::{AndFilter, Filter, FilterType, Filtered, OrFilter},
     schema::{Column, Value},
 };
 
@@ -302,6 +302,16 @@ where
     }
 }
 
-pub fn or(filter1: Filter, filter2: Filter) -> OrFilter {
-    OrFilter { filter1, filter2 }
+pub fn or(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) -> OrFilter {
+    OrFilter {
+        filter1: Box::new(filter1),
+        filter2: Box::new(filter2),
+    }
+}
+
+pub fn and(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) -> AndFilter {
+    AndFilter {
+        filter1: Box::new(filter1),
+        filter2: Box::new(filter2),
+    }
 }

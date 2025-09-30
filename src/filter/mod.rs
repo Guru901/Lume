@@ -26,7 +26,7 @@ pub use filters::*;
 /// - `Lt`: Less than (<)
 /// - `Lte`: Less than or equal (<=)
 /// - `In`: IN clause (currently unused)
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum FilterType {
     /// Equality operator (=)
     Eq,
@@ -105,8 +105,14 @@ pub struct Filter {
 
 #[derive(Debug)]
 pub struct OrFilter {
-    pub(crate) filter1: Filter,
-    pub(crate) filter2: Filter,
+    pub(crate) filter1: Box<dyn Filtered>,
+    pub(crate) filter2: Box<dyn Filtered>,
+}
+
+#[derive(Debug)]
+pub struct AndFilter {
+    pub(crate) filter1: Box<dyn Filtered>,
+    pub(crate) filter2: Box<dyn Filtered>,
 }
 
 pub trait Filtered: Debug {
@@ -119,9 +125,10 @@ pub trait Filtered: Debug {
             .unwrap_or(FilterType::Eq)
     }
     fn is_or_filter(&self) -> bool;
+    fn is_and_filter(&self) -> bool;
 
-    fn filter1(&self) -> Option<&Filter>;
-    fn filter2(&self) -> Option<&Filter>;
+    fn filter1(&self) -> Option<&dyn Filtered>;
+    fn filter2(&self) -> Option<&dyn Filtered>;
 }
 
 impl Filtered for Filter {
@@ -137,26 +144,35 @@ impl Filtered for Filter {
         self.column_two.as_ref()
     }
 
-    fn filter1(&self) -> Option<&Filter> {
+    fn filter1(&self) -> Option<&dyn Filtered> {
         None
     }
 
-    fn filter2(&self) -> Option<&Filter> {
+    fn filter2(&self) -> Option<&dyn Filtered> {
         None
     }
 
     fn is_or_filter(&self) -> bool {
         false
     }
+
+    fn is_and_filter(&self) -> bool {
+        false
+    }
+
+    fn filter_type(&self) -> FilterType {
+        self.filter_type
+    }
 }
 
 impl Filtered for OrFilter {
     fn value(&self) -> Option<&Value> {
-        if self.filter1.value.is_some() {
-            self.filter1.value.as_ref()
-        } else {
-            self.filter2.value.as_ref()
-        }
+        // if self.filter1.value.is_some() {
+        //     self.filter1.value.as_ref()
+        // } else {
+        //     self.filter2.value.as_ref()
+        // }
+        None
     }
 
     fn column_one(&self) -> Option<&(String, String)> {
@@ -167,15 +183,54 @@ impl Filtered for OrFilter {
         None
     }
 
-    fn filter1(&self) -> Option<&Filter> {
-        Some(&self.filter1)
+    fn filter1(&self) -> Option<&dyn Filtered> {
+        Some(&*self.filter1)
     }
 
-    fn filter2(&self) -> Option<&Filter> {
-        Some(&self.filter2)
+    fn filter2(&self) -> Option<&dyn Filtered> {
+        Some(&*self.filter2)
     }
 
     fn is_or_filter(&self) -> bool {
+        true
+    }
+
+    fn is_and_filter(&self) -> bool {
+        false
+    }
+}
+
+impl Filtered for AndFilter {
+    fn value(&self) -> Option<&Value> {
+        // if self.filter1.value.is_some() {
+        //     self.filter1.value.as_ref()
+        // } else {
+        //     self.filter2.value.as_ref()
+        // }
+        None
+    }
+
+    fn column_one(&self) -> Option<&(String, String)> {
+        None
+    }
+
+    fn column_two(&self) -> Option<&(String, String)> {
+        None
+    }
+
+    fn filter1(&self) -> Option<&dyn Filtered> {
+        Some(&*self.filter1)
+    }
+
+    fn filter2(&self) -> Option<&dyn Filtered> {
+        Some(&*self.filter2)
+    }
+
+    fn is_or_filter(&self) -> bool {
+        false
+    }
+
+    fn is_and_filter(&self) -> bool {
         true
     }
 }
