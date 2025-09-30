@@ -119,24 +119,23 @@ pub struct Filter {
 /// # Example
 ///
 /// ```rust
-/// use lume::filter::OrFilter;
-/// use lume::filter::Filter;
-/// use lume::schema::Value;
+/// use lume::filter::{or, eq_value, lte};
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
 ///
-/// let filter = OrFilter {
-///     filter1: Box::new(Filter {
-///         column_one: ("users".to_string(), "age".to_string()),
-///         filter_type: FilterType::Gt,
-///         value: Some(Value::Int8(18)),
-///         column_two: None,
-///     }),
-///     filter2: Box::new(Filter {
-///         column_one: ("users".to_string(), "age".to_string()),
-///         filter_type: FilterType::Lt,
-///         value: Some(Value::Int8(30)),
-///         column_two: None,
-///     }),
-/// };
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///         age: i32,
+///     }
+/// }
+///
+/// let filter = or(
+///     eq_value(User::name(), "Alice"),
+///     lte(User::age(), 30)
+/// );
 /// ```
 #[derive(Debug)]
 pub struct OrFilter {
@@ -157,24 +156,23 @@ pub struct OrFilter {
 /// # Example
 ///
 /// ```rust
-/// use lume::filter::AndFilter;
-/// use lume::filter::Filter;
-/// use lume::schema::Value;
+/// use lume::filter::{and, eq_value, lt};
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
 ///
-/// let filter = AndFilter {
-///     filter1: Box::new(Filter {
-///         column_one: ("users".to_string(), "age".to_string()),
-///         filter_type: FilterType::Gt,
-///         value: Some(Value::Int8(18)),
-///         column_two: None,
-///     }),
-///     filter2: Box::new(Filter {
-///         column_one: ("users".to_string(), "age".to_string()),
-///         filter_type: FilterType::Lt,
-///         value: Some(Value::Int8(30)),
-///         column_two: None,
-///     }),
-/// };
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///         age: i32,
+///     }
+/// }
+///
+/// let filter = and(
+///     eq_value(User::name(), "Alice"),
+///     lt(User::age(), 30)
+/// );
 /// ```
 #[derive(Debug)]
 pub struct AndFilter {

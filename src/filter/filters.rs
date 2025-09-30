@@ -321,6 +321,8 @@ where
 /// ```
 /// use lume::filter::{or, eq_value, lte};
 /// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
 ///
 /// define_schema! {
 ///     User {
@@ -361,6 +363,8 @@ pub fn or(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) ->
 /// ```
 /// use lume::filter::{and, eq_value, lte};
 /// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
 ///
 /// define_schema! {
 ///     User {
