@@ -302,6 +302,39 @@ where
     }
 }
 
+/// Combines two filters with a logical OR, producing a filter that matches if either condition is true.
+///
+/// This function is useful for constructing complex query conditions where you want to match
+/// records that satisfy at least one of the provided filters.
+///
+/// # Arguments
+///
+/// * `filter1` - The first filter condition.
+/// * `filter2` - The second filter condition.
+///
+/// # Returns
+///
+/// An [`OrFilter`] representing the logical OR of the two filters.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::{or, eq_value, lte};
+/// use lume::define_schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///         age: i32,
+///     }
+/// }
+///
+/// let filter = or(
+///     eq_value(User::name(), "Alice"),
+///     lte(User::age(), 18)
+/// );
+/// ```
 pub fn or(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) -> OrFilter {
     OrFilter {
         filter1: Box::new(filter1),
@@ -309,6 +342,39 @@ pub fn or(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) ->
     }
 }
 
+/// Combines two filters with a logical AND, producing a filter that matches if both conditions are true.
+///
+/// This function is useful for constructing complex query conditions where you want to match
+/// records that satisfy both of the provided filters.
+///
+/// # Arguments
+///
+/// * `filter1` - The first filter condition.
+/// * `filter2` - The second filter condition.
+///
+/// # Returns
+///
+/// An [`AndFilter`] representing the logical AND of the two filters.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::{and, eq_value, lte};
+/// use lume::define_schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///         age: i32,
+///     }
+/// }
+///
+/// let filter = and(
+///     eq_value(User::name(), "Alice"),
+///     lte(User::age(), 18)
+/// );
+/// ```
 pub fn and(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) -> AndFilter {
     AndFilter {
         filter1: Box::new(filter1),
