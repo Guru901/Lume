@@ -65,6 +65,22 @@ pub struct Column<T> {
     primary_key: bool,
     /// Whether this column has an index
     indexed: bool,
+    /// Whether this column auto-increments (MySQL AUTO_INCREMENT)
+    auto_increment: bool,
+    /// Optional column comment (MySQL COMMENT)
+    comment: Option<&'static str>,
+    /// Optional character set (MySQL CHARACTER SET)
+    charset: Option<&'static str>,
+    /// Optional collation (MySQL COLLATE)
+    collate: Option<&'static str>,
+    /// Whether column has ON UPDATE CURRENT_TIMESTAMP behavior (MySQL)
+    on_update_current_timestamp: bool,
+    /// Whether this column is invisible (MySQL 8: INVISIBLE)
+    invisible: bool,
+    /// Optional CHECK constraint expression (MySQL 8)
+    check: Option<&'static str>,
+    /// Optional generated column definition (VIRTUAL or STORED)
+    generated: Option<GeneratedColumn>,
     /// Phantom data to maintain type information
     _phantom: PhantomData<T>,
 }
@@ -80,6 +96,14 @@ impl<T: Debug> Display for Column<T> {
     unique: {},
     primary_key: {},
     indexed: {},
+    auto_increment: {},
+    comment: {:?},
+    charset: {:?},
+    collate: {:?},
+    on_update_current_timestamp: {},
+    invisible: {},
+    check: {:?},
+    generated: {:?},
     table_name: {}
 }}",
             self.name,
@@ -88,8 +112,34 @@ impl<T: Debug> Display for Column<T> {
             self.unique,
             self.primary_key,
             self.indexed,
+            self.auto_increment,
+            self.comment,
+            self.charset,
+            self.collate,
+            self.on_update_current_timestamp,
+            self.invisible,
+            self.check,
+            self.generated,
             self.table_name
         )
+    }
+}
+
+/// MySQL generated column variants
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum GeneratedColumn {
+    /// Virtual generated column (not stored)
+    Virtual(&'static str),
+    /// Stored generated column (persisted)
+    Stored(&'static str),
+}
+
+impl Display for GeneratedColumn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GeneratedColumn::Virtual(s) => write!(f, "VIRTUAL {}", s),
+            GeneratedColumn::Stored(s) => write!(f, "STORED {}", s),
+        }
     }
 }
 
@@ -121,6 +171,14 @@ impl<T> Column<T> {
             unique: false,
             primary_key: false,
             indexed: false,
+            auto_increment: false,
+            comment: None,
+            charset: None,
+            collate: None,
+            on_update_current_timestamp: false,
+            invisible: false,
+            check: None,
+            generated: None,
             _phantom: PhantomData,
         }
     }
@@ -141,8 +199,8 @@ impl<T> Column<T> {
     ///
     /// assert_eq!(col.get_default(), Some(&"Anonymous".to_string()));
     /// ```
-    pub fn default_value(mut self, value: T) -> Self {
-        self.default_value = Some(value);
+    pub fn default_value<K: Into<T>>(mut self, value: K) -> Self {
+        self.default_value = Some(value.into());
         self
     }
 
@@ -215,6 +273,60 @@ impl<T> Column<T> {
     /// ```
     pub fn indexed(mut self) -> Self {
         self.indexed = true;
+        self
+    }
+
+    /// Enables AUTO_INCREMENT on this column (MySQL).
+    pub fn auto_increment(mut self) -> Self {
+        self.auto_increment = true;
+        self
+    }
+
+    /// Sets a column comment (MySQL `COMMENT`).
+    pub fn comment(mut self, comment: &'static str) -> Self {
+        self.comment = Some(comment);
+        self
+    }
+
+    /// Sets the character set for this column (MySQL `CHARACTER SET`).
+    pub fn charset(mut self, charset: &'static str) -> Self {
+        self.charset = Some(charset);
+        self
+    }
+
+    /// Sets the collation for this column (MySQL `COLLATE`).
+    pub fn collate(mut self, collate: &'static str) -> Self {
+        self.collate = Some(collate);
+        self
+    }
+
+    /// Adds `ON UPDATE CURRENT_TIMESTAMP` behavior (MySQL).
+    pub fn on_update_current_timestamp(mut self) -> Self {
+        self.on_update_current_timestamp = true;
+        self
+    }
+
+    /// Marks the column as INVISIBLE (MySQL 8).
+    pub fn invisible(mut self) -> Self {
+        self.invisible = true;
+        self
+    }
+
+    /// Adds a CHECK constraint expression (MySQL 8).
+    pub fn check(mut self, expression: &'static str) -> Self {
+        self.check = Some(expression);
+        self
+    }
+
+    /// Defines this column as a VIRTUAL generated column (MySQL) with the given expression.
+    pub fn generated_virtual(mut self, expression: &'static str) -> Self {
+        self.generated = Some(GeneratedColumn::Virtual(expression));
+        self
+    }
+
+    /// Defines this column as a STORED generated column (MySQL) with the given expression.
+    pub fn generated_stored(mut self, expression: &'static str) -> Self {
+        self.generated = Some(GeneratedColumn::Stored(expression));
         self
     }
 
@@ -333,6 +445,46 @@ impl<T> Column<T> {
     /// ```
     pub fn is_indexed(&self) -> bool {
         self.indexed
+    }
+
+    /// Returns whether this column is AUTO_INCREMENT.
+    pub fn is_auto_increment(&self) -> bool {
+        self.auto_increment
+    }
+
+    /// Returns the column comment if set.
+    pub fn get_comment(&self) -> Option<&'static str> {
+        self.comment
+    }
+
+    /// Returns the character set if set.
+    pub fn get_charset(&self) -> Option<&'static str> {
+        self.charset
+    }
+
+    /// Returns the collation if set.
+    pub fn get_collate(&self) -> Option<&'static str> {
+        self.collate
+    }
+
+    /// Returns whether the column has ON UPDATE CURRENT_TIMESTAMP behavior.
+    pub fn has_on_update_current_timestamp(&self) -> bool {
+        self.on_update_current_timestamp
+    }
+
+    /// Returns whether the column is INVISIBLE.
+    pub fn is_invisible(&self) -> bool {
+        self.invisible
+    }
+
+    /// Returns the CHECK constraint expression if set.
+    pub fn get_check(&self) -> Option<&'static str> {
+        self.check
+    }
+
+    /// Returns the generated column definition if set.
+    pub fn get_generated(&self) -> Option<GeneratedColumn> {
+        self.generated
     }
 }
 

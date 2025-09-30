@@ -5,6 +5,8 @@
 //! This module provides query filtering functionality for building WHERE clauses.
 //! It includes filter types and conditions for type-safe query building.
 
+use std::fmt::Debug;
+
 use crate::schema::Value;
 
 mod filters;
@@ -24,7 +26,7 @@ pub use filters::*;
 /// - `Lt`: Less than (<)
 /// - `Lte`: Less than or equal (<=)
 /// - `In`: IN clause (currently unused)
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum FilterType {
     /// Equality operator (=)
     Eq,
@@ -40,6 +42,10 @@ pub enum FilterType {
     Gte,
     /// Less than or equal operator (<=)
     Lte,
+
+    Or,
+
+    And,
 }
 
 impl FilterType {
@@ -57,6 +63,8 @@ impl FilterType {
             FilterType::Lt => "<",
             FilterType::Gte => ">=",
             FilterType::Lte => "<=",
+            FilterType::Or => "OR",
+            FilterType::And => "AND",
         }
     }
 }
@@ -96,6 +104,154 @@ pub struct Filter {
     pub column_two: Option<(String, String)>,
     /// The type of comparison to perform
     pub filter_type: FilterType,
+}
+
+#[derive(Debug)]
+pub struct OrFilter {
+    pub(crate) filter1: Box<dyn Filtered>,
+    pub(crate) filter2: Box<dyn Filtered>,
+}
+
+#[derive(Debug)]
+pub struct AndFilter {
+    pub(crate) filter1: Box<dyn Filtered>,
+    pub(crate) filter2: Box<dyn Filtered>,
+}
+
+/// Trait for filter types that can be used in query WHERE clauses.
+///
+/// This trait provides a unified interface for both simple filters ([`Filter`])
+/// and composite OR filters ([`OrFilter`]). It enables dynamic dispatch of
+/// filter operations during query building.
+///
+/// # Contract
+///
+/// Implementors must ensure:
+/// - When `is_or_filter()` returns `true`, both `filter1()` and `filter2()` must return `Some`
+/// - When `is_or_filter()` returns `false`, both `filter1()` and `filter2()` must return `None`
+/// - At least one of `value()` or `column_two()` should return `Some` for simple comparisons
+pub trait Filtered: Debug {
+    fn value(&self) -> Option<&Value>;
+    fn column_one(&self) -> Option<&(String, String)>;
+    fn column_two(&self) -> Option<&(String, String)>;
+    fn filter_type(&self) -> FilterType;
+    fn is_or_filter(&self) -> bool;
+    fn is_and_filter(&self) -> bool;
+
+    fn filter1(&self) -> Option<&dyn Filtered>;
+    fn filter2(&self) -> Option<&dyn Filtered>;
+}
+
+impl Filtered for Filter {
+    fn value(&self) -> Option<&Value> {
+        self.value.as_ref()
+    }
+
+    fn column_one(&self) -> Option<&(String, String)> {
+        Some(&self.column_one)
+    }
+
+    fn column_two(&self) -> Option<&(String, String)> {
+        self.column_two.as_ref()
+    }
+
+    fn filter_type(&self) -> FilterType {
+        self.filter_type
+    }
+
+    fn filter1(&self) -> Option<&dyn Filtered> {
+        None
+    }
+
+    fn filter2(&self) -> Option<&dyn Filtered> {
+        None
+    }
+
+    fn is_or_filter(&self) -> bool {
+        false
+    }
+
+    fn is_and_filter(&self) -> bool {
+        false
+    }
+}
+
+impl Filtered for OrFilter {
+    fn value(&self) -> Option<&Value> {
+        // if self.filter1.value.is_some() {
+        //     self.filter1.value.as_ref()
+        // } else {
+        //     self.filter2.value.as_ref()
+        // }
+        None
+    }
+
+    fn column_one(&self) -> Option<&(String, String)> {
+        None
+    }
+
+    fn column_two(&self) -> Option<&(String, String)> {
+        None
+    }
+
+    fn filter_type(&self) -> FilterType {
+        FilterType::Or
+    }
+
+    fn filter1(&self) -> Option<&dyn Filtered> {
+        Some(&*self.filter1)
+    }
+
+    fn filter2(&self) -> Option<&dyn Filtered> {
+        Some(&*self.filter2)
+    }
+
+    fn is_or_filter(&self) -> bool {
+        true
+    }
+
+    fn is_and_filter(&self) -> bool {
+        false
+    }
+}
+
+impl Filtered for AndFilter {
+    fn value(&self) -> Option<&Value> {
+        // if self.filter1.value.is_some() {
+        //     self.filter1.value.as_ref()
+        // } else {
+        //     self.filter2.value.as_ref()
+        // }
+        None
+    }
+
+    fn column_one(&self) -> Option<&(String, String)> {
+        None
+    }
+
+    fn column_two(&self) -> Option<&(String, String)> {
+        None
+    }
+
+    fn filter1(&self) -> Option<&dyn Filtered> {
+        Some(&*self.filter1)
+    }
+
+    fn filter2(&self) -> Option<&dyn Filtered> {
+        Some(&*self.filter2)
+    }
+
+    fn is_or_filter(&self) -> bool {
+        false
+    }
+
+    fn is_and_filter(&self) -> bool {
+        true
+    }
+
+    fn filter_type(&self) -> FilterType {
+        FilterType::And
+    }
 }
 
 impl Default for Filter {
