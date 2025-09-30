@@ -7,10 +7,12 @@
 //! returning of inserted rows and handles value binding for various SQL types.
 
 use crate::database::DatabaseError;
-use crate::schema::{ColumnInfo, Schema, Value};
-use crate::{StartingSql, get_starting_sql};
+use crate::row::Row;
+use crate::schema::{ColumnInfo, Schema, Select, Value};
+use crate::{StartingSql, get_starting_sql, returning_sql};
 use sqlx::MySqlPool;
-use std::fmt::Debug;
+use std::fmt::{Debug, format};
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// A type-safe insert operation for a given schema type.
@@ -43,13 +45,13 @@ use std::sync::Arc;
 ///         .unwrap();
 /// }
 /// ```
-pub struct Insert<T: Schema + Debug> {
+pub struct Insert<T> {
     /// The data to be inserted.
     data: T,
     /// The database connection pool.
     conn: Arc<MySqlPool>,
     /// Whether to return the inserted row(s).
-    returning: bool,
+    returning: Vec<&'static str>,
 }
 
 impl<T: Schema + Debug> Insert<T> {
@@ -67,7 +69,7 @@ impl<T: Schema + Debug> Insert<T> {
         Self {
             data,
             conn,
-            returning: false,
+            returning: Vec::new(),
         }
     }
 
@@ -76,8 +78,8 @@ impl<T: Schema + Debug> Insert<T> {
     /// # Returns
     ///
     /// The [`Insert`] instance with returning enabled.
-    pub fn returning(mut self) -> Self {
-        self.returning = true;
+    pub fn returning<S: Select + Debug>(mut self, select: S) -> Self {
+        self.returning = select.get_selected();
         self
     }
 
@@ -113,7 +115,7 @@ impl<T: Schema + Debug> Insert<T> {
     ///     .unwrap();
     /// # }
     /// ```
-    pub async fn execute(self) -> Result<(), DatabaseError> {
+    pub async fn execute(self) -> Result<Option<Vec<Row<T>>>, DatabaseError> {
         let sql = get_starting_sql(StartingSql::Insert, T::table_name());
         let sql = Self::insert_sql(sql, T::get_all_columns());
 
@@ -235,7 +237,27 @@ impl<T: Schema + Debug> Insert<T> {
 
         query.execute(&mut *conn).await?;
 
-        Ok(())
+        if self.returning.is_empty() {
+            return Ok(None);
+        } else {
+            let sql = get_starting_sql(StartingSql::Select, T::table_name());
+            let mut sql = returning_sql(sql, &self.returning);
+
+            sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
+
+            let mut conn = self.conn.acquire().await?;
+            let values = self.data.values();
+
+            let id = values.get("id").unwrap();
+
+            let data = sqlx::query(&sql)
+                .bind(id.to_string())
+                .execute(&mut *conn)
+                .await?;
+
+            let rows = Row::<T>::from_mysql_result(data, &self.returning);
+            Ok(Some(rows))
+        }
     }
 
     pub(crate) fn insert_sql(mut sql: String, columns: Vec<ColumnInfo>) -> String {
@@ -269,7 +291,7 @@ pub struct InsertMany<T: Schema + Debug> {
     /// The database connection pool.
     conn: Arc<MySqlPool>,
     /// Whether to return the inserted rows.
-    returning: bool,
+    returning: Vec<&'static str>,
 }
 
 impl<T: Schema + Debug> InsertMany<T> {
@@ -278,24 +300,25 @@ impl<T: Schema + Debug> InsertMany<T> {
         Self {
             data,
             conn,
-            returning: false,
+            returning: Vec::new(),
         }
     }
 
     /// Configures the insert to return the inserted row(s).
-    pub fn returning(mut self) -> Self {
-        self.returning = true;
+    pub fn returning<S: Select + Debug>(mut self, select: S) -> Self {
+        self.returning = select.get_selected();
         self
     }
 
     /// Executes the insert operation for all records asynchronously.
-    pub async fn execute(self) -> Result<(), DatabaseError> {
+    pub async fn execute(self) -> Result<Option<Vec<Row<T>>>, DatabaseError> {
         let sql = get_starting_sql(StartingSql::Insert, T::table_name());
         let sql = Insert::<T>::insert_sql(sql, T::get_all_columns());
 
         let mut conn = self.conn.acquire().await?;
+        let mut final_rows = Vec::new();
 
-        for record in self.data.into_iter() {
+        for record in &self.data {
             let values = record.values();
             let columns = T::get_all_columns();
             let mut query = sqlx::query(&sql);
@@ -411,8 +434,32 @@ impl<T: Schema + Debug> InsertMany<T> {
             }
 
             query.execute(&mut *conn).await?;
+
+            if self.returning.is_empty() {
+                return Ok(None);
+            } else {
+                for record in &self.data {
+                    let sql = get_starting_sql(StartingSql::Select, T::table_name());
+                    let mut sql = returning_sql(sql, &self.returning);
+
+                    sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
+
+                    let mut conn = self.conn.acquire().await?;
+                    let values = record.values();
+
+                    let id = values.get("id").unwrap();
+
+                    let data = sqlx::query(&sql)
+                        .bind(id.to_string())
+                        .execute(&mut *conn)
+                        .await?;
+
+                    let rows = Row::<T>::from_mysql_result(data, &self.returning);
+                    final_rows.extend(rows);
+                }
+            }
         }
 
-        Ok(())
+        Ok(Some(final_rows))
     }
 }

@@ -100,3 +100,31 @@ pub(crate) fn get_starting_sql(starting_sql: StartingSql, table_name: &str) -> S
         StartingSql::Insert => format!("INSERT INTO `{}` (", table_name),
     }
 }
+
+#[cfg(not(feature = "mysql"))]
+pub(crate) fn returning_sql(mut sql: String, returning: &Vec<&'static str>) -> String {
+    if returning.is_empty() {
+        return sql;
+    }
+
+    sql.push_str(" RETURNING ");
+    for (i, col) in returning.iter().enumerate() {
+        if i > 0 {
+            sql.push_str(", ");
+        }
+        sql.push_str(col);
+    }
+    sql.push_str(";");
+    sql
+}
+
+#[cfg(feature = "mysql")]
+pub(crate) fn returning_sql(mut sql: String, returning: &Vec<&'static str>) -> String {
+    if returning.is_empty() {
+        return sql;
+    }
+
+    sql.push_str(&returning.join(", "));
+
+    sql
+}

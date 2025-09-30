@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.6.0] - 2025-10-01
+
+New api like Users::selected().something
+New api like Users::selected().all()
+
 ## [0.5.0] - 2025-09-30
 
 ### Added
