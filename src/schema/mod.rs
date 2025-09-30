@@ -284,6 +284,7 @@ macro_rules! define_schema {
                     }
                 )*
 
+                #[allow(dead_code)]
                 fn selected() -> Self {
                     Self {
                         $(
