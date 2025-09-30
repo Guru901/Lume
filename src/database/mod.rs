@@ -10,7 +10,11 @@ use sqlx::Executor;
 use std::{fmt::Debug, sync::Arc};
 
 use crate::{
-    operations::{insert::Insert, insert::InsertMany, query::Query},
+    operations::{
+        delete::Delete,
+        insert::{Insert, InsertMany},
+        query::Query,
+    },
     row::Row,
     schema::{ColumnInfo, Schema, Select},
     table::get_all_tables,
@@ -142,6 +146,10 @@ impl Database {
     /// ```
     pub fn insert<T: Schema + Debug>(&self, data: T) -> Insert<T> {
         Insert::new(data, Arc::clone(&self.connection))
+    }
+
+    pub fn delete<T: Schema + Debug>(&self) -> Delete<T> {
+        Delete::new(Arc::clone(&self.connection))
     }
 
     /// Creates a new type-safe insert-many for the specified schema type.
