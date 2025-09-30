@@ -525,8 +525,6 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         let sql = Self::joins_sql(sql, &self.joins);
         let sql = Self::filter_sql(sql, self.filters);
 
-        println!("GENERATED SQL: {}", sql);
-
         let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
         let data = sqlx::query(&sql)
             .fetch_all(&mut *conn)
