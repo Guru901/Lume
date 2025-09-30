@@ -4,6 +4,7 @@
 
 New api like Users::selected().something
 New api like Users::selected().all()
+insert and insert_many returns Result<Option<Vec<Row<T>>>, DatabaseError> now
 
 ## [0.5.0] - 2025-09-30
 
