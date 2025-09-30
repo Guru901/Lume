@@ -507,7 +507,7 @@ impl<T: Schema + Sync + Send + 'static> TableDefinition for SchemaWrapper<T> {
                     def.push_str(" UNIQUE");
                 }
 
-                if col.auto_increment {
+                if col.auto_increment && col.primary_key && is_mysql_integer_type(col.data_type) {
                     def.push_str(" AUTO_INCREMENT");
                 }
 
@@ -572,6 +572,18 @@ impl<T: Schema + Sync + Send + 'static> TableDefinition for SchemaWrapper<T> {
 
     fn clone_box(&self) -> Box<dyn TableDefinition> {
         Box::new(self.clone())
+    }
+}
+
+/// Returns true if a MySQL data type string represents an integer type.
+fn is_mysql_integer_type(data_type: &str) -> bool {
+    match data_type {
+        // Signed
+        "TINYINT" | "SMALLINT" | "MEDIUMINT" | "INT" | "INTEGER" | "BIGINT" |
+        // Unsigned variants may appear with a space and suffix
+        "TINYINT UNSIGNED" | "SMALLINT UNSIGNED" | "MEDIUMINT UNSIGNED" |
+        "INT UNSIGNED" | "INTEGER UNSIGNED" | "BIGINT UNSIGNED" => true,
+        _ => false,
     }
 }
 
