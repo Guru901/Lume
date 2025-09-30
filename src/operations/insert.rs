@@ -246,56 +246,10 @@ impl<T: Schema + Debug> Insert<T> {
         select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
 
         let mut conn = self.conn.acquire().await?;
-        let values = self.data.values();
 
-        // Determine id to bind
-        let maybe_id_value = values.get("id");
         let mut query = sqlx::query(&select_sql);
-        if let Some(id_val) = maybe_id_value {
-            match id_val {
-                Value::Int8(v) => {
-                    query = query.bind(*v as i64);
-                }
-                Value::Int16(v) => {
-                    query = query.bind(*v as i64);
-                }
-                Value::Int32(v) => {
-                    query = query.bind(*v as i64);
-                }
-                Value::Int64(v) => {
-                    query = query.bind(*v);
-                }
-                Value::UInt8(v) => {
-                    query = query.bind(*v as u64);
-                }
-                Value::UInt16(v) => {
-                    query = query.bind(*v as u64);
-                }
-                Value::UInt32(v) => {
-                    query = query.bind(*v as u64);
-                }
-                Value::UInt64(v) => {
-                    query = query.bind(*v);
-                }
-                Value::String(v) => {
-                    query = query.bind(v.as_str());
-                }
-                Value::Float32(v) => {
-                    query = query.bind(*v as f64);
-                }
-                Value::Float64(v) => {
-                    query = query.bind(*v);
-                }
-                Value::Bool(v) => {
-                    query = query.bind(*v);
-                }
-                Value::Null => {
-                    query = query.bind(result.last_insert_id());
-                }
-            }
-        } else {
-            query = query.bind(result.last_insert_id());
-        }
+
+        query = query.bind(result.last_insert_id());
 
         let rows = query.fetch_all(&mut *conn).await?;
         let rows = Row::<T>::from_mysql_row(rows, None);
