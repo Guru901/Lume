@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.2] - 2025-09-29
+
+- Added support for selecting columns in joins. Check the docs for more info.
+
 ## [0.4.1] - 2025-09-29
 
 - Added support for all join types
