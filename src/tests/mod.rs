@@ -1,4 +1,5 @@
 #[cfg(test)]
+#[allow(dead_code)]
 mod tests {
     use crate::define_schema;
     use crate::row::Row;
