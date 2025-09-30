@@ -275,6 +275,24 @@ macro_rules! define_schema {
                 )*
             }
 
+            impl [<Query $struct_name>] {
+
+                $(
+                    fn $name(mut self) -> Self {
+                        self.$name = true;
+                        self
+                    }
+                )*
+
+                fn selected() -> Self {
+                    Self {
+                        $(
+                            $name: false,
+                        )*
+                    }
+                }
+            }
+
             impl Default for [<Query $struct_name>] {
                 fn default() -> Self {
                     Self {
@@ -293,6 +311,7 @@ macro_rules! define_schema {
                         )*
                     }
                 }
+
 
                 fn get_selected(self) -> Vec<&'static str> {
                     let mut vec = Vec::new();
