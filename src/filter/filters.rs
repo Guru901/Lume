@@ -302,6 +302,17 @@ where
     }
 }
 
-pub fn or(filter1: Filter, filter2: Filter) -> OrFilter {
-    OrFilter { filter1, filter2 }
-}
+/// Creates an OR filter that combines two filter conditions.
+///
+/// # Arguments
+///
+/// * `filter1` - The first filter condition
+/// * `filter2` - The second filter condition
+///
+/// # Returns
+///
+/// An [`OrFilter`] representing the OR composition of both conditions.
+///
+/// # Example
+///
+///
