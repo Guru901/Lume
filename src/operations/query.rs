@@ -609,14 +609,22 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     fn build_filter_expr(filter: &dyn Filtered) -> String {
         if filter.is_or_filter() || filter.is_and_filter() {
             let op = if filter.is_or_filter() { "OR" } else { "AND" };
-            let left = Self::build_filter_expr(filter.filter1().unwrap());
-            let right = Self::build_filter_expr(filter.filter2().unwrap());
+            let Some(f1) = filter.filter1() else {
+                eprintln!("Warning: Composite filter missing filter1, using tautology");
+                return "1=1".to_string();
+            };
+            let Some(f2) = filter.filter2() else {
+                eprintln!("Warning: Composite filter missing filter2, using tautology");
+                return "1=1".to_string();
+            };
+            let left = Self::build_filter_expr(f1);
+            let right = Self::build_filter_expr(f2);
             return format!("({} {} {})", left, op, right);
         }
-
-        let col1 = filter
-            .column_one()
-            .expect("simple filter must have column_one");
+        let Some(col1) = filter.column_one() else {
+            eprintln!("Warning: Simple filter missing column_one, using tautology");
+            return "1=1".to_string();
+        };
         if let Some(value) = filter.value() {
             match value {
                 Value::String(inner) => {
