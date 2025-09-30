@@ -46,14 +46,14 @@ impl<T: Schema + Debug> Delete<T> {
         self
     }
 
-    /// Executes the query and returns the results.
+    /// Executes the delete operation.
     ///
-    /// This method builds and executes the SQL query, returning type-safe
-    /// row objects that can be used to access column values.
+    /// This method builds and executes the SQL DELETE query, removing records
+    /// that match the specified filters.
     ///
     /// # Returns
     ///
-    /// - `Ok(Vec<Row<T>>)`: A vector of type-safe row objects
+    /// - `Ok(())`: If the delete operation was successful
     /// - `Err(DatabaseError)`: If there was an error executing the query
     ///
     /// # Example
@@ -75,15 +75,12 @@ impl<T: Schema + Debug> Delete<T> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let users = db.query::<User, QueryUser>()
+    ///     db.delete::<User>()
     ///         .filter(eq_value(User::name(), Value::String("John".to_string())))
     ///         .execute()
     ///         .await?;
     ///
-    ///     for user in users {
-    ///         let name: Option<String> = user.get(User::name());
-    ///         println!("User: {:?}", name);
-    ///     }
+    ///     println!("Users deleted successfully");
     ///     Ok(())
     /// }
     /// ```
