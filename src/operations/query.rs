@@ -92,6 +92,7 @@ pub(crate) enum JoinType {
     Left,
     Inner,
     Right,
+    #[cfg(not(feature = "mysql"))]
     Full,
     Cross,
 }
@@ -575,6 +576,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
                 JoinType::Left => "LEFT JOIN",
                 JoinType::Inner => "INNER JOIN",
                 JoinType::Right => "RIGHT JOIN",
+                #[cfg(not(feature = "mysql"))]
                 JoinType::Full => "FULL JOIN",
                 JoinType::Cross => "CROSS JOIN",
             };
