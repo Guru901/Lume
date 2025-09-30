@@ -44,6 +44,8 @@ pub enum FilterType {
     Lte,
 
     Or,
+
+    And,
 }
 
 impl FilterType {
@@ -62,6 +64,7 @@ impl FilterType {
             FilterType::Gte => ">=",
             FilterType::Lte => "<=",
             FilterType::Or => "OR",
+            FilterType::And => "AND",
         }
     }
 }
@@ -171,10 +174,6 @@ impl Filtered for Filter {
     fn is_and_filter(&self) -> bool {
         false
     }
-
-    fn filter_type(&self) -> FilterType {
-        self.filter_type
-    }
 }
 
 impl Filtered for OrFilter {
@@ -195,8 +194,12 @@ impl Filtered for OrFilter {
         None
     }
 
-    fn filter1(&self) -> Option<&Filter> {
-        Some(&self.filter1)
+    fn filter_type(&self) -> FilterType {
+        FilterType::Or
+    }
+
+    fn filter1(&self) -> Option<&dyn Filtered> {
+        Some(&*self.filter1)
     }
 
     fn filter2(&self) -> Option<&dyn Filtered> {
@@ -244,6 +247,10 @@ impl Filtered for AndFilter {
 
     fn is_and_filter(&self) -> bool {
         true
+    }
+
+    fn filter_type(&self) -> FilterType {
+        FilterType::And
     }
 }
 
