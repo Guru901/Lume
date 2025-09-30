@@ -11,8 +11,7 @@ use crate::row::Row;
 use crate::schema::{ColumnInfo, Schema, Select, Value};
 use crate::{StartingSql, get_starting_sql, returning_sql};
 use sqlx::MySqlPool;
-use std::fmt::{Debug, format};
-use std::marker::PhantomData;
+use std::fmt::Debug;
 use std::sync::Arc;
 
 /// A type-safe insert operation for a given schema type.
@@ -235,29 +234,72 @@ impl<T: Schema + Debug> Insert<T> {
             }
         }
 
-        query.execute(&mut *conn).await?;
+        let result = query.execute(&mut *conn).await?;
 
         if self.returning.is_empty() {
             return Ok(None);
-        } else {
-            let sql = get_starting_sql(StartingSql::Select, T::table_name());
-            let mut sql = returning_sql(sql, &self.returning);
-
-            sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
-
-            let mut conn = self.conn.acquire().await?;
-            let values = self.data.values();
-
-            let id = values.get("id").unwrap();
-
-            let data = sqlx::query(&sql)
-                .bind(id.to_string())
-                .execute(&mut *conn)
-                .await?;
-
-            let rows = Row::<T>::from_mysql_result(data, &self.returning);
-            Ok(Some(rows))
         }
+
+        // Build SELECT ... WHERE id = ? using either provided id or last_insert_id
+        let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
+        let mut select_sql = returning_sql(select_sql, &self.returning);
+        select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
+
+        let mut conn = self.conn.acquire().await?;
+        let values = self.data.values();
+
+        // Determine id to bind
+        let maybe_id_value = values.get("id");
+        let mut query = sqlx::query(&select_sql);
+        if let Some(id_val) = maybe_id_value {
+            match id_val {
+                Value::Int8(v) => {
+                    query = query.bind(*v as i64);
+                }
+                Value::Int16(v) => {
+                    query = query.bind(*v as i64);
+                }
+                Value::Int32(v) => {
+                    query = query.bind(*v as i64);
+                }
+                Value::Int64(v) => {
+                    query = query.bind(*v);
+                }
+                Value::UInt8(v) => {
+                    query = query.bind(*v as u64);
+                }
+                Value::UInt16(v) => {
+                    query = query.bind(*v as u64);
+                }
+                Value::UInt32(v) => {
+                    query = query.bind(*v as u64);
+                }
+                Value::UInt64(v) => {
+                    query = query.bind(*v);
+                }
+                Value::String(v) => {
+                    query = query.bind(v.as_str());
+                }
+                Value::Float32(v) => {
+                    query = query.bind(*v as f64);
+                }
+                Value::Float64(v) => {
+                    query = query.bind(*v);
+                }
+                Value::Bool(v) => {
+                    query = query.bind(*v);
+                }
+                Value::Null => {
+                    query = query.bind(result.last_insert_id());
+                }
+            }
+        } else {
+            query = query.bind(result.last_insert_id());
+        }
+
+        let rows = query.fetch_all(&mut *conn).await?;
+        let rows = Row::<T>::from_mysql_row(rows, None);
+        Ok(Some(rows))
     }
 
     pub(crate) fn insert_sql(mut sql: String, columns: Vec<ColumnInfo>) -> String {
@@ -317,6 +359,7 @@ impl<T: Schema + Debug> InsertMany<T> {
 
         let mut conn = self.conn.acquire().await?;
         let mut final_rows = Vec::new();
+        let mut inserted_ids: Vec<u64> = Vec::new();
 
         for record in &self.data {
             let values = record.values();
@@ -433,31 +476,44 @@ impl<T: Schema + Debug> InsertMany<T> {
                 }
             }
 
-            query.execute(&mut *conn).await?;
+            let result = query.execute(&mut *conn).await?;
 
-            if self.returning.is_empty() {
-                return Ok(None);
-            } else {
-                for record in &self.data {
-                    let sql = get_starting_sql(StartingSql::Select, T::table_name());
-                    let mut sql = returning_sql(sql, &self.returning);
-
-                    sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
-
-                    let mut conn = self.conn.acquire().await?;
-                    let values = record.values();
-
-                    let id = values.get("id").unwrap();
-
-                    let data = sqlx::query(&sql)
-                        .bind(id.to_string())
-                        .execute(&mut *conn)
-                        .await?;
-
-                    let rows = Row::<T>::from_mysql_result(data, &self.returning);
-                    final_rows.extend(rows);
+            // Capture id: prefer provided id, else last_insert_id
+            if let Some(id_val) = values.get("id") {
+                match id_val {
+                    Value::Int64(v) => inserted_ids.push(*v as u64),
+                    Value::Int32(v) => inserted_ids.push(*v as u64),
+                    Value::Int16(v) => inserted_ids.push(*v as u64),
+                    Value::Int8(v) => inserted_ids.push(*v as u64),
+                    Value::UInt64(v) => inserted_ids.push(*v),
+                    Value::UInt32(v) => inserted_ids.push(*v as u64),
+                    Value::UInt16(v) => inserted_ids.push(*v as u64),
+                    Value::UInt8(v) => inserted_ids.push(*v as u64),
+                    Value::String(_)
+                    | Value::Float32(_)
+                    | Value::Float64(_)
+                    | Value::Bool(_)
+                    | Value::Null => inserted_ids.push(result.last_insert_id()),
                 }
+            } else {
+                inserted_ids.push(result.last_insert_id());
             }
+        }
+
+        if self.returning.is_empty() {
+            return Ok(None);
+        }
+
+        // Fetch selected columns for all inserted ids
+        let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
+        let mut select_sql = returning_sql(select_sql, &self.returning);
+        select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
+
+        for id in inserted_ids {
+            let q = sqlx::query(&select_sql).bind(id);
+            let rows = q.fetch_all(&mut *conn).await?;
+            let rows = Row::<T>::from_mysql_row(rows, None);
+            final_rows.extend(rows);
         }
 
         Ok(Some(final_rows))
