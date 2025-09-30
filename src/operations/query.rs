@@ -532,12 +532,32 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         let sql = get_starting_sql(StartingSql::Select, T::table_name());
         let sql = Self::select_sql(sql, self.select, T::table_name(), &self.joins);
         let sql = Self::joins_sql(sql, &self.joins);
-        let sql = Self::filter_sql(sql, self.filters);
+        let mut params: Vec<Value> = Vec::new();
+        let sql = Self::filter_sql(sql, self.filters, &mut params);
 
         println!("SQL: {sql}");
 
         let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
-        let data = sqlx::query(&sql)
+        let mut query = sqlx::query(&sql);
+        for v in params {
+            query = match v {
+                Value::String(s) => query.bind(s),
+                Value::Int8(i) => query.bind(i),
+                Value::Int16(i) => query.bind(i),
+                Value::Int32(i) => query.bind(i),
+                Value::Int64(i) => query.bind(i),
+                Value::UInt8(u) => query.bind(u),
+                Value::UInt16(u) => query.bind(u),
+                Value::UInt32(u) => query.bind(u),
+                Value::UInt64(u) => query.bind(u),
+                Value::Float32(f) => query.bind(f),
+                Value::Float64(f) => query.bind(f),
+                Value::Bool(b) => query.bind(b),
+                Value::Null => query, // Nulls handled in SQL via IS/IS NOT
+            };
+        }
+
+        let data = query
             .fetch_all(&mut *conn)
             .await
             .map_err(DatabaseError::from)?;
@@ -606,7 +626,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         sql
     }
 
-    fn build_filter_expr(filter: &dyn Filtered) -> String {
+    fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) -> String {
         if filter.is_or_filter() || filter.is_and_filter() {
             let op = if filter.is_or_filter() { "OR" } else { "AND" };
             let Some(f1) = filter.filter1() else {
@@ -617,8 +637,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
                 eprintln!("Warning: Composite filter missing filter2, using tautology");
                 return "1=1".to_string();
             };
-            let left = Self::build_filter_expr(f1);
-            let right = Self::build_filter_expr(f2);
+            let left = Self::build_filter_expr(f1, params);
+            let right = Self::build_filter_expr(f2, params);
             return format!("({} {} {})", left, op, right);
         }
         let Some(col1) = filter.column_one() else {
@@ -627,24 +647,22 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         };
         if let Some(value) = filter.value() {
             match value {
-                Value::String(inner) => {
-                    let escaped = inner.replace('\'', "''");
-                    format!(
-                        "{}.{} {} '{}'",
-                        col1.0,
-                        col1.1,
-                        filter.filter_type().to_sql(),
-                        escaped
-                    )
+                Value::Null => {
+                    // Special handling for NULL comparisons
+                    let op = filter.filter_type();
+                    let null_sql = match op {
+                        crate::filter::FilterType::Eq => "IS NULL",
+                        crate::filter::FilterType::Neq => "IS NOT NULL",
+                        _ => {
+                            // Unsupported operator with NULL; force false to avoid surprising results
+                            return "1=0".to_string();
+                        }
+                    };
+                    format!("{}.{} {}", col1.0, col1.1, null_sql)
                 }
                 _ => {
-                    format!(
-                        "{}.{} {} {}",
-                        col1.0,
-                        col1.1,
-                        filter.filter_type().to_sql(),
-                        value
-                    )
+                    params.push(value.clone());
+                    format!("{}.{} {} ?", col1.0, col1.1, filter.filter_type().to_sql())
                 }
             }
         } else if let Some(col2) = filter.column_two() {
@@ -662,7 +680,11 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         }
     }
 
-    pub(crate) fn filter_sql(mut sql: String, filters: Vec<Box<dyn Filtered>>) -> String {
+    pub(crate) fn filter_sql(
+        mut sql: String,
+        filters: Vec<Box<dyn Filtered>>,
+        params: &mut Vec<Value>,
+    ) -> String {
         if filters.is_empty() {
             return sql;
         }
@@ -670,7 +692,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         sql.push_str(" WHERE ");
         let mut parts: Vec<String> = Vec::with_capacity(filters.len());
         for filter in &filters {
-            parts.push(Self::build_filter_expr(filter.as_ref()));
+            parts.push(Self::build_filter_expr(filter.as_ref(), params));
         }
         sql.push_str(&parts.join(" AND "));
 
