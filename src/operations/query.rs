@@ -408,12 +408,17 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     ///     Ok(())
     /// }
     /// ```
-    pub fn full_join<FullJoinSchema: Schema + Debug>(mut self, filter: Filter) -> Self {
+    pub fn full_join<FullJoinSchema: Schema + Debug, FullJoinSchemaSelect: Select + Debug>(
+        mut self,
+        filter: Filter,
+        select_schema: FullJoinSchemaSelect,
+    ) -> Self {
         self.joins.push(JoinInfo {
             table_name: FullJoinSchema::table_name().to_string(),
             condition: filter,
             join_type: JoinType::Full,
             columns: FullJoinSchema::get_all_columns(),
+            selected_columns: select_schema.get_selected(),
         });
 
         self
