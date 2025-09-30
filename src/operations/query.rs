@@ -83,6 +83,8 @@ pub(crate) struct JoinInfo {
     pub(crate) join_type: JoinType,
 
     pub(crate) columns: Vec<ColumnInfo>,
+
+    pub(crate) selected_columns: Vec<&'static str>,
 }
 
 #[derive(Debug)]
@@ -215,18 +217,23 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let results = db.query::<User, QueryUser>()
-    ///         .left_join::<Post>(eq_column(User::id(), Post::user_id()))
+    ///         .left_join::<Post, QueryPost>(eq_column(User::id(), Post::user_id()), QueryPost { title: true, ..Default::default() })
     ///         .execute()
     ///         .await?;
     ///     Ok(())
     /// }
     /// ```
-    pub fn left_join<LeftJoinSchema: Schema + Debug>(mut self, filter: Filter) -> Self {
+    pub fn left_join<LeftJoinSchema: Schema + Debug, LeftJoinSchemaSelect: Select + Debug>(
+        mut self,
+        filter: Filter,
+        select_schema: LeftJoinSchemaSelect,
+    ) -> Self {
         self.joins.push(JoinInfo {
             table_name: LeftJoinSchema::table_name().to_string(),
             condition: filter,
             join_type: JoinType::Left,
             columns: LeftJoinSchema::get_all_columns(),
+            selected_columns: select_schema.get_selected(),
         });
 
         self
@@ -271,18 +278,23 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let results = db.query::<User, QueryUser>()
-    ///         .inner_join::<Post>(eq_column(User::id(), Post::user_id()))
+    ///         .inner_join::<Post, QueryPost>(eq_column(User::id(), Post::user_id()), QueryPost { title: true, ..Default::default() })
     ///         .execute()
     ///         .await?;
     ///     Ok(())
     /// }
     /// ```
-    pub fn inner_join<InnerJoinSchema: Schema + Debug>(mut self, filter: Filter) -> Self {
+    pub fn inner_join<InnerJoinSchema: Schema + Debug, InnerJoinSchemaSelect: Select + Debug>(
+        mut self,
+        filter: Filter,
+        select_schema: InnerJoinSchemaSelect,
+    ) -> Self {
         self.joins.push(JoinInfo {
             table_name: InnerJoinSchema::table_name().to_string(),
             condition: filter,
             join_type: JoinType::Inner,
             columns: InnerJoinSchema::get_all_columns(),
+            selected_columns: select_schema.get_selected(),
         });
 
         self
@@ -328,18 +340,23 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let results = db.query::<User, QueryUser>()
-    ///         .right_join::<Post>(eq_column(User::id(), Post::user_id()))
+    ///         .right_join::<Post, QueryPost>(eq_column(User::id(), Post::user_id()), QueryPost { title: true, ..Default::default() })
     ///         .execute()
     ///         .await?;
     ///     Ok(())
     /// }
     /// ```
-    pub fn right_join<RightJoinSchema: Schema + Debug>(mut self, filter: Filter) -> Self {
+    pub fn right_join<RightJoinSchema: Schema + Debug, RightJoinSchemaSelect: Select + Debug>(
+        mut self,
+        filter: Filter,
+        select_schema: RightJoinSchemaSelect,
+    ) -> Self {
         self.joins.push(JoinInfo {
             table_name: RightJoinSchema::table_name().to_string(),
             condition: filter,
             join_type: JoinType::Right,
             columns: RightJoinSchema::get_all_columns(),
+            selected_columns: select_schema.get_selected(),
         });
 
         self
@@ -440,18 +457,22 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let results = db.query::<User, QueryUser>()
-    ///         .cross_join::<Post>()
+    ///         .cross_join::<Post, QueryPost>(QueryPost { title: true, ..Default::default() })
     ///         .execute()
     ///         .await?;
     ///     Ok(())
     /// }
     /// ```
-    pub fn cross_join<CrossJoinSchema: Schema + Debug>(mut self) -> Self {
+    pub fn cross_join<CrossJoinSchema: Schema + Debug, CrossJoinSchemaSelect: Select + Debug>(
+        mut self,
+        select_schema: CrossJoinSchemaSelect,
+    ) -> Self {
         self.joins.push(JoinInfo {
             table_name: CrossJoinSchema::table_name().to_string(),
             condition: Filter::default(),
             join_type: JoinType::Cross,
             columns: CrossJoinSchema::get_all_columns(),
+            selected_columns: select_schema.get_selected(),
         });
 
         self
@@ -500,9 +521,11 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// ```
     pub async fn execute(self) -> Result<Vec<Row<T>>, DatabaseError> {
         let sql = get_starting_sql(StartingSql::Select, T::table_name());
-        let sql = Self::select_sql(sql, self.select, T::table_name());
+        let sql = Self::select_sql(sql, self.select, T::table_name(), &self.joins);
         let sql = Self::joins_sql(sql, &self.joins);
         let sql = Self::filter_sql(sql, self.filters);
+
+        println!("GENERATED SQL: {}", sql);
 
         let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
         let data = sqlx::query(&sql)
@@ -515,11 +538,24 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         Ok(rows)
     }
 
-    pub(crate) fn select_sql(mut sql: String, select: Option<S>, table_name: &str) -> String {
+    pub(crate) fn select_sql(
+        mut sql: String,
+        select: Option<S>,
+        table_name: &str,
+        joins: &Vec<JoinInfo>,
+    ) -> String {
         if select.is_some() {
             sql.push_str(&select.unwrap().get_selected().join(", "));
         } else {
             sql.push_str("*");
+        }
+
+        if !joins.is_empty() {
+            for join in joins {
+                for column in &join.selected_columns {
+                    sql.push_str(&format!(", {}", column));
+                }
+            }
         }
 
         sql.push_str(format!(" FROM {}", table_name).as_str());
