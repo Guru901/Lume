@@ -114,10 +114,6 @@ impl<T: Schema + Debug> Delete<T> {
             };
         }
 
-        println!("SQL: {sql}");
-
-        return Ok(());
-
         query
             .execute(&mut *conn)
             .await
