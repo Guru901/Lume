@@ -507,36 +507,9 @@ impl<T: Schema + Sync + Send + 'static> TableDefinition for SchemaWrapper<T> {
                     def.push_str(" UNIQUE");
                 }
 
-                if col.auto_increment {
-                    def.push_str(" AUTO_INCREMENT");
-                }
-
-                if col.on_update_current_timestamp {
-                    def.push_str(" ON UPDATE CURRENT_TIMESTAMP");
-                }
-
                 if col.comment.is_some() {
-                    def.push_str(&format!(" COMMENT '{}'", col.comment.unwrap()));
-                }
-
-                if col.charset.is_some() {
-                    def.push_str(&format!(" CHARACTER SET {}", col.charset.unwrap()));
-                }
-
-                if col.collate.is_some() {
-                    def.push_str(&format!(" COLLATE {}", col.collate.unwrap()));
-                }
-
-                if col.invisible {
-                    def.push_str(" INVISIBLE");
-                }
-
-                if col.check.is_some() {
-                    def.push_str(&format!(" CHECK ({})", col.check.unwrap()));
-                }
-
-                if col.generated.is_some() {
-                    def.push_str(&format!(" GENERATED {}", col.generated.unwrap()));
+                    let escaped = col.comment.unwrap().replace("'", "''");
+                    def.push_str(&format!(" COMMENT '{}'", escaped));
                 }
 
                 if let Some(ref default) = col.default_sql {
