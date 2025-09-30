@@ -125,11 +125,7 @@ pub trait Filtered: Debug {
     fn value(&self) -> Option<&Value>;
     fn column_one(&self) -> Option<&(String, String)>;
     fn column_two(&self) -> Option<&(String, String)>;
-    fn filter_type(&self) -> FilterType {
-        self.value()
-            .map(|_| FilterType::Eq)
-            .unwrap_or(FilterType::Eq)
-    }
+    fn filter_type(&self) -> FilterType;
     fn is_or_filter(&self) -> bool;
 
     fn filter1(&self) -> Option<&Filter>;
@@ -147,6 +143,10 @@ impl Filtered for Filter {
 
     fn column_two(&self) -> Option<&(String, String)> {
         self.column_two.as_ref()
+    }
+
+    fn filter_type(&self) -> FilterType {
+        self.filter_type
     }
 
     fn filter1(&self) -> Option<&Filter> {
@@ -177,6 +177,10 @@ impl Filtered for OrFilter {
 
     fn column_two(&self) -> Option<&(String, String)> {
         None
+    }
+
+    fn filter_type(&self) -> FilterType {
+        FilterType::Or
     }
 
     fn filter1(&self) -> Option<&Filter> {
