@@ -7,8 +7,9 @@
 //! returning of inserted rows and handles value binding for various SQL types.
 
 use crate::database::DatabaseError;
-use crate::schema::{ColumnInfo, Schema, Value};
-use crate::{StartingSql, get_starting_sql};
+use crate::row::Row;
+use crate::schema::{ColumnInfo, Schema, Select, Value};
+use crate::{StartingSql, get_starting_sql, returning_sql};
 use sqlx::MySqlPool;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -43,13 +44,13 @@ use std::sync::Arc;
 ///         .unwrap();
 /// }
 /// ```
-pub struct Insert<T: Schema + Debug> {
+pub struct Insert<T> {
     /// The data to be inserted.
     data: T,
     /// The database connection pool.
     conn: Arc<MySqlPool>,
     /// Whether to return the inserted row(s).
-    returning: bool,
+    returning: Vec<&'static str>,
 }
 
 impl<T: Schema + Debug> Insert<T> {
@@ -67,7 +68,7 @@ impl<T: Schema + Debug> Insert<T> {
         Self {
             data,
             conn,
-            returning: false,
+            returning: Vec::new(),
         }
     }
 
@@ -76,8 +77,8 @@ impl<T: Schema + Debug> Insert<T> {
     /// # Returns
     ///
     /// The [`Insert`] instance with returning enabled.
-    pub fn returning(mut self) -> Self {
-        self.returning = true;
+    pub fn returning<S: Select + Debug>(mut self, select: S) -> Self {
+        self.returning = select.get_selected();
         self
     }
 
@@ -113,7 +114,7 @@ impl<T: Schema + Debug> Insert<T> {
     ///     .unwrap();
     /// # }
     /// ```
-    pub async fn execute(self) -> Result<(), DatabaseError> {
+    pub async fn execute(self) -> Result<Option<Vec<Row<T>>>, DatabaseError> {
         let sql = get_starting_sql(StartingSql::Insert, T::table_name());
         let sql = Self::insert_sql(sql, T::get_all_columns());
 
@@ -233,9 +234,26 @@ impl<T: Schema + Debug> Insert<T> {
             }
         }
 
-        query.execute(&mut *conn).await?;
+        let result = query.execute(&mut *conn).await?;
 
-        Ok(())
+        if self.returning.is_empty() {
+            return Ok(None);
+        }
+
+        // Build SELECT ... WHERE id = ? using either provided id or last_insert_id
+        let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
+        let mut select_sql = returning_sql(select_sql, &self.returning);
+        select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
+
+        let mut conn = self.conn.acquire().await?;
+
+        let mut query = sqlx::query(&select_sql);
+
+        query = query.bind(result.last_insert_id());
+
+        let rows = query.fetch_all(&mut *conn).await?;
+        let rows = Row::<T>::from_mysql_row(rows, None);
+        Ok(Some(rows))
     }
 
     pub(crate) fn insert_sql(mut sql: String, columns: Vec<ColumnInfo>) -> String {
@@ -256,5 +274,202 @@ impl<T: Schema + Debug> Insert<T> {
         sql.push_str(")");
 
         sql
+    }
+}
+
+/// A type-safe insert operation for inserting multiple records of a given schema type.
+///
+/// Executes one INSERT per record for simplicity and correctness. This can be
+/// optimized later to a multi-row VALUES statement if needed.
+pub struct InsertMany<T: Schema + Debug> {
+    /// The list of records to be inserted.
+    data: Vec<T>,
+    /// The database connection pool.
+    conn: Arc<MySqlPool>,
+    /// Whether to return the inserted rows.
+    returning: Vec<&'static str>,
+}
+
+impl<T: Schema + Debug> InsertMany<T> {
+    /// Creates a new [`InsertMany`] operation for the given records and connection.
+    pub fn new(data: Vec<T>, conn: Arc<MySqlPool>) -> Self {
+        Self {
+            data,
+            conn,
+            returning: Vec::new(),
+        }
+    }
+
+    /// Configures the insert to return the inserted row(s).
+    pub fn returning<S: Select + Debug>(mut self, select: S) -> Self {
+        self.returning = select.get_selected();
+        self
+    }
+
+    /// Executes the insert operation for all records asynchronously.
+    pub async fn execute(self) -> Result<Option<Vec<Row<T>>>, DatabaseError> {
+        let sql = get_starting_sql(StartingSql::Insert, T::table_name());
+        let sql = Insert::<T>::insert_sql(sql, T::get_all_columns());
+
+        let mut conn = self.conn.acquire().await?;
+        let mut final_rows = Vec::new();
+        let mut inserted_ids: Vec<u64> = Vec::new();
+
+        for record in &self.data {
+            let values = record.values();
+            let columns = T::get_all_columns();
+            let mut query = sqlx::query(&sql);
+
+            for col in columns.iter() {
+                let Some(value) = values.get(col.name) else {
+                    // If a value is missing, bind NULL using the column's SQL type.
+                    match col.data_type {
+                        "VARCHAR(255)" | "TEXT" => {
+                            query = query.bind(None::<&str>);
+                        }
+                        "INTEGER" => {
+                            query = query.bind(None::<i32>);
+                        }
+                        "BIGINT" => {
+                            query = query.bind(None::<i64>);
+                        }
+                        "FLOAT" => {
+                            query = query.bind(None::<f32>);
+                        }
+                        "DOUBLE" => {
+                            query = query.bind(None::<f64>);
+                        }
+                        "BOOLEAN" => {
+                            query = query.bind(None::<bool>);
+                        }
+                        _ => {
+                            query = query.bind(None::<&str>);
+                        }
+                    }
+                    continue;
+                };
+
+                match value {
+                    Value::Int8(v) => {
+                        query = query.bind(*v);
+                    }
+                    Value::Int16(v) => {
+                        query = query.bind(*v);
+                    }
+                    Value::Int32(v) => {
+                        query = query.bind(*v);
+                    }
+                    Value::Int64(v) => {
+                        query = query.bind(*v);
+                    }
+                    Value::UInt8(v) => {
+                        query = query.bind(*v);
+                    }
+                    Value::UInt16(v) => {
+                        query = query.bind(*v);
+                    }
+                    Value::UInt32(v) => {
+                        query = query.bind(*v);
+                    }
+                    Value::UInt64(v) => {
+                        query = query.bind(*v);
+                    }
+                    Value::Float32(v) => {
+                        query = query.bind(*v);
+                    }
+                    Value::Float64(v) => {
+                        query = query.bind(*v);
+                    }
+                    Value::Bool(v) => {
+                        query = query.bind(*v);
+                    }
+                    Value::String(v) => {
+                        query = query.bind(v.as_str());
+                    }
+                    Value::Null => match col.data_type {
+                        "VARCHAR(255)" | "TEXT" => {
+                            query = query.bind(None::<&str>);
+                        }
+                        "TINYINT" => {
+                            query = query.bind(None::<i8>);
+                        }
+                        "SMALLINT" => {
+                            query = query.bind(None::<i16>);
+                        }
+                        "INTEGER" => {
+                            query = query.bind(None::<i32>);
+                        }
+                        "BIGINT" => {
+                            query = query.bind(None::<i64>);
+                        }
+                        "TINYINT UNSIGNED" => {
+                            query = query.bind(None::<u8>);
+                        }
+                        "SMALLINT UNSIGNED" => {
+                            query = query.bind(None::<u16>);
+                        }
+                        "INTEGER UNSIGNED" => {
+                            query = query.bind(None::<u32>);
+                        }
+                        "BIGINT UNSIGNED" => {
+                            query = query.bind(None::<u64>);
+                        }
+                        "FLOAT" => {
+                            query = query.bind(None::<f32>);
+                        }
+                        "DOUBLE" => {
+                            query = query.bind(None::<f64>);
+                        }
+                        "BOOLEAN" => {
+                            query = query.bind(None::<bool>);
+                        }
+                        _ => {
+                            query = query.bind(None::<&str>);
+                        }
+                    },
+                }
+            }
+
+            let result = query.execute(&mut *conn).await?;
+
+            // Capture id: prefer provided id, else last_insert_id
+            if let Some(id_val) = values.get("id") {
+                match id_val {
+                    Value::Int64(v) => inserted_ids.push(*v as u64),
+                    Value::Int32(v) => inserted_ids.push(*v as u64),
+                    Value::Int16(v) => inserted_ids.push(*v as u64),
+                    Value::Int8(v) => inserted_ids.push(*v as u64),
+                    Value::UInt64(v) => inserted_ids.push(*v),
+                    Value::UInt32(v) => inserted_ids.push(*v as u64),
+                    Value::UInt16(v) => inserted_ids.push(*v as u64),
+                    Value::UInt8(v) => inserted_ids.push(*v as u64),
+                    Value::String(_)
+                    | Value::Float32(_)
+                    | Value::Float64(_)
+                    | Value::Bool(_)
+                    | Value::Null => inserted_ids.push(result.last_insert_id()),
+                }
+            } else {
+                inserted_ids.push(result.last_insert_id());
+            }
+        }
+
+        if self.returning.is_empty() {
+            return Ok(None);
+        }
+
+        // Fetch selected columns for all inserted ids
+        let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
+        let mut select_sql = returning_sql(select_sql, &self.returning);
+        select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
+
+        for id in inserted_ids {
+            let q = sqlx::query(&select_sql).bind(id);
+            let rows = q.fetch_all(&mut *conn).await?;
+            let rows = Row::<T>::from_mysql_row(rows, None);
+            final_rows.extend(rows);
+        }
+
+        Ok(Some(final_rows))
     }
 }

@@ -535,8 +535,6 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         let mut params: Vec<Value> = Vec::new();
         let sql = Self::filter_sql(sql, self.filters, &mut params);
 
-        println!("SQL: {sql}");
-
         let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
         let mut query = sqlx::query(&sql);
         for v in params {

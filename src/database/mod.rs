@@ -10,7 +10,7 @@ use sqlx::Executor;
 use std::{fmt::Debug, sync::Arc};
 
 use crate::{
-    operations::{insert::Insert, query::Query},
+    operations::{insert::Insert, insert::InsertMany, query::Query},
     row::Row,
     schema::{ColumnInfo, Schema, Select},
     table::get_all_tables,
@@ -142,6 +142,16 @@ impl Database {
     /// ```
     pub fn insert<T: Schema + Debug>(&self, data: T) -> Insert<T> {
         Insert::new(data, Arc::clone(&self.connection))
+    }
+
+    /// Creates a new type-safe insert-many for the specified schema type.
+    ///
+    /// Accepts any iterable of schema values, enabling println!-style multiple values.
+    pub fn insert_many<T: Schema + Debug, I>(&self, data: I) -> InsertMany<T>
+    where
+        I: IntoIterator<Item = T>,
+    {
+        InsertMany::new(data.into_iter().collect(), Arc::clone(&self.connection))
     }
 
     /// Executes a raw SQL query and returns typed rows.

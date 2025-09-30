@@ -292,6 +292,14 @@ macro_rules! define_schema {
                         )*
                     }
                 }
+
+                fn all(mut self) -> Self {
+                    $(
+                        self.$name = true;
+                    )*
+
+                    self
+                }
             }
 
             impl Default for [<Query $struct_name>] {
