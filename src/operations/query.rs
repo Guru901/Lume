@@ -606,144 +606,65 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         sql
     }
 
+    fn build_filter_expr(filter: &dyn Filtered) -> String {
+        if filter.is_or_filter() || filter.is_and_filter() {
+            let op = if filter.is_or_filter() { "OR" } else { "AND" };
+            let left = Self::build_filter_expr(filter.filter1().unwrap());
+            let right = Self::build_filter_expr(filter.filter2().unwrap());
+            return format!("({} {} {})", left, op, right);
+        }
+
+        let col1 = filter
+            .column_one()
+            .expect("simple filter must have column_one");
+        if let Some(value) = filter.value() {
+            match value {
+                Value::String(inner) => {
+                    let escaped = inner.replace('\'', "''");
+                    format!(
+                        "{}.{} {} '{}'",
+                        col1.0,
+                        col1.1,
+                        filter.filter_type().to_sql(),
+                        escaped
+                    )
+                }
+                _ => {
+                    format!(
+                        "{}.{} {} {}",
+                        col1.0,
+                        col1.1,
+                        filter.filter_type().to_sql(),
+                        value
+                    )
+                }
+            }
+        } else if let Some(col2) = filter.column_two() {
+            format!(
+                "{}.{} {} {}.{}",
+                col1.0,
+                col1.1,
+                filter.filter_type().to_sql(),
+                col2.0,
+                col2.1
+            )
+        } else {
+            // Fallback to a tautology if filter is malformed
+            "1=1".to_string()
+        }
+    }
+
     pub(crate) fn filter_sql(mut sql: String, filters: Vec<Box<dyn Filtered>>) -> String {
         if filters.is_empty() {
             return sql;
         }
 
         sql.push_str(" WHERE ");
-
-        for (i, filter) in filters.iter().enumerate() {
-            if filter.is_or_filter() || filter.is_and_filter() {
-                let sql_command = if filter.is_or_filter() {
-                    " OR "
-                } else {
-                    " AND "
-                };
-                let filter1 = filter.filter1().unwrap();
-                let filter2 = filter.filter2().unwrap();
-
-                if let Some(value) = filter1.value() {
-                    match value {
-                        Value::String(inner) => {
-                            let escaped = inner.replace('\'', "''");
-
-                            let filter_sql = format!(
-                                "{}.{} {} '{}'",
-                                filter1.column_one().unwrap().0,
-                                filter1.column_one().unwrap().1,
-                                filter1.filter_type().to_sql(),
-                                escaped
-                            );
-
-                            sql.push_str(&filter_sql);
-                            sql.push_str(sql_command)
-                        }
-                        _ => {
-                            let filter_sql = format!(
-                                "{}.{} {} {}",
-                                filter1.column_one().unwrap().0,
-                                filter1.column_one().unwrap().1,
-                                filter1.filter_type().to_sql(),
-                                filter1.value().unwrap()
-                            );
-
-                            sql.push_str(&filter_sql);
-                            sql.push_str(sql_command)
-                        }
-                    }
-                } else {
-                    sql.push_str(&format!(
-                        "{}.{} {} {}.{}",
-                        filter1.column_one().unwrap().0,
-                        filter1.column_one().unwrap().1,
-                        filter1.filter_type().to_sql(),
-                        filter1.column_two().unwrap().0,
-                        filter1.column_two().unwrap().1
-                    ));
-
-                    sql.push_str(sql_command)
-                }
-
-                if let Some(value) = filter2.value() {
-                    match value {
-                        Value::String(inner) => {
-                            let escaped = inner.replace('\'', "''");
-
-                            let filter_sql = format!(
-                                "{}.{} {} '{}'",
-                                filter2.column_one().unwrap().0,
-                                filter2.column_one().unwrap().1,
-                                filter2.filter_type().to_sql(),
-                                escaped
-                            );
-
-                            sql.push_str(&filter_sql);
-                        }
-                        _ => {
-                            let filter_sql = format!(
-                                "{}.{} {} {}",
-                                filter2.column_one().unwrap().0,
-                                filter2.column_one().unwrap().1,
-                                filter2.filter_type().to_sql(),
-                                filter2.value().unwrap()
-                            );
-
-                            sql.push_str(&filter_sql);
-                        }
-                    }
-                } else {
-                    sql.push_str(&format!(
-                        "{}.{} {} {}.{}",
-                        filter2.column_one().unwrap().0,
-                        filter2.column_one().unwrap().1,
-                        filter2.filter_type().to_sql(),
-                        filter2.column_two().unwrap().0,
-                        filter2.column_two().unwrap().1
-                    ));
-                }
-            } else {
-                if let Some(value) = filter.value() {
-                    match value {
-                        Value::String(inner) => {
-                            let escaped = inner.replace('\'', "''");
-                            let filter_sql = format!(
-                                "{}.{} {} '{}'",
-                                filter.column_one().unwrap().0,
-                                filter.column_one().unwrap().1,
-                                filter.filter_type().to_sql(),
-                                escaped
-                            );
-                            sql.push_str(&filter_sql);
-                        }
-                        _ => {
-                            let filter_sql = format!(
-                                "{}.{} {} {}",
-                                filter.column_one().unwrap().0,
-                                filter.column_one().unwrap().1,
-                                filter.filter_type().to_sql(),
-                                value
-                            );
-                            sql.push_str(&filter_sql);
-                        }
-                    }
-                }
-                if let Some(column) = filter.column_two() {
-                    sql.push_str(&format!(
-                        "{}.{} {} {}.{}",
-                        filter.column_one().unwrap().0,
-                        filter.column_one().unwrap().1,
-                        filter.filter_type().to_sql(),
-                        column.0,
-                        column.1
-                    ));
-                }
-            }
-
-            if i < filters.len() - 1 {
-                sql.push_str(" AND ");
-            }
+        let mut parts: Vec<String> = Vec::with_capacity(filters.len());
+        for filter in &filters {
+            parts.push(Self::build_filter_expr(filter.as_ref()));
         }
+        sql.push_str(&parts.join(" AND "));
 
         sql
     }

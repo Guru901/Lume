@@ -140,6 +140,8 @@ pub trait Filtered: Debug {
 
     fn filter1(&self) -> Option<&dyn Filtered>;
     fn filter2(&self) -> Option<&dyn Filtered>;
+
+    fn has_more_filters(&self) -> bool;
 }
 
 impl Filtered for Filter {
@@ -172,6 +174,10 @@ impl Filtered for Filter {
     }
 
     fn is_and_filter(&self) -> bool {
+        false
+    }
+
+    fn has_more_filters(&self) -> bool {
         false
     }
 }
@@ -213,6 +219,10 @@ impl Filtered for OrFilter {
     fn is_and_filter(&self) -> bool {
         false
     }
+
+    fn has_more_filters(&self) -> bool {
+        true
+    }
 }
 
 impl Filtered for AndFilter {
@@ -251,6 +261,10 @@ impl Filtered for AndFilter {
 
     fn filter_type(&self) -> FilterType {
         FilterType::And
+    }
+
+    fn has_more_filters(&self) -> bool {
+        true
     }
 }
 
