@@ -532,12 +532,32 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         let sql = get_starting_sql(StartingSql::Select, T::table_name());
         let sql = Self::select_sql(sql, self.select, T::table_name(), &self.joins);
         let sql = Self::joins_sql(sql, &self.joins);
-        let sql = Self::filter_sql(sql, self.filters);
+        let mut params: Vec<Value> = Vec::new();
+        let sql = Self::filter_sql(sql, self.filters, &mut params);
 
         println!("SQL: {sql}");
 
         let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
-        let data = sqlx::query(&sql)
+        let mut query = sqlx::query(&sql);
+        for v in params {
+            query = match v {
+                Value::String(s) => query.bind(s),
+                Value::Int8(i) => query.bind(i),
+                Value::Int16(i) => query.bind(i),
+                Value::Int32(i) => query.bind(i),
+                Value::Int64(i) => query.bind(i),
+                Value::UInt8(u) => query.bind(u),
+                Value::UInt16(u) => query.bind(u),
+                Value::UInt32(u) => query.bind(u),
+                Value::UInt64(u) => query.bind(u),
+                Value::Float32(f) => query.bind(f),
+                Value::Float64(f) => query.bind(f),
+                Value::Bool(b) => query.bind(b),
+                Value::Null => query, // Nulls handled in SQL via IS/IS NOT
+            };
+        }
+
+        let data = query
             .fetch_all(&mut *conn)
             .await
             .map_err(DatabaseError::from)?;
@@ -606,144 +626,75 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         sql
     }
 
-    pub(crate) fn filter_sql(mut sql: String, filters: Vec<Box<dyn Filtered>>) -> String {
+    fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) -> String {
+        if filter.is_or_filter() || filter.is_and_filter() {
+            let op = if filter.is_or_filter() { "OR" } else { "AND" };
+            let Some(f1) = filter.filter1() else {
+                eprintln!("Warning: Composite filter missing filter1, using tautology");
+                return "1=1".to_string();
+            };
+            let Some(f2) = filter.filter2() else {
+                eprintln!("Warning: Composite filter missing filter2, using tautology");
+                return "1=1".to_string();
+            };
+            let left = Self::build_filter_expr(f1, params);
+            let right = Self::build_filter_expr(f2, params);
+            return format!("({} {} {})", left, op, right);
+        }
+        let Some(col1) = filter.column_one() else {
+            eprintln!("Warning: Simple filter missing column_one, using tautology");
+            return "1=1".to_string();
+        };
+        if let Some(value) = filter.value() {
+            match value {
+                Value::Null => {
+                    // Special handling for NULL comparisons
+                    let op = filter.filter_type();
+                    let null_sql = match op {
+                        crate::filter::FilterType::Eq => "IS NULL",
+                        crate::filter::FilterType::Neq => "IS NOT NULL",
+                        _ => {
+                            // Unsupported operator with NULL; force false to avoid surprising results
+                            return "1=0".to_string();
+                        }
+                    };
+                    format!("{}.{} {}", col1.0, col1.1, null_sql)
+                }
+                _ => {
+                    params.push(value.clone());
+                    format!("{}.{} {} ?", col1.0, col1.1, filter.filter_type().to_sql())
+                }
+            }
+        } else if let Some(col2) = filter.column_two() {
+            format!(
+                "{}.{} {} {}.{}",
+                col1.0,
+                col1.1,
+                filter.filter_type().to_sql(),
+                col2.0,
+                col2.1
+            )
+        } else {
+            // Fallback to a tautology if filter is malformed
+            "1=1".to_string()
+        }
+    }
+
+    pub(crate) fn filter_sql(
+        mut sql: String,
+        filters: Vec<Box<dyn Filtered>>,
+        params: &mut Vec<Value>,
+    ) -> String {
         if filters.is_empty() {
             return sql;
         }
 
         sql.push_str(" WHERE ");
-
-        for (i, filter) in filters.iter().enumerate() {
-            if filter.is_or_filter() || filter.is_and_filter() {
-                let sql_command = if filter.is_or_filter() {
-                    " OR "
-                } else {
-                    " AND "
-                };
-                let filter1 = filter.filter1().unwrap();
-                let filter2 = filter.filter2().unwrap();
-
-                if let Some(value) = filter1.value() {
-                    match value {
-                        Value::String(inner) => {
-                            let escaped = inner.replace('\'', "''");
-
-                            let filter_sql = format!(
-                                "{}.{} {} '{}'",
-                                filter1.column_one().unwrap().0,
-                                filter1.column_one().unwrap().1,
-                                filter1.filter_type().to_sql(),
-                                escaped
-                            );
-
-                            sql.push_str(&filter_sql);
-                            sql.push_str(sql_command)
-                        }
-                        _ => {
-                            let filter_sql = format!(
-                                "{}.{} {} {}",
-                                filter1.column_one().unwrap().0,
-                                filter1.column_one().unwrap().1,
-                                filter1.filter_type().to_sql(),
-                                filter1.value().unwrap()
-                            );
-
-                            sql.push_str(&filter_sql);
-                            sql.push_str(sql_command)
-                        }
-                    }
-                } else {
-                    sql.push_str(&format!(
-                        "{}.{} {} {}.{}",
-                        filter1.column_one().unwrap().0,
-                        filter1.column_one().unwrap().1,
-                        filter1.filter_type().to_sql(),
-                        filter1.column_two().unwrap().0,
-                        filter1.column_two().unwrap().1
-                    ));
-
-                    sql.push_str(sql_command)
-                }
-
-                if let Some(value) = filter2.value() {
-                    match value {
-                        Value::String(inner) => {
-                            let escaped = inner.replace('\'', "''");
-
-                            let filter_sql = format!(
-                                "{}.{} {} '{}'",
-                                filter2.column_one().unwrap().0,
-                                filter2.column_one().unwrap().1,
-                                filter2.filter_type().to_sql(),
-                                escaped
-                            );
-
-                            sql.push_str(&filter_sql);
-                        }
-                        _ => {
-                            let filter_sql = format!(
-                                "{}.{} {} {}",
-                                filter2.column_one().unwrap().0,
-                                filter2.column_one().unwrap().1,
-                                filter2.filter_type().to_sql(),
-                                filter2.value().unwrap()
-                            );
-
-                            sql.push_str(&filter_sql);
-                        }
-                    }
-                } else {
-                    sql.push_str(&format!(
-                        "{}.{} {} {}.{}",
-                        filter2.column_one().unwrap().0,
-                        filter2.column_one().unwrap().1,
-                        filter2.filter_type().to_sql(),
-                        filter2.column_two().unwrap().0,
-                        filter2.column_two().unwrap().1
-                    ));
-                }
-            } else {
-                if let Some(value) = filter.value() {
-                    match value {
-                        Value::String(inner) => {
-                            let escaped = inner.replace('\'', "''");
-                            let filter_sql = format!(
-                                "{}.{} {} '{}'",
-                                filter.column_one().unwrap().0,
-                                filter.column_one().unwrap().1,
-                                filter.filter_type().to_sql(),
-                                escaped
-                            );
-                            sql.push_str(&filter_sql);
-                        }
-                        _ => {
-                            let filter_sql = format!(
-                                "{}.{} {} {}",
-                                filter.column_one().unwrap().0,
-                                filter.column_one().unwrap().1,
-                                filter.filter_type().to_sql(),
-                                value
-                            );
-                            sql.push_str(&filter_sql);
-                        }
-                    }
-                }
-                if let Some(column) = filter.column_two() {
-                    sql.push_str(&format!(
-                        "{}.{} {} {}.{}",
-                        filter.column_one().unwrap().0,
-                        filter.column_one().unwrap().1,
-                        filter.filter_type().to_sql(),
-                        column.0,
-                        column.1
-                    ));
-                }
-            }
-
-            if i < filters.len() - 1 {
-                sql.push_str(" AND ");
-            }
+        let mut parts: Vec<String> = Vec::with_capacity(filters.len());
+        for filter in &filters {
+            parts.push(Self::build_filter_expr(filter.as_ref(), params));
         }
+        sql.push_str(&parts.join(" AND "));
 
         sql
     }
