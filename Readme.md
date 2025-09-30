@@ -12,7 +12,7 @@ A type-safe, ergonomic schema builder and ORM for SQL databases, inspired by Dri
 - 🎯 **Ergonomic**: Clean, intuitive API inspired by modern ORMs
 - ⚡ **Performance**: Zero-cost abstractions with minimal runtime overhead
 - 🔧 **Flexible**: Support for various column constraints and SQL types
-- 🛡️ **Safe**: Prevents SQL injection and runtime type errors
+- 🛡️ **Safe**: Parameterized queries by default to prevent SQL injection
 - 📦 **Lightweight**: Minimal dependencies, maximum functionality
 
 ## Quick Start
@@ -97,14 +97,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await
     .unwrap();
 
-    let posts = db
-        .sql::<Posts>("SELECT * FROM Users WHERE age > 18")
+    // Raw SQL (bypasses type-safe query builder; ensure your SQL matches the schema)
+    let adult_users = db
+        .sql::<Users>("SELECT * FROM Users WHERE age > 18")
         .await
         .unwrap();
 
-    for post in posts {
-        let title: Option<String> = post.get(Posts::title());
-        println!("Post: {}", title.unwrap_or_default());
+    for user in adult_users {
+        let username: Option<String> = user.get(Users::username());
+        println!("Adult user: {}", username.unwrap_or_default());
     }
 
     Ok(())
@@ -150,18 +151,20 @@ define_schema! {
 ## Type-Safe Queries
 
 ```rust
+use lume::filter::{eq_value, lt};
+
 // Filter by equality
 let active_users = db
     .query::<Users, QueryUsers>()
-    .filter(Filter::eq_value("is_active", true))
+    .filter(eq_value(Users::is_active(), true))
     .execute()
     .await?;
 
 // Multiple filters
 let young_active_users = db
     .query::<Users, QueryUsers>()
-    .filter(Filter::eq_value("is_active", true))
-    .filter(Filter::lt("age", 25))
+    .filter(eq_value(Users::is_active(), true))
+    .filter(lt(Users::age(), 25))
     .execute()
     .await?;
 
@@ -171,8 +174,82 @@ for user in young_active_users {
     let username: Option<String> = user.get(Users::username());
     let email: Option<String> = user.get(Users::email());
 
-    println!("User {}: {} ({})", id.unwrap_or(0), username.unwrap_or_default(), email.unwrap_or_default());
+    println!(
+        "User {}: {} ({})",
+        id.unwrap_or(0),
+        username.unwrap_or_default(),
+        email.unwrap_or_default()
+    );
 }
+```
+
+### Joins
+
+```rust
+use lume::filter::eq_column;
+
+// Example joining two tables using a LEFT JOIN
+// Here we assume a schema with `Author` and `Book` where `Book.author_id` references `Author.id`
+let authors_with_books = db
+    .query::<Author, QueryAuthor>()
+    .select(QueryAuthor { name: true, ..Default::default() })
+    .left_join::<Book, QueryBook>(
+        eq_column(Author::id(), Book::author_id()),
+        QueryBook { title: true, ..Default::default() },
+    )
+    .execute()
+    .await?;
+
+// INNER JOIN (returns only matching rows)
+let authors_and_books = db
+    .query::<Author, QueryAuthor>()
+    .inner_join::<Book, QueryBook>(
+        eq_column(Author::id(), Book::author_id()),
+        QueryBook { title: true, ..Default::default() },
+    )
+    .execute()
+    .await?;
+
+// RIGHT JOIN (when supported by your database and use-case)
+let right_joined = db
+    .query::<Author, QueryAuthor>()
+    .right_join::<Book, QueryBook>(
+        eq_column(Author::id(), Book::author_id()),
+        QueryBook { title: true, ..Default::default() },
+    )
+    .execute()
+    .await?;
+```
+
+### Complex Filters
+
+```rust
+use lume::filter::{and, or, eq_value, gt_value, lt_value, in_values};
+
+// Assuming your `Users` schema includes the referenced columns
+let date_threshold = 1_696_000_000i64; // example UNIX timestamp
+
+let users = db
+    .query::<Users, QueryUsers>()
+    .filter(or(
+        and(
+            eq_value(Users::status(), "active"),
+            or(
+                eq_value(Users::role(), "admin"),
+                and(
+                    eq_value(Users::role(), "user"),
+                    gt_value(Users::created_at(), date_threshold),
+                ),
+            ),
+        ),
+        and(
+            eq_value(Users::status(), "pending"),
+            lt_value(Users::failed_attempts(), 3),
+        ),
+        in_values(Users::username(), vec!["bob", "alice", "charlie"]),
+    ))
+    .execute()
+    .await?;
 ```
 
 ## Advanced Features
@@ -215,23 +292,16 @@ define_schema! {
 Lume provides comprehensive error handling:
 
 ```rust
-use lume::database::DatabaseError;
-
 match db.query::<Users, QueryUsers>().execute().await {
-    Ok(users) => {
-        println!("Found {} users", users.len());
-    }
-    Err(DatabaseError::ConnectionFailed) => {
-        eprintln!("Failed to connect to database");
-    }
-    Err(DatabaseError::QueryFailed) => {
-        eprintln!("Query execution failed");
-    }
-    Err(e) => {
-        eprintln!("Unexpected error: {:?}", e);
-    }
+    Ok(users) => println!("Found {} users", users.len()),
+    Err(e) => eprintln!("Database error: {}", e),
 }
 ```
+
+### Security
+
+- The query builder emits parameterized SQL and binds values with the driver to mitigate SQL injection.
+- The `sql::<T>(...)` escape hatch accepts raw SQL; use it carefully, as you are responsible for safety and correctness.
 
 ## Testing
 

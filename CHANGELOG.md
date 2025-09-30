@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.5.0] - 2025-09-30
+
+### Added
+
+- **Composite Filter Support**: Introduced `OrFilter` and `AndFilter` structs, allowing filters to be combined using logical OR and AND operations.
+- **Filter Combinators**: Added public helper functions for creating composite filters:
+  - `or(filter1, filter2) -> OrFilter`: Combines two filters with OR logic.
+  - `and(filter1, filter2) -> AndFilter`: Combines two filters with AND logic.
+- **MySQL-Specific Column Features**:
+  - Added `GeneratedColumn` enum with `Virtual` and `Stored` variants for MySQL generated columns.
+  - Added new column methods to `Column<T>`: `auto_increment()`, `comment(text)`, `charset(charset)`, `collate(collation)`, `on_update_current_timestamp()`, `invisible()`, `check(expression)`, `generated_virtual(expression)`, `generated_stored(expression)`.
+  - Added corresponding getter methods for all new attributes.
+
+### Changed
+
+- **SQL Generation**:
+  - Enhanced `CREATE TABLE` statements to emit MySQL-specific syntax, including `AUTO_INCREMENT`, `ON UPDATE CURRENT_TIMESTAMP`, `COMMENT`, `CHARACTER SET`, `COLLATE`, `INVISIBLE`, `CHECK`, and `GENERATED` (VIRTUAL/STORED) expressions.
+  - Refactored SQL filter generation to use parameterized queries for improved security and value binding.
+  - Improved handling of NULL comparisons: `Eq` now generates `IS NULL`, and `Neq` generates `IS NOT NULL` when appropriate.
+
+### Improved
+
+- More robust support for complex filter compositions, including nested AND/OR operations.
+- Enhanced SQL injection prevention through consistent use of parameterized queries.
+- More reliable parameter binding and value collection in query generation.
+- All new column methods use a fluent API pattern for easy chaining.
+- Schema generation now fully respects MySQL-specific syntax and constraints.
+- Tests updated to cover new column attributes, filter logic, and behaviors.
+
 ## [0.4.2] - 2025-09-29
 
 - Added support for selecting columns in joins. Check the docs for more info.
