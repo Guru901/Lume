@@ -1,7 +1,7 @@
 #![warn(missing_docs)]
 
 use crate::{
-    filter::{Filter, FilterType},
+    filter::{Filter, FilterType, OrFilter},
     schema::{Column, Value},
 };
 
@@ -300,4 +300,8 @@ where
         column_two: None,
         filter_type: FilterType::Lte,
     }
+}
+
+pub fn or(filter1: Filter, filter2: Filter) -> OrFilter {
+    OrFilter { filter1, filter2 }
 }
