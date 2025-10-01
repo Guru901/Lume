@@ -17,7 +17,7 @@ use crate::{
         update::Update,
     },
     row::Row,
-    schema::{ColumnInfo, Schema, Select},
+    schema::{ColumnInfo, Schema, Select, UpdateTrait},
     table::get_all_tables,
 };
 use sqlx::MySqlPool;
@@ -228,7 +228,7 @@ impl Database {
     ///     Ok(())
     /// }
     /// ```
-    pub fn update<T: Schema + Debug>(&self) -> Update<T> {
+    pub fn update<T: Schema + Debug, U: UpdateTrait + Debug>(&self) -> Update<T, U> {
         Update::new(Arc::clone(&self.connection))
     }
 
