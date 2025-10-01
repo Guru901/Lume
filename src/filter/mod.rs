@@ -180,6 +180,13 @@ pub struct AndFilter {
     pub(crate) filter2: Box<dyn Filtered>,
 }
 
+#[derive(Debug)]
+pub struct ArrayFilter {
+    pub(crate) column: Option<(String, String)>,
+    pub(crate) values: &'static [Value],
+    pub(crate) in_array: bool,
+}
+
 /// Trait for all filter types used in query building.
 ///
 /// This trait abstracts over different filter types (such as simple column-value filters,
@@ -228,6 +235,13 @@ pub trait Filtered: Debug {
     /// For AND/OR filters, this returns `Some(&dyn Filtered)`.
     /// For simple filters, this returns `None`.
     fn filter2(&self) -> Option<&dyn Filtered>;
+
+    fn array_values(&self) -> Option<&[Value]>;
+
+    /// Returns `Some(true)` for IN array filters, `Some(false)` for NOT IN, or `None` otherwise.
+    fn is_in_array(&self) -> Option<bool> {
+        None
+    }
 }
 
 impl Filtered for Filter {
@@ -261,6 +275,14 @@ impl Filtered for Filter {
 
     fn is_and_filter(&self) -> bool {
         false
+    }
+
+    fn array_values(&self) -> Option<&[Value]> {
+        None
+    }
+
+    fn is_in_array(&self) -> Option<bool> {
+        None
     }
 }
 
@@ -301,6 +323,14 @@ impl Filtered for OrFilter {
     fn is_and_filter(&self) -> bool {
         false
     }
+
+    fn array_values(&self) -> Option<&[Value]> {
+        None
+    }
+
+    fn is_in_array(&self) -> Option<bool> {
+        None
+    }
 }
 
 impl Filtered for AndFilter {
@@ -339,6 +369,56 @@ impl Filtered for AndFilter {
 
     fn filter_type(&self) -> FilterType {
         FilterType::And
+    }
+
+    fn array_values(&self) -> Option<&[Value]> {
+        None
+    }
+
+    fn is_in_array(&self) -> Option<bool> {
+        None
+    }
+}
+
+impl Filtered for ArrayFilter {
+    fn is_and_filter(&self) -> bool {
+        false
+    }
+
+    fn value(&self) -> Option<&Value> {
+        None
+    }
+
+    fn column_one(&self) -> Option<&(String, String)> {
+        self.column.as_ref()
+    }
+
+    fn column_two(&self) -> Option<&(String, String)> {
+        None
+    }
+
+    fn filter_type(&self) -> FilterType {
+        FilterType::In
+    }
+
+    fn is_or_filter(&self) -> bool {
+        false
+    }
+
+    fn filter1(&self) -> Option<&dyn Filtered> {
+        None
+    }
+
+    fn filter2(&self) -> Option<&dyn Filtered> {
+        None
+    }
+
+    fn array_values(&self) -> Option<&[Value]> {
+        Some(self.values)
+    }
+
+    fn is_in_array(&self) -> Option<bool> {
+        Some(self.in_array)
     }
 }
 

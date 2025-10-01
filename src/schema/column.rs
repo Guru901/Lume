@@ -565,6 +565,8 @@ pub enum Value {
     Float64(f64),
     /// Boolean value
     Bool(bool),
+
+    Array(Vec<Value>),
     /// NULL value
     Null,
 }
@@ -584,6 +586,7 @@ impl Display for Value {
             Value::Float32(val) => write!(f, "{}", val),
             Value::Float64(val) => write!(f, "{}", val),
             Value::Bool(b) => write!(f, "{}", b),
+            Value::Array(arr) => write!(f, "{:?}", arr),
             Value::Null => write!(f, "NULL"),
         }
     }

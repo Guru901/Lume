@@ -1,7 +1,9 @@
 #![warn(missing_docs)]
 
+use std::{fmt::Debug, os::macos::raw::stat};
+
 use crate::{
-    filter::{AndFilter, Filter, FilterType, Filtered, OrFilter},
+    filter::{AndFilter, ArrayFilter, Filter, FilterType, Filtered, OrFilter},
     schema::{Column, Value},
 };
 
@@ -383,5 +385,27 @@ pub fn and(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) -
     AndFilter {
         filter1: Box::new(filter1),
         filter2: Box::new(filter2),
+    }
+}
+
+pub fn in_array<T: Debug>(
+    column: &'static Column<T>,
+    values: &'static [Value],
+) -> impl Filtered + 'static {
+    ArrayFilter {
+        column: Some((column.table_name().to_string(), column.name().to_string())),
+        values: values,
+        in_array: true,
+    }
+}
+
+pub fn not_in_array<T: Debug>(
+    column: &'static Column<T>,
+    values: &'static [Value],
+) -> impl Filtered + 'static {
+    ArrayFilter {
+        column: Some((column.table_name().to_string(), column.name().to_string())),
+        values: values,
+        in_array: false,
     }
 }
