@@ -128,7 +128,7 @@ pub fn eq_column<T>(column_1: &'static Column<T>, column_2: &'static Column<T>) 
 ///
 /// let filter = ne(User::age(), 30);
 /// ```
-pub fn ne<T, V>(column: &'static Column<T>, value: V) -> Filter
+pub fn ne_value<T, V>(column: &'static Column<T>, value: V) -> Filter
 where
     V: Into<Value>,
 {
@@ -136,6 +136,48 @@ where
         column_one: (column.table_name().to_string(), column.name().to_string()),
         value: Some(value.into()),
         column_two: None,
+        filter_type: FilterType::Neq,
+    }
+}
+
+/// Creates a not-equal filter (`!=`) comparing two columns.
+///
+/// This function generates a filter that checks whether the value in `column1`
+/// is not equal to the value in `column2`. This is useful for queries where you
+/// want to compare the values of two columns within the same row.
+///
+/// # Arguments
+///
+/// * `column1` - The first column to compare.
+/// * `column2` - The second column to compare against.
+///
+/// # Returns
+///
+/// A [`Filter`] representing the not-equal condition between two columns.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::ne_column;
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///         age: i32,
+///         other_age: i32,
+///     }
+/// }
+///
+/// let filter = ne_column(User::age(), User::other_age());
+/// ```
+pub fn ne_column<T>(column1: &'static Column<T>, column2: &'static Column<T>) -> Filter {
+    Filter {
+        column_one: (column1.table_name().to_string(), column1.name().to_string()),
+        value: None,
+        column_two: Some((column2.table_name().to_string(), column2.name().to_string())),
         filter_type: FilterType::Neq,
     }
 }
