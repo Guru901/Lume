@@ -93,6 +93,7 @@ pub(crate) enum StartingSql {
     Select,
     Insert,
     Delete,
+    Update,
 }
 
 pub(crate) fn get_starting_sql(starting_sql: StartingSql, table_name: &str) -> String {
@@ -100,6 +101,7 @@ pub(crate) fn get_starting_sql(starting_sql: StartingSql, table_name: &str) -> S
         StartingSql::Select => "SELECT ".to_string(),
         StartingSql::Insert => format!("INSERT INTO `{}` (", table_name),
         StartingSql::Delete => format!("DELETE FROM `{}` ", table_name),
+        StartingSql::Update => format!("UPDATE `{}` SET ", table_name),
     }
 }
 

@@ -269,6 +269,25 @@ macro_rules! define_schema {
 
         paste::paste! {
             #[derive(Debug)]
+            pub struct [<Update $struct_name>] {
+                $(
+                    pub $name: $type,
+                )*
+            }
+
+            impl Default for [<Update $struct_name>] {
+                fn default() -> Self {
+                    Self {
+                        $(
+                            $name: Default::default(),
+                        )*
+                    }
+                }
+            }
+        }
+
+        paste::paste! {
+            #[derive(Debug)]
             pub struct [<Query $struct_name>] {
                 $(
                     pub $name: bool,
