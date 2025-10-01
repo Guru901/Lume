@@ -180,10 +180,38 @@ pub struct AndFilter {
     pub(crate) filter2: Box<dyn Filtered>,
 }
 
+/// Represents a filter for checking if a column's value is (or is not) in a given array of values.
+///
+/// This struct is used to build SQL `IN` or `NOT IN` conditions for queries, allowing you to
+/// filter rows where a column matches any value in a provided array.
+///
+/// # Fields
+///
+/// - `column`: The column to filter on, represented as an optional tuple of (table, column) names.
+/// - `values`: A static slice of `Value` items to compare against the column.
+/// - `in_array`: If `true`, generates an `IN` filter; if `false`, generates a `NOT IN` filter.
+///
+/// # Example
+///
+/// ```rust
+/// use lume::filter::ArrayFilter;
+/// use lume::value::Value;
+///
+/// let values = &[Value::Int(1), Value::Int(2), Value::Int(3)];
+/// let filter = ArrayFilter {
+///     column: Some(("users".to_string(), "id".to_string())),
+///     values,
+///     in_array: true,
+/// };
+/// // This filter represents: users.id IN (1, 2, 3)
+/// ```
 #[derive(Debug)]
 pub struct ArrayFilter {
+    /// The column to filter on, as (table, column) or None.
     pub(crate) column: Option<(String, String)>,
+    /// The array of values to compare against.
     pub(crate) values: &'static [Value],
+    /// Whether this is an `IN` (true) or `NOT IN` (false) filter.
     pub(crate) in_array: bool,
 }
 
@@ -236,6 +264,11 @@ pub trait Filtered: Debug {
     /// For simple filters, this returns `None`.
     fn filter2(&self) -> Option<&dyn Filtered>;
 
+    /// Returns a reference to the array of values used in an array filter (e.g., IN/NOT IN), if any.
+    ///
+    /// For filters that operate on an array of values (such as SQL `IN` or `NOT IN` clauses),
+    /// this returns `Some(&[Value])` containing the values being compared.
+    /// For other filter types, this returns `None`.
     fn array_values(&self) -> Option<&[Value]>;
 
     /// Returns `Some(true)` for IN array filters, `Some(false)` for NOT IN, or `None` otherwise.

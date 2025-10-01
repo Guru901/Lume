@@ -11,4 +11,5 @@ pub mod insert;
 /// Query operations for retrieving data from database tables
 pub mod query;
 
+/// Delete operations for removing data from database tables
 pub mod delete;

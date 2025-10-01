@@ -8,7 +8,7 @@
 
 use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 
-use sqlx::mysql::{MySqlQueryResult, MySqlRow};
+use sqlx::mysql::MySqlRow;
 
 use crate::{
     operations::query::JoinInfo,

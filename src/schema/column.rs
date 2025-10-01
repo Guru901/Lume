@@ -566,7 +566,9 @@ pub enum Value {
     /// Boolean value
     Bool(bool),
 
+    /// Array value containing a vector of `Value` elements.
     Array(Vec<Value>),
+
     /// NULL value
     Null,
 }

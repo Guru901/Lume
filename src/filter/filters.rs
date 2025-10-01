@@ -1,6 +1,6 @@
 #![warn(missing_docs)]
 
-use std::{fmt::Debug, os::macos::raw::stat};
+use std::fmt::Debug;
 
 use crate::{
     filter::{AndFilter, ArrayFilter, Filter, FilterType, Filtered, OrFilter},
@@ -388,6 +388,35 @@ pub fn and(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) -
     }
 }
 
+/// Creates a filter that matches rows where the column's value is contained in the given array of values.
+///
+/// This is equivalent to a SQL `IN` clause. The filter will match if the column's value is equal to
+/// any of the values in the provided array.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `values` - The array of values to match against.
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `IN` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::in_array;
+/// use lume::define_schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String,
+///     }
+/// }
+///
+/// let filter = in_array(User::id(), &[1.into(), 2.into(), 3.into()]);
+/// ```
 pub fn in_array<T: Debug>(
     column: &'static Column<T>,
     values: &'static [Value],
@@ -399,6 +428,35 @@ pub fn in_array<T: Debug>(
     }
 }
 
+/// Creates a filter that matches rows where the column's value is *not* contained in the given array of values.
+///
+/// This is equivalent to a SQL `NOT IN` clause. The filter will match if the column's value is not equal to
+/// any of the values in the provided array.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `values` - The array of values to exclude.
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `NOT IN` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::not_in_array;
+/// use lume::define_schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String,
+///     }
+/// }
+///
+/// let filter = not_in_array(User::id(), &[1.into(), 2.into(), 3.into()]);
+/// ```
 pub fn not_in_array<T: Debug>(
     column: &'static Column<T>,
     values: &'static [Value],
