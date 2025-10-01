@@ -40,7 +40,8 @@ use crate::{database::DatabaseError, schema::Schema};
 /// use lume::define_schema;
 /// use lume::database::Database;
 /// use lume::filter::eq_value;
-/// use lume::schema::{Schema, UpdateTrait, Value};
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
 ///
 /// define_schema! {
 ///     Users {
@@ -101,9 +102,11 @@ impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```no_run
     /// use lume::database::Database;
     /// use lume::define_schema;
+    /// use lume::schema::ColumnInfo;
+    /// use lume::schema::Schema;
     ///
     /// define_schema! {
     ///     Users {
@@ -111,11 +114,6 @@ impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
     ///         username: String [not_null()],
     ///         age: u16,
     ///     }
-    /// }
-    ///
-    /// #[derive(Default)]
-    /// struct UpdateUsers {
-    ///     age: Option<u16>,
     /// }
     ///
     /// #[tokio::main]
@@ -150,10 +148,12 @@ impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```no_run
     /// use lume::database::Database;
     /// use lume::define_schema;
     /// use lume::filter::eq_value;
+    /// use lume::schema::Schema;
+    /// use lume::schema::ColumnInfo;
     ///
     /// define_schema! {
     ///     Users {
@@ -161,11 +161,6 @@ impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
     ///         username: String [not_null()],
     ///         age: u16,
     ///     }
-    /// }
-    ///
-    /// #[derive(Default)]
-    /// struct UpdateUsers {
-    ///     age: Option<u16>,
     /// }
     ///
     /// #[tokio::main]
@@ -198,10 +193,12 @@ impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```no_run
     /// use lume::database::Database;
     /// use lume::define_schema;
     /// use lume::filter::eq_value;
+    /// use lume::schema::Schema;
+    /// use lume::schema::ColumnInfo;
     ///
     /// define_schema! {
     ///     Users {
@@ -209,11 +206,6 @@ impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
     ///         username: String [not_null()],
     ///         age: u16,
     ///     }
-    /// }
-    ///
-    /// #[derive(Default)]
-    /// struct UpdateUsers {
-    ///     age: Option<u16>,
     /// }
     ///
     /// #[tokio::main]

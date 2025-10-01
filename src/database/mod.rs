@@ -220,7 +220,11 @@ impl Database {
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///
-    ///     db.update::<Users>()
+    ///     db.update::<Users, UpdateUsers>()
+    ///         .set(UpdateUsers {
+    ///             age: Some(2),
+    ///             ..Default::default()
+    ///         })
     ///         .filter(lume::filter::eq_value(Users::name(), "guru"))
     ///         .execute()
     ///         .await?;
