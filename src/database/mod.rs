@@ -14,9 +14,10 @@ use crate::{
         delete::Delete,
         insert::{Insert, InsertMany},
         query::Query,
+        update::Update,
     },
     row::Row,
-    schema::{ColumnInfo, Schema, Select},
+    schema::{ColumnInfo, Schema, Select, UpdateTrait},
     table::get_all_tables,
 };
 use sqlx::MySqlPool;
@@ -187,6 +188,52 @@ impl Database {
     /// ```
     pub fn delete<T: Schema + Debug>(&self) -> Delete<T> {
         Delete::new(Arc::clone(&self.connection))
+    }
+
+    /// Creates a new type-safe update operation for the specified schema type.
+    ///
+    /// # Arguments
+    ///
+    /// - `T`: The schema type to update (must implement [`Schema`] + [`Debug`])
+    ///
+    /// # Returns
+    ///
+    /// An [`Update<T>`] instance that can be used to build and execute an update query.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::database::Database;
+    /// use lume::define_schema;
+    /// use lume::schema::Schema;
+    /// use lume::schema::ColumnInfo;
+    ///
+    /// define_schema! {
+    ///     Users {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///         age: i32,
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///
+    ///     db.update::<Users, UpdateUsers>()
+    ///         .set(UpdateUsers {
+    ///             age: Some(2),
+    ///             ..Default::default()
+    ///         })
+    ///         .filter(lume::filter::eq_value(Users::name(), "guru"))
+    ///         .execute()
+    ///         .await?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn update<T: Schema + Debug, U: UpdateTrait + Debug>(&self) -> Update<T, U> {
+        Update::new(Arc::clone(&self.connection))
     }
 
     /// Creates a new type-safe insert-many for the specified schema type.
