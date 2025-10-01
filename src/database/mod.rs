@@ -148,6 +148,43 @@ impl Database {
         Insert::new(data, Arc::clone(&self.connection))
     }
 
+    /// Creates a new type-safe delete operation for the specified schema type.
+    ///
+    /// # Arguments
+    ///
+    /// - `T`: The schema type to delete from (must implement [`Schema`] + [`Debug`])
+    ///
+    /// # Returns
+    ///
+    /// A [`Delete<T>`] instance that can be used to build and execute a delete query.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::database::Database;
+    /// use lume::define_schema;
+    /// use lume::schema::Schema;
+    /// use lume::schema::ColumnInfo;
+    ///
+    /// define_schema! {
+    ///     Users {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///
+    ///     db.delete::<Users>()
+    ///         .filter(lume::filter::eq_value(Users::name(), "guru"))
+    ///         .execute()
+    ///         .await?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn delete<T: Schema + Debug>(&self) -> Delete<T> {
         Delete::new(Arc::clone(&self.connection))
     }

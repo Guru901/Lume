@@ -154,6 +154,50 @@ impl<T: Schema + Debug> Insert<T> {
             };
 
             match value {
+                Value::Array(_arr) => {
+                    // Arrays are not directly insertable; bind NULL using the column's SQL type
+                    match col.data_type {
+                        "VARCHAR(255)" | "TEXT" => {
+                            query = query.bind(None::<&str>);
+                        }
+                        "TINYINT" => {
+                            query = query.bind(None::<i8>);
+                        }
+                        "SMALLINT" => {
+                            query = query.bind(None::<i16>);
+                        }
+                        "INTEGER" => {
+                            query = query.bind(None::<i32>);
+                        }
+                        "BIGINT" => {
+                            query = query.bind(None::<i64>);
+                        }
+                        "TINYINT UNSIGNED" => {
+                            query = query.bind(None::<u8>);
+                        }
+                        "SMALLINT UNSIGNED" => {
+                            query = query.bind(None::<u16>);
+                        }
+                        "INTEGER UNSIGNED" => {
+                            query = query.bind(None::<u32>);
+                        }
+                        "BIGINT UNSIGNED" => {
+                            query = query.bind(None::<u64>);
+                        }
+                        "FLOAT" => {
+                            query = query.bind(None::<f32>);
+                        }
+                        "DOUBLE" => {
+                            query = query.bind(None::<f64>);
+                        }
+                        "BOOLEAN" => {
+                            query = query.bind(None::<bool>);
+                        }
+                        _ => {
+                            query = query.bind(None::<&str>);
+                        }
+                    }
+                }
                 Value::Int8(v) => {
                     query = query.bind(*v);
                 }
@@ -350,6 +394,50 @@ impl<T: Schema + Debug> InsertMany<T> {
                 };
 
                 match value {
+                    Value::Array(_arr) => {
+                        // Arrays are not directly insertable; bind NULL using the column's SQL type
+                        match col.data_type {
+                            "VARCHAR(255)" | "TEXT" => {
+                                query = query.bind(None::<&str>);
+                            }
+                            "TINYINT" => {
+                                query = query.bind(None::<i8>);
+                            }
+                            "SMALLINT" => {
+                                query = query.bind(None::<i16>);
+                            }
+                            "INTEGER" => {
+                                query = query.bind(None::<i32>);
+                            }
+                            "BIGINT" => {
+                                query = query.bind(None::<i64>);
+                            }
+                            "TINYINT UNSIGNED" => {
+                                query = query.bind(None::<u8>);
+                            }
+                            "SMALLINT UNSIGNED" => {
+                                query = query.bind(None::<u16>);
+                            }
+                            "INTEGER UNSIGNED" => {
+                                query = query.bind(None::<u32>);
+                            }
+                            "BIGINT UNSIGNED" => {
+                                query = query.bind(None::<u64>);
+                            }
+                            "FLOAT" => {
+                                query = query.bind(None::<f32>);
+                            }
+                            "DOUBLE" => {
+                                query = query.bind(None::<f64>);
+                            }
+                            "BOOLEAN" => {
+                                query = query.bind(None::<bool>);
+                            }
+                            _ => {
+                                query = query.bind(None::<&str>);
+                            }
+                        }
+                    }
                     Value::Int8(v) => {
                         query = query.bind(*v);
                     }
@@ -435,6 +523,7 @@ impl<T: Schema + Debug> InsertMany<T> {
             // Capture id: prefer provided id, else last_insert_id
             if let Some(id_val) = values.get("id") {
                 match id_val {
+                    Value::Array(_) => inserted_ids.push(result.last_insert_id()),
                     Value::Int64(v) => inserted_ids.push(*v as u64),
                     Value::Int32(v) => inserted_ids.push(*v as u64),
                     Value::Int16(v) => inserted_ids.push(*v as u64),

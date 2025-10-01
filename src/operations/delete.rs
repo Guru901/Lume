@@ -7,15 +7,58 @@ use crate::{
     database::DatabaseError,
     filter::Filtered,
     get_starting_sql,
-    row::Row,
     schema::{Schema, Value},
 };
 
+/// Represents a SQL DELETE operation for a given table.
+///
+/// The `Delete<T>` struct is used to construct and execute a type-safe
+/// SQL DELETE statement for the table represented by the schema type `T`.
+/// It allows you to specify filter conditions to control which records
+/// are deleted from the database.
+///
+/// # Type Parameters
+///
+/// * `T` - The schema type representing the table to delete from. This type must implement [`Schema`].
+///
+/// # Fields
+///
+/// - `table`: Marker for the schema type `T`. Used for type safety and SQL generation.
+/// - `filters`: A list of filter conditions (implementing [`Filtered`]) to restrict which rows are deleted.
+/// - `conn`: The database connection pool used to execute the delete operation.
+///
+/// # Example
+///
+/// ```no_run
+/// use lume::define_schema;
+/// use lume::database::Database;
+/// use lume::filter::eq_value;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///     }
+/// }
+///
+/// #[tokio::main]
+/// async fn main() -> Result<(), lume::database::DatabaseError> {
+///     let db = Database::connect("mysql://...").await?;
+///     db.delete::<User>()
+///         .filter(eq_value(User::name(), "Alice"))
+///         .execute()
+///         .await?;
+///     Ok(())
+/// }
+/// ```
 pub struct Delete<T> {
+    /// Marker for the schema type `T`.
     table: PhantomData<T>,
-    /// List of filters to apply to the query
+    /// List of filters to apply to the delete query.
     filters: Vec<Box<dyn Filtered>>,
-    /// Database connection pool
+    /// Database connection pool.
     conn: Arc<MySqlPool>,
 }
 
@@ -38,6 +81,47 @@ impl<T: Schema + Debug> Delete<T> {
         }
     }
 
+    /// Adds a filter condition to the delete operation.
+    ///
+    /// This method allows you to specify a filter that determines which records
+    /// will be deleted from the table. You can chain multiple calls to `filter`
+    /// to combine multiple filter conditions (e.g., using logical AND/OR).
+    ///
+    /// # Arguments
+    ///
+    /// * `filter` - A filter implementing the [`Filtered`] trait, representing the condition to apply.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new [`Delete`] instance with the filter added, allowing for method chaining.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::define_schema;
+    /// use lume::database::Database;
+    /// use lume::filter::eq_value;
+    /// use lume::schema::Schema;
+    /// use lume::schema::ColumnInfo;
+    ///
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     db.delete::<User>()
+    ///         .filter(eq_value(User::name(), Value::String("John".to_string())))
+    ///         .execute()
+    ///         .await?;
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn filter<F>(mut self, filter: F) -> Self
     where
         F: Filtered + 'static,
@@ -101,6 +185,12 @@ impl<T: Schema + Debug> Delete<T> {
                 Value::Int32(i) => query.bind(i),
                 Value::Int64(i) => query.bind(i),
                 Value::UInt8(u) => query.bind(u),
+                Value::Array(_) => {
+                    eprintln!(
+                        "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
+                    );
+                    query
+                }
                 Value::UInt16(u) => query.bind(u),
                 Value::UInt32(u) => query.bind(u),
                 Value::UInt64(u) => query.bind(u),
@@ -157,6 +247,27 @@ impl<T: Schema + Debug> Delete<T> {
             eprintln!("Warning: Simple filter missing column_one, using tautology");
             return "1=1".to_string();
         };
+
+        // Handle IN / NOT IN array filters
+        if let Some(in_array) = filter.is_in_array() {
+            let values = filter.array_values().unwrap_or(&[]);
+            // Empty list edge-cases: col IN () => false, col NOT IN () => true
+            if values.is_empty() {
+                return if in_array {
+                    "1=0".to_string()
+                } else {
+                    "1=1".to_string()
+                };
+            }
+            // Build placeholders and push params
+            let mut placeholders: Vec<&'static str> = Vec::with_capacity(values.len());
+            for v in values.iter().cloned() {
+                params.push(v);
+                placeholders.push("?");
+            }
+            let op = if in_array { "IN" } else { "NOT IN" };
+            return format!("{}.{} {} ({})", col1.0, col1.1, op, placeholders.join(", "));
+        }
         if let Some(value) = filter.value() {
             match value {
                 Value::Null => {

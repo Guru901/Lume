@@ -1,7 +1,9 @@
 #![warn(missing_docs)]
 
+use std::fmt::Debug;
+
 use crate::{
-    filter::{AndFilter, Filter, FilterType, Filtered, OrFilter},
+    filter::{AndFilter, ArrayFilter, Filter, FilterType, Filtered, OrFilter},
     schema::{Column, Value},
 };
 
@@ -111,7 +113,7 @@ pub fn eq_column<T>(column_1: &'static Column<T>, column_2: &'static Column<T>) 
 /// # Example
 ///
 /// ```
-/// use lume::filter::ne;
+/// use lume::filter::ne_value;
 /// use lume::define_schema;
 /// use lume::schema::Schema;
 /// use lume::schema::ColumnInfo;
@@ -124,9 +126,9 @@ pub fn eq_column<T>(column_1: &'static Column<T>, column_2: &'static Column<T>) 
 ///     }
 /// }
 ///
-/// let filter = ne(User::age(), 30);
+/// let filter = ne_value(User::age(), 30);
 /// ```
-pub fn ne<T, V>(column: &'static Column<T>, value: V) -> Filter
+pub fn ne_value<T, V>(column: &'static Column<T>, value: V) -> Filter
 where
     V: Into<Value>,
 {
@@ -134,6 +136,49 @@ where
         column_one: (column.table_name().to_string(), column.name().to_string()),
         value: Some(value.into()),
         column_two: None,
+        filter_type: FilterType::Neq,
+    }
+}
+
+/// Creates a not-equal filter (`!=`) comparing two columns.
+///
+/// This function generates a filter that checks whether the value in `column1`
+/// is not equal to the value in `column2`. This is useful for queries where you
+/// want to compare the values of two columns within the same row.
+///
+/// # Arguments
+///
+/// * `column1` - The first column to compare.
+/// * `column2` - The second column to compare against.
+///
+/// # Returns
+///
+/// A [`Filter`] representing the not-equal condition between two columns.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::ne_column;
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///         age: i32,
+///         other_age: i32,
+///     }
+/// }
+///
+/// let filter = ne_column(User::age(), User::other_age());
+/// ```
+pub fn ne_column<T>(column1: &'static Column<T>, column2: &'static Column<T>) -> Filter {
+    Filter {
+        column_one: (column1.table_name().to_string(), column1.name().to_string()),
+        value: None,
+        column_two: Some((column2.table_name().to_string(), column2.name().to_string())),
         filter_type: FilterType::Neq,
     }
 }
@@ -383,5 +428,91 @@ pub fn and(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) -
     AndFilter {
         filter1: Box::new(filter1),
         filter2: Box::new(filter2),
+    }
+}
+
+/// Creates a filter that matches rows where the column's value is contained in the given array of values.
+///
+/// This is equivalent to a SQL `IN` clause. The filter will match if the column's value is equal to
+/// any of the values in the provided array.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `values` - The array of values to match against.
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `IN` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::in_array;
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String,
+///     }
+/// }
+///
+/// let IDS = &[Value::Int8(1), Value::Int8(2), Value::Int8(3)];
+/// let filter = in_array(User::id(), IDS);
+/// ```
+pub fn in_array<T: Debug>(
+    column: &'static Column<T>,
+    values: &'static [Value],
+) -> impl Filtered + 'static {
+    ArrayFilter {
+        column: Some((column.table_name().to_string(), column.name().to_string())),
+        values: values,
+        in_array: true,
+    }
+}
+
+/// Creates a filter that matches rows where the column's value is *not* contained in the given array of values.
+///
+/// This is equivalent to a SQL `NOT IN` clause. The filter will match if the column's value is not equal to
+/// any of the values in the provided array.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `values` - The array of values to exclude.
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `NOT IN` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::not_in_array;
+/// use lume::define_schema;
+/// use lume::schema::ColumnInfo;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String,
+///     }
+/// }
+///
+/// let IDS = &[Value::Int8(1), Value::Int8(2), Value::Int8(3)];
+/// let filter = not_in_array(User::id(), IDS);
+/// ```
+pub fn not_in_array<T: Debug>(
+    column: &'static Column<T>,
+    values: &'static [Value],
+) -> impl Filtered + 'static {
+    ArrayFilter {
+        column: Some((column.table_name().to_string(), column.name().to_string())),
+        values: values,
+        in_array: false,
     }
 }
