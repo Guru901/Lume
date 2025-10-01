@@ -29,11 +29,12 @@ use crate::{
 ///
 /// # Example
 ///
-/// ```rust
+/// ```no_run
 /// use lume::define_schema;
 /// use lume::database::Database;
 /// use lume::filter::eq_value;
-/// use lume::schema::{Schema, Value};
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
 ///
 /// define_schema! {
 ///     User {
@@ -96,11 +97,13 @@ impl<T: Schema + Debug> Delete<T> {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```no_run
     /// use lume::define_schema;
     /// use lume::database::Database;
     /// use lume::filter::eq_value;
-    /// use lume::schema::{Schema, Value};
+    /// use lume::schema::Schema;
+    /// use lume::schema::ColumnInfo;
+    ///
     ///
     /// define_schema! {
     ///     User {

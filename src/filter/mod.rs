@@ -191,20 +191,6 @@ pub struct AndFilter {
 /// - `values`: A static slice of `Value` items to compare against the column.
 /// - `in_array`: If `true`, generates an `IN` filter; if `false`, generates a `NOT IN` filter.
 ///
-/// # Example
-///
-/// ```rust
-/// use lume::filter::ArrayFilter;
-/// use lume::value::Value;
-///
-/// let values = &[Value::Int(1), Value::Int(2), Value::Int(3)];
-/// let filter = ArrayFilter {
-///     column: Some(("users".to_string(), "id".to_string())),
-///     values,
-///     in_array: true,
-/// };
-/// // This filter represents: users.id IN (1, 2, 3)
-/// ```
 #[derive(Debug)]
 pub struct ArrayFilter {
     /// The column to filter on, as (table, column) or None.

@@ -164,6 +164,7 @@ impl Database {
     /// use lume::database::Database;
     /// use lume::define_schema;
     /// use lume::schema::Schema;
+    /// use lume::schema::ColumnInfo;
     ///
     /// define_schema! {
     ///     Users {

@@ -113,7 +113,7 @@ pub fn eq_column<T>(column_1: &'static Column<T>, column_2: &'static Column<T>) 
 /// # Example
 ///
 /// ```
-/// use lume::filter::ne;
+/// use lume::filter::ne_value;
 /// use lume::define_schema;
 /// use lume::schema::Schema;
 /// use lume::schema::ColumnInfo;
@@ -126,7 +126,7 @@ pub fn eq_column<T>(column_1: &'static Column<T>, column_2: &'static Column<T>) 
 ///     }
 /// }
 ///
-/// let filter = ne(User::age(), 30);
+/// let filter = ne_value(User::age(), 30);
 /// ```
 pub fn ne_value<T, V>(column: &'static Column<T>, value: V) -> Filter
 where
@@ -161,6 +161,7 @@ where
 /// use lume::filter::ne_column;
 /// use lume::define_schema;
 /// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
 ///
 /// define_schema! {
 ///     User {
@@ -449,6 +450,8 @@ pub fn and(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) -
 /// ```
 /// use lume::filter::in_array;
 /// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
 ///
 /// define_schema! {
 ///     User {
@@ -457,7 +460,8 @@ pub fn and(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) -
 ///     }
 /// }
 ///
-/// let filter = in_array(User::id(), &[1.into(), 2.into(), 3.into()]);
+/// let IDS = &[Value::Int8(1), Value::Int8(2), Value::Int8(3)];
+/// let filter = in_array(User::id(), IDS);
 /// ```
 pub fn in_array<T: Debug>(
     column: &'static Column<T>,
@@ -489,6 +493,8 @@ pub fn in_array<T: Debug>(
 /// ```
 /// use lume::filter::not_in_array;
 /// use lume::define_schema;
+/// use lume::schema::ColumnInfo;
+/// use lume::schema::Schema;
 ///
 /// define_schema! {
 ///     User {
@@ -497,7 +503,8 @@ pub fn in_array<T: Debug>(
 ///     }
 /// }
 ///
-/// let filter = not_in_array(User::id(), &[1.into(), 2.into(), 3.into()]);
+/// let IDS = &[Value::Int8(1), Value::Int8(2), Value::Int8(3)];
+/// let filter = not_in_array(User::id(), IDS);
 /// ```
 pub fn not_in_array<T: Debug>(
     column: &'static Column<T>,
