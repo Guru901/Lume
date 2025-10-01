@@ -2,12 +2,11 @@
 
 ## [0.6.0] - 2025-10-01
 
-New api like Users::selected().something
-New api like Users::selected().all()
-insert and insert_many returns Result<Option<Vec<Row<T>>>, DatabaseError> now
-Added delete function
-Added in array and not in array filters
-renamed ne to ne_value and added ne_column filter
+- Api for selecting made easier `Users::selected().id()` and `Users::selected().all()`
+- Insert and Insert_many returns Result<Option<Vec<Row<T>>>, DatabaseError> now
+- Added delete function
+- Added in array and not in array filters
+- Renamed ne to ne_value and added ne_column filter
 
 ## [0.5.0] - 2025-09-30
 

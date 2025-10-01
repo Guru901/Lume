@@ -66,11 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Type-safe queries
     let users = db
         .query::<Users, QueryUsers>()
-        .select(QueryUsers {
-            username: true,
-            age: true,
-            ..Default::default()
-        })
+        .select(QueryUsers::selected().age().username())
         .filter(eq_value(Users::username(), "john_doe"))
         .execute()
         .await?;
@@ -192,7 +188,7 @@ use lume::filter::eq_column;
 // Here we assume a schema with `Author` and `Book` where `Book.author_id` references `Author.id`
 let authors_with_books = db
     .query::<Author, QueryAuthor>()
-    .select(QueryAuthor { name: true, ..Default::default() })
+    .select(QueryAuthor::selected().name())
     .left_join::<Book, QueryBook>(
         eq_column(Author::id(), Book::author_id()),
         QueryBook { title: true, ..Default::default() },
