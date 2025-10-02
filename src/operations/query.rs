@@ -227,6 +227,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// ```no_run
     /// use lume::define_schema;
     /// use lume::database::Database;
+    /// use lume::filter::Filter;
+    /// use lume::schema::{Schema, ColumnInfo};
     ///
     /// define_schema! {
     ///     User {
@@ -283,6 +285,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// ```no_run
     /// use lume::define_schema;
     /// use lume::database::Database;
+    /// use lume::filter::Filter;
+    /// use lume::schema::{Schema, ColumnInfo};
     ///
     /// define_schema! {
     ///     User {
