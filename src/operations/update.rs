@@ -248,6 +248,62 @@ impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
                 Value::Float32(f) => query.bind(f),
                 Value::Float64(f) => query.bind(f),
                 Value::Bool(b) => query.bind(b),
+                Value::Between(min, max) => {
+                    let query = match *min {
+                        Value::String(s) => query.bind(s),
+                        Value::Int8(i) => query.bind(i),
+                        Value::Int16(i) => query.bind(i),
+                        Value::Int32(i) => query.bind(i),
+                        Value::Int64(i) => query.bind(i),
+                        Value::UInt8(u) => query.bind(u),
+                        Value::UInt16(u) => query.bind(u),
+                        Value::UInt32(u) => query.bind(u),
+                        Value::UInt64(u) => query.bind(u),
+                        Value::Float32(f) => query.bind(f),
+                        Value::Float64(f) => query.bind(f),
+                        Value::Bool(b) => query.bind(b),
+                        Value::Array(_arr) => {
+                            eprintln!(
+                                "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
+                            );
+                            query
+                        }
+                        Value::Between(_, _) => {
+                            eprintln!(
+                                "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
+                            );
+                            query
+                        }
+                        Value::Null => query,
+                    };
+                    match *max {
+                        Value::String(s) => query.bind(s),
+                        Value::Int8(i) => query.bind(i),
+                        Value::Int16(i) => query.bind(i),
+                        Value::Int32(i) => query.bind(i),
+                        Value::Int64(i) => query.bind(i),
+                        Value::UInt8(u) => query.bind(u),
+                        Value::UInt16(u) => query.bind(u),
+                        Value::UInt32(u) => query.bind(u),
+                        Value::UInt64(u) => query.bind(u),
+                        Value::Float32(f) => query.bind(f),
+                        Value::Float64(f) => query.bind(f),
+                        Value::Bool(b) => query.bind(b),
+                        Value::Array(_arr) => {
+                            eprintln!(
+                                "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
+                            );
+                            query
+                        }
+                        Value::Between(_, _) => {
+                            eprintln!(
+                                "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
+                            );
+                            query
+                        }
+                        Value::Null => query,
+                    }
+                }
                 Value::Null => query, // Nulls handled in SQL via IS/IS NOT
             };
         }

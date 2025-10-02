@@ -3,7 +3,7 @@
 use std::fmt::Debug;
 
 use crate::{
-    filter::{AndFilter, ArrayFilter, Filter, FilterType, Filtered, OrFilter},
+    filter::{AndFilter, ArrayFilter, Filter, FilterType, Filtered, NotFilter, OrFilter},
     schema::{Column, Value},
 };
 
@@ -431,6 +431,43 @@ pub fn and(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) -
     }
 }
 
+/// Negates a filter condition, producing a filter that matches when the given filter does not.
+///
+/// This function wraps an existing filter and inverts its logic, allowing you to express
+/// queries such as "NOT (condition)" in SQL.
+///
+/// # Arguments
+///
+/// * `filter` - The filter condition to be negated. This can be any type that implements the [`Filtered`] trait.
+///
+/// # Returns
+///
+/// A [`NotFilter`] representing the logical negation of the provided filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::{not, eq_value};
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///     }
+/// }
+///
+/// let filter = not(eq_value(User::name(), "Alice"));
+/// // This will generate a SQL condition like: NOT (users.name = 'Alice')
+/// ```
+pub fn not(filter: impl Filtered + 'static) -> NotFilter {
+    NotFilter {
+        filter: Box::new(filter),
+    }
+}
+
 /// Creates a filter that matches rows where the column's value is contained in the given array of values.
 ///
 /// This is equivalent to a SQL `IN` clause. The filter will match if the column's value is equal to
@@ -514,5 +551,212 @@ pub fn not_in_array<T: Debug>(
         column: Some((column.table_name().to_string(), column.name().to_string())),
         values: values,
         in_array: false,
+    }
+}
+
+/// Creates a filter that matches rows where the column's value is `NULL`.
+///
+/// This is equivalent to a SQL `IS NULL` clause. The filter will match if the column's value is `NULL`.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `IS NULL` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::is_null;
+/// use lume::define_schema;
+/// use lume::schema::ColumnInfo;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String,
+///     }
+/// }
+///
+/// let filter = is_null(User::name());
+/// ```
+pub fn is_null<T: Debug>(column: &'static Column<T>) -> impl Filtered + 'static {
+    Filter {
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(Value::Null),
+        column_two: None,
+        filter_type: FilterType::Eq,
+    }
+}
+
+/// Creates a filter that matches rows where the column's value is *not* `NULL`.
+///
+/// This is equivalent to a SQL `IS NOT NULL` clause. The filter will match if the column's value is not `NULL`.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `IS NOT NULL` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::is_not_null;
+/// use lume::define_schema;
+/// use lume::schema::ColumnInfo;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String,
+///     }
+/// }
+///
+/// let filter = is_not_null(User::name());
+/// ```
+pub fn is_not_null<T: Debug>(column: &'static Column<T>) -> impl Filtered + 'static {
+    Filter {
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(Value::Null),
+        column_two: None,
+        filter_type: FilterType::Neq,
+    }
+}
+
+/// Creates a filter that matches rows where the column's value is like the given pattern.
+///
+/// This is equivalent to a SQL `LIKE` clause. The filter will match if the column's value is like the given pattern.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `pattern` - The pattern to match.
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `LIKE` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::like;
+/// use lume::define_schema;
+/// use lume::schema::ColumnInfo;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String,
+///     }
+/// }
+///
+/// let filter = like(User::name(), "%doe%");
+/// ```
+pub fn like<T: Debug, P: Into<String>>(
+    column: &'static Column<T>,
+    pattern: P,
+) -> impl Filtered + 'static {
+    Filter {
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(Value::String(pattern.into())),
+        column_two: None,
+        filter_type: FilterType::Like,
+    }
+}
+
+#[cfg(not(feature = "mysql"))]
+/// Creates a filter that matches rows where the column's value is case-insensitively like the given pattern.
+///
+/// This is equivalent to a SQL `ILIKE` clause (case-insensitive LIKE). The filter will match if the column's value matches
+/// the given pattern, ignoring case.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `pattern` - The pattern to match (supports SQL wildcards, e.g., `%foo%`).
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `ILIKE` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::ilike;
+/// use lume::define_schema;
+/// use lume::schema::ColumnInfo;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String,
+///     }
+/// }
+///
+/// let filter = ilike(User::name(), "%doe%");
+/// ```
+pub fn ilike<T: Debug, P: Into<String>>(
+    column: &'static Column<T>,
+    pattern: P,
+) -> impl Filtered + 'static {
+    Filter {
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(Value::String(pattern.into())),
+        column_two: None,
+        filter_type: FilterType::ILike,
+    }
+}
+
+/// Creates a filter that matches rows where the column's value is between the given minimum and maximum values (inclusive).
+///
+/// This is equivalent to a SQL `BETWEEN` clause. The filter will match if the column's value is greater than or equal to `min`
+/// and less than or equal to `max`.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `min` - The minimum value (inclusive).
+/// * `max` - The maximum value (inclusive).
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `BETWEEN` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::between;
+/// use lume::define_schema;
+/// use lume::schema::ColumnInfo;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         age: i32,
+///     }
+/// }
+///
+/// let filter = between(User::age(), 18, 30);
+/// ```
+pub fn between<T: Debug, V: Into<Value>>(
+    column: &'static Column<T>,
+    min: V,
+    max: V,
+) -> impl Filtered + 'static {
+    Filter {
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(Value::Between(Box::new(min.into()), Box::new(max.into()))),
+        column_two: None,
+        filter_type: FilterType::Between,
     }
 }

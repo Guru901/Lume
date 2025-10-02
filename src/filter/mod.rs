@@ -46,6 +46,14 @@ pub enum FilterType {
     Or,
     /// AND operator (logical AND)
     And,
+    /// LIKE operator (LIKE)
+    Like,
+    /// ILIKE operator (ILIKE)
+    ILike,
+    /// NOT operator (NOT)
+    Not,
+    /// BETWEEN operator (BETWEEN)
+    Between,
 }
 
 impl FilterType {
@@ -65,6 +73,10 @@ impl FilterType {
             FilterType::Lte => "<=",
             FilterType::Or => "OR",
             FilterType::And => "AND",
+            FilterType::Like => "LIKE",
+            FilterType::ILike => "ILIKE",
+            FilterType::Not => "NOT",
+            FilterType::Between => "BETWEEN",
         }
     }
 }
@@ -180,6 +192,39 @@ pub struct AndFilter {
     pub(crate) filter2: Box<dyn Filtered>,
 }
 
+/// Represents a logical 'NOT' filter condition for query WHERE clauses.
+///
+/// This struct wraps another filter condition and negates it, allowing you to
+/// express queries such as "NOT (condition)" in SQL.
+///
+/// # Fields
+///
+/// - `filter`: The filter condition to be negated. This is any type that implements the [`Filtered`] trait.
+///
+/// # Example
+///
+/// ```rust
+/// use lume::filter::{not, eq_value};
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///     }
+/// }
+///
+/// let filter = not(eq_value(User::name(), "Alice"));
+/// // This will generate a SQL condition like: NOT (users.name = 'Alice')
+/// ```
+#[derive(Debug)]
+pub struct NotFilter {
+    /// The filter condition to be negated.
+    pub(crate) filter: Box<dyn Filtered>,
+}
+
 /// Represents a filter for checking if a column's value is (or is not) in a given array of values.
 ///
 /// This struct is used to build SQL `IN` or `NOT IN` conditions for queries, allowing you to
@@ -259,6 +304,14 @@ pub trait Filtered: Debug {
 
     /// Returns `Some(true)` for IN array filters, `Some(false)` for NOT IN, or `None` otherwise.
     fn is_in_array(&self) -> Option<bool> {
+        None
+    }
+
+    /// Returns `Some(true)` if this filter is a logical NOT combinator, `None` otherwise.
+    ///
+    /// For filters that represent a logical NOT (negation), this should return `Some(true)`.
+    /// For all other filters, this returns `None` by default.
+    fn is_not(&self) -> Option<bool> {
         None
     }
 }
@@ -438,6 +491,52 @@ impl Filtered for ArrayFilter {
 
     fn is_in_array(&self) -> Option<bool> {
         Some(self.in_array)
+    }
+}
+
+impl Filtered for NotFilter {
+    fn value(&self) -> Option<&Value> {
+        None
+    }
+
+    fn column_one(&self) -> Option<&(String, String)> {
+        None
+    }
+
+    fn column_two(&self) -> Option<&(String, String)> {
+        None
+    }
+
+    fn filter_type(&self) -> FilterType {
+        FilterType::Not
+    }
+
+    fn is_or_filter(&self) -> bool {
+        false
+    }
+
+    fn is_and_filter(&self) -> bool {
+        false
+    }
+
+    fn filter1(&self) -> Option<&dyn Filtered> {
+        Some(&*self.filter)
+    }
+
+    fn filter2(&self) -> Option<&dyn Filtered> {
+        None
+    }
+
+    fn array_values(&self) -> Option<&[Value]> {
+        None
+    }
+
+    fn is_in_array(&self) -> Option<bool> {
+        None
+    }
+
+    fn is_not(&self) -> Option<bool> {
+        Some(true)
     }
 }
 

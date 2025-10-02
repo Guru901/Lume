@@ -51,7 +51,7 @@ use crate::{database::DatabaseError, row::Row, schema::Schema};
 /// #[tokio::main]
 /// async fn main() -> Result<(), lume::database::DatabaseError> {
 ///     let db = Database::connect("mysql://...").await?;
-///     let users = db.query::<User, QueryUser>()
+///     let users = db.query::<User, SelectUser>()
 ///         .filter(eq_value(User::name(), Value::String("John".to_string())))
 ///         .execute()
 ///         .await?;
@@ -68,8 +68,12 @@ pub struct Query<T, S> {
     conn: Arc<MySqlPool>,
 
     select: Option<S>,
+    distinct: bool,
 
     joins: Vec<JoinInfo>,
+
+    limit: Option<u64>,
+    offset: Option<u64>,
 }
 
 /// Information about a join operation
@@ -112,6 +116,9 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             table: PhantomData,
             filters: Vec::new(),
             select: None,
+            distinct: false,
+            limit: None,
+            offset: None,
             joins: Vec::new(),
             conn,
         }
@@ -150,7 +157,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let query = db.query::<User, QueryUser>()
+    ///     let query = db.query::<User, SelectUser>()
     ///         .filter(eq_value(User::name(), Value::String("John".to_string())));
     ///     Ok(())
     /// }
@@ -160,6 +167,83 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         F: Filtered + 'static,
     {
         self.filters.push(Box::new(filter));
+        self
+    }
+
+    /// Adds a limit to the query.
+    ///
+    /// This method adds a LIMIT clause to the SQL query, limiting the number of rows returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `limit` - The maximum number of rows to return.
+    ///
+    /// # Returns
+    ///
+    /// The query builder instance for method chaining.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::define_schema;
+    /// use lume::database::Database;
+    /// use lume::filter::Filter;
+    /// use lume::schema::{Schema, ColumnInfo};
+    /// use lume::filter::eq_value;
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     let query = db.query::<User, SelectUser>().limit(10);
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn limit(mut self, limit: u64) -> Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    /// Adds an offset to the query.
+    ///
+    /// This method adds an OFFSET clause to the SQL query, skipping the specified number of rows before starting to return rows.
+    ///
+    /// # Arguments
+    ///
+    /// * `offset` - The number of rows to skip before starting to return rows.
+    ///
+    /// # Returns
+    ///
+    /// The query builder instance for method chaining.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::define_schema;
+    /// use lume::database::Database;
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     let query = db.query::<User, SelectUser>().offset(20);
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn offset(mut self, offset: u64) -> Self {
+        self.offset = Some(offset);
         self
     }
 
@@ -178,6 +262,46 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
 
     pub fn select(mut self, select_schema: S) -> Self {
         self.select = Some(select_schema);
+        self
+    }
+
+    /// Specifies that the query should select only distinct rows for the given columns.
+    ///
+    /// This method works like [`select`](Self::select), but adds a `DISTINCT` clause to the SQL query,
+    /// ensuring that duplicate rows are removed from the result set.
+    ///
+    /// # Arguments
+    ///
+    /// - `select_schema`: The selection schema specifying which columns to include in the DISTINCT selection.
+    ///
+    /// # Returns
+    ///
+    /// The query builder instance for method chaining.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::define_schema;
+    /// use lume::database::Database;
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     // Selects only unique user names
+    ///     let query = db.query::<User, SelectUser>().select_distinct(SelectUser::selected().name());
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn select_distinct(mut self, select_schema: S) -> Self {
+        self.select = Some(select_schema);
+        self.distinct = true;
         self
     }
 
@@ -220,8 +344,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let results = db.query::<User, QueryUser>()
-    ///         .left_join::<Post, QueryPost>(eq_column(User::id(), Post::user_id()), QueryPost { title: true, ..Default::default() })
+    ///     let results = db.query::<User, SelectUser>()
+    ///         .left_join::<Post, SelectPost>(eq_column(User::id(), Post::user_id()), SelectPost { title: true, ..Default::default() })
     ///         .execute()
     ///         .await?;
     ///     Ok(())
@@ -281,8 +405,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let results = db.query::<User, QueryUser>()
-    ///         .inner_join::<Post, QueryPost>(eq_column(User::id(), Post::user_id()), QueryPost { title: true, ..Default::default() })
+    ///     let results = db.query::<User, SelectUser>()
+    ///         .inner_join::<Post, SelectPost>(eq_column(User::id(), Post::user_id()), SelectPost { title: true, ..Default::default() })
     ///         .execute()
     ///         .await?;
     ///     Ok(())
@@ -343,8 +467,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let results = db.query::<User, QueryUser>()
-    ///         .right_join::<Post, QueryPost>(eq_column(User::id(), Post::user_id()), QueryPost { title: true, ..Default::default() })
+    ///     let results = db.query::<User, SelectUser>()
+    ///         .right_join::<Post, SelectPost>(eq_column(User::id(), Post::user_id()), SelectPost { title: true, ..Default::default() })
     ///         .execute()
     ///         .await?;
     ///     Ok(())
@@ -405,7 +529,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let results = db.query::<User, QueryUser>()
+    ///     let results = db.query::<User, SelectUser>()
     ///         .full_join::<Post>(eq_column(User::id(), Post::user_id()))
     ///         .execute()
     ///         .await?;
@@ -465,8 +589,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let results = db.query::<User, QueryUser>()
-    ///         .cross_join::<Post, QueryPost>(QueryPost { title: true, ..Default::default() })
+    ///     let results = db.query::<User, SelectUser>()
+    ///         .cross_join::<Post, SelectPost>(SelectPost { title: true, ..Default::default() })
     ///         .execute()
     ///         .await?;
     ///     Ok(())
@@ -516,7 +640,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let users = db.query::<User, QueryUser>()
+    ///     let users = db.query::<User, SelectUser>()
     ///         .filter(eq_value(User::name(), Value::String("John".to_string())))
     ///         .execute()
     ///         .await?;
@@ -529,11 +653,26 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     /// ```
     pub async fn execute(self) -> Result<Vec<Row<T>>, DatabaseError> {
-        let sql = get_starting_sql(StartingSql::Select, T::table_name());
+        let mut sql = get_starting_sql(StartingSql::Select, T::table_name());
+
+        if self.distinct {
+            sql.push_str(" DISTINCT ");
+        }
+
         let sql = Self::select_sql(sql, self.select, T::table_name(), &self.joins);
         let sql = Self::joins_sql(sql, &self.joins);
         let mut params: Vec<Value> = Vec::new();
-        let sql = Self::filter_sql(sql, self.filters, &mut params);
+        let mut sql = Self::filter_sql(sql, self.filters, &mut params);
+
+        if let Some(limit) = self.limit {
+            sql.push_str(&format!(" LIMIT {}", limit));
+        }
+
+        if let Some(offset) = self.offset {
+            sql.push_str(&format!(" OFFSET {}", offset));
+        }
+
+        println!("SQL: {sql}\n");
 
         let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
         let mut query = sqlx::query(&sql);
@@ -557,6 +696,62 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
                 Value::Float32(f) => query.bind(f),
                 Value::Float64(f) => query.bind(f),
                 Value::Bool(b) => query.bind(b),
+                Value::Between(min, max) => {
+                    let query = match *min {
+                        Value::String(s) => query.bind(s),
+                        Value::Int8(i) => query.bind(i),
+                        Value::Int16(i) => query.bind(i),
+                        Value::Int32(i) => query.bind(i),
+                        Value::Int64(i) => query.bind(i),
+                        Value::UInt8(u) => query.bind(u),
+                        Value::UInt16(u) => query.bind(u),
+                        Value::UInt32(u) => query.bind(u),
+                        Value::UInt64(u) => query.bind(u),
+                        Value::Float32(f) => query.bind(f),
+                        Value::Float64(f) => query.bind(f),
+                        Value::Bool(b) => query.bind(b),
+                        Value::Array(_arr) => {
+                            eprintln!(
+                                "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
+                            );
+                            query
+                        }
+                        Value::Between(_, _) => {
+                            eprintln!(
+                                "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
+                            );
+                            query
+                        }
+                        Value::Null => query,
+                    };
+                    match *max {
+                        Value::String(s) => query.bind(s),
+                        Value::Int8(i) => query.bind(i),
+                        Value::Int16(i) => query.bind(i),
+                        Value::Int32(i) => query.bind(i),
+                        Value::Int64(i) => query.bind(i),
+                        Value::UInt8(u) => query.bind(u),
+                        Value::UInt16(u) => query.bind(u),
+                        Value::UInt32(u) => query.bind(u),
+                        Value::UInt64(u) => query.bind(u),
+                        Value::Float32(f) => query.bind(f),
+                        Value::Float64(f) => query.bind(f),
+                        Value::Bool(b) => query.bind(b),
+                        Value::Array(_arr) => {
+                            eprintln!(
+                                "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
+                            );
+                            query
+                        }
+                        Value::Between(_, _) => {
+                            eprintln!(
+                                "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
+                            );
+                            query
+                        }
+                        Value::Null => query,
+                    }
+                }
                 Value::Null => query, // Nulls handled in SQL via IS/IS NOT
             };
         }

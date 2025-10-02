@@ -58,7 +58,7 @@ use sqlx::MySqlPool;
 ///     db.register_table::<User>().await?;
 ///     
 ///     // Execute type-safe queries
-///     let users = db.query::<User, QueryUser>().execute().await?;
+///     let users = db.query::<User, SelectUser>().execute().await?;
 ///     
 ///     Ok(())
 /// }
@@ -97,7 +97,7 @@ impl Database {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let query = db.query::<Users, QueryUsers>();
+    ///     let query = db.query::<Users, SelectUsers>();
     ///     Ok(())
     /// }
     /// ```
