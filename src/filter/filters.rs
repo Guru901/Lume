@@ -672,6 +672,50 @@ pub fn like<T: Debug, P: Into<String>>(
     }
 }
 
+#[cfg(not(feature = "mysql"))]
+/// Creates a filter that matches rows where the column's value is case-insensitively like the given pattern.
+///
+/// This is equivalent to a SQL `ILIKE` clause (case-insensitive LIKE). The filter will match if the column's value matches
+/// the given pattern, ignoring case.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `pattern` - The pattern to match (supports SQL wildcards, e.g., `%foo%`).
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `ILIKE` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::ilike;
+/// use lume::define_schema;
+/// use lume::schema::ColumnInfo;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String,
+///     }
+/// }
+///
+/// let filter = ilike(User::name(), "%doe%");
+/// ```
+pub fn ilike<T: Debug, P: Into<String>>(
+    column: &'static Column<T>,
+    pattern: P,
+) -> impl Filtered + 'static {
+    Filter {
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(Value::String(pattern.into())),
+        column_two: None,
+        filter_type: FilterType::ILike,
+    }
+}
+
 /// Creates a filter that matches rows where the column's value is between the given minimum and maximum values (inclusive).
 ///
 /// This is equivalent to a SQL `BETWEEN` clause. The filter will match if the column's value is greater than or equal to `min`

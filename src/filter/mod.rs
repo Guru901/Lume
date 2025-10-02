@@ -48,6 +48,8 @@ pub enum FilterType {
     And,
     /// LIKE operator (LIKE)
     Like,
+    /// ILIKE operator (ILIKE)
+    ILike,
     /// NOT operator (NOT)
     Not,
     /// BETWEEN operator (BETWEEN)
@@ -72,6 +74,7 @@ impl FilterType {
             FilterType::Or => "OR",
             FilterType::And => "AND",
             FilterType::Like => "LIKE",
+            FilterType::ILike => "ILIKE",
             FilterType::Not => "NOT",
             FilterType::Between => "BETWEEN",
         }
