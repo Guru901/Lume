@@ -592,3 +592,45 @@ pub fn is_not_null<T: Debug>(column: &'static Column<T>) -> impl Filtered + 'sta
         filter_type: FilterType::Neq,
     }
 }
+
+/// Creates a filter that matches rows where the column's value is like the given pattern.
+///
+/// This is equivalent to a SQL `LIKE` clause. The filter will match if the column's value is like the given pattern.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `pattern` - The pattern to match.
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `LIKE` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::like;
+/// use lume::define_schema;
+/// use lume::schema::ColumnInfo;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String,
+///     }
+/// }
+///
+/// let filter = like(User::name(), "%doe%");
+/// ```
+pub fn like<T: Debug>(
+    column: &'static Column<T>,
+    pattern: &'static str,
+) -> impl Filtered + 'static {
+    Filter {
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(Value::String(pattern.to_string())),
+        column_two: None,
+        filter_type: FilterType::Like,
+    }
+}

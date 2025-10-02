@@ -46,6 +46,8 @@ pub enum FilterType {
     Or,
     /// AND operator (logical AND)
     And,
+    /// LIKE operator (LIKE)
+    Like,
 }
 
 impl FilterType {
@@ -65,6 +67,7 @@ impl FilterType {
             FilterType::Lte => "<=",
             FilterType::Or => "OR",
             FilterType::And => "AND",
+            FilterType::Like => "LIKE",
         }
     }
 }
