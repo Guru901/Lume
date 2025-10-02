@@ -1,5 +1,7 @@
 # Changelog
 
+## [0.7.0] - 2025-10-02
+
 - Added update operation
 - Added is_null, is_not_null, like, not, between, limit, ilike and offset filters
 - Renamed QueryTable to SelectTable
