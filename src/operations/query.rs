@@ -70,6 +70,8 @@ pub struct Query<T, S> {
     select: Option<S>,
 
     joins: Vec<JoinInfo>,
+
+    limit: Option<u64>,
 }
 
 /// Information about a join operation
@@ -112,6 +114,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             table: PhantomData,
             filters: Vec::new(),
             select: None,
+            limit: None,
             joins: Vec::new(),
             conn,
         }
@@ -160,6 +163,46 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         F: Filtered + 'static,
     {
         self.filters.push(Box::new(filter));
+        self
+    }
+
+    /// Adds a limit to the query.
+    ///
+    /// This method adds a LIMIT clause to the SQL query, limiting the number of rows returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `limit` - The maximum number of rows to return.
+    ///
+    /// # Returns
+    ///
+    /// The query builder instance for method chaining.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::define_schema;
+    /// use lume::database::Database;
+    /// use lume::filter::Filter;
+    /// use lume::schema::{Schema, ColumnInfo};
+    /// use lume::filter::eq_value;
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     let query = db.query::<User, SelectUser>().limit(10);
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn limit(mut self, limit: u64) -> Self {
+        self.limit = Some(limit);
         self
     }
 
@@ -533,7 +576,11 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         let sql = Self::select_sql(sql, self.select, T::table_name(), &self.joins);
         let sql = Self::joins_sql(sql, &self.joins);
         let mut params: Vec<Value> = Vec::new();
-        let sql = Self::filter_sql(sql, self.filters, &mut params);
+        let mut sql = Self::filter_sql(sql, self.filters, &mut params);
+
+        if let Some(limit) = self.limit {
+            sql.push_str(&format!(" LIMIT {}", limit));
+        }
 
         println!("SQL: {sql}\n");
 
