@@ -72,6 +72,7 @@ pub struct Query<T, S> {
     joins: Vec<JoinInfo>,
 
     limit: Option<u64>,
+    offset: Option<u64>,
 }
 
 /// Information about a join operation
@@ -115,6 +116,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             filters: Vec::new(),
             select: None,
             limit: None,
+            offset: None,
             joins: Vec::new(),
             conn,
         }
@@ -203,6 +205,43 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// ```
     pub fn limit(mut self, limit: u64) -> Self {
         self.limit = Some(limit);
+        self
+    }
+
+    /// Adds an offset to the query.
+    ///
+    /// This method adds an OFFSET clause to the SQL query, skipping the specified number of rows before starting to return rows.
+    ///
+    /// # Arguments
+    ///
+    /// * `offset` - The number of rows to skip before starting to return rows.
+    ///
+    /// # Returns
+    ///
+    /// The query builder instance for method chaining.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::define_schema;
+    /// use lume::database::Database;
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     let query = db.query::<User, SelectUser>().offset(20);
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn offset(mut self, offset: u64) -> Self {
+        self.offset = Some(offset);
         self
     }
 
@@ -580,6 +619,10 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
 
         if let Some(limit) = self.limit {
             sql.push_str(&format!(" LIMIT {}", limit));
+        }
+
+        if let Some(offset) = self.offset {
+            sql.push_str(&format!(" OFFSET {}", offset));
         }
 
         println!("SQL: {sql}\n");
