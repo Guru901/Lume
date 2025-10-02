@@ -366,6 +366,10 @@ impl Filtered for OrFilter {
     fn filter2(&self) -> Option<&dyn Filtered> {
         Some(&*self.filter2)
     }
+
+    fn is_or_filter(&self) -> bool {
+        true
+    }
 }
 
 impl Filtered for AndFilter {
@@ -383,6 +387,10 @@ impl Filtered for AndFilter {
 
     fn filter_type(&self) -> FilterType {
         FilterType::And
+    }
+
+    fn is_and_filter(&self) -> bool {
+        true
     }
 }
 
