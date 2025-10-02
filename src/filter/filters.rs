@@ -660,13 +660,13 @@ pub fn is_not_null<T: Debug>(column: &'static Column<T>) -> impl Filtered + 'sta
 ///
 /// let filter = like(User::name(), "%doe%");
 /// ```
-pub fn like<T: Debug>(
+pub fn like<T: Debug, P: Into<String>>(
     column: &'static Column<T>,
-    pattern: &'static str,
+    pattern: P,
 ) -> impl Filtered + 'static {
     Filter {
         column_one: (column.table_name().to_string(), column.name().to_string()),
-        value: Some(Value::String(pattern.to_string())),
+        value: Some(Value::String(pattern.into())),
         column_two: None,
         filter_type: FilterType::Like,
     }
