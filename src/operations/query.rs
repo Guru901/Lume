@@ -669,6 +669,9 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         }
 
         if let Some(offset) = self.offset {
+            if self.limit.is_none() {
+                sql.push_str(" LIMIT 18446744073709551615");
+            }
             sql.push_str(&format!(" OFFSET {}", offset));
         }
 
