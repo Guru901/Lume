@@ -431,6 +431,36 @@ pub fn and(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) -
     }
 }
 
+/// Negates a filter condition, producing a filter that matches when the given filter does not.
+///
+/// This function wraps an existing filter and inverts its logic, allowing you to express
+/// queries such as "NOT (condition)" in SQL.
+///
+/// # Arguments
+///
+/// * `filter` - The filter condition to be negated. This can be any type that implements the [`Filtered`] trait.
+///
+/// # Returns
+///
+/// A [`NotFilter`] representing the logical negation of the provided filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::{not, eq_value};
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///     }
+/// }
+///
+/// let filter = not(eq_value(User::name(), "Alice"));
+/// // This will generate a SQL condition like: NOT (users.name = 'Alice')
+/// ```
 pub fn not(filter: impl Filtered + 'static) -> NotFilter {
     NotFilter {
         filter: Box::new(filter),

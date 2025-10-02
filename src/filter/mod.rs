@@ -186,8 +186,35 @@ pub struct AndFilter {
     pub(crate) filter2: Box<dyn Filtered>,
 }
 
+/// Represents a logical 'NOT' filter condition for query WHERE clauses.
+///
+/// This struct wraps another filter condition and negates it, allowing you to
+/// express queries such as "NOT (condition)" in SQL.
+///
+/// # Fields
+///
+/// - `filter`: The filter condition to be negated. This is any type that implements the [`Filtered`] trait.
+///
+/// # Example
+///
+/// ```rust
+/// use lume::filter::{not, eq_value};
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String [not_null()],
+///     }
+/// }
+///
+/// let filter = not(eq_value(User::name(), "Alice"));
+/// // This will generate a SQL condition like: NOT (users.name = 'Alice')
+/// ```
 #[derive(Debug)]
 pub struct NotFilter {
+    /// The filter condition to be negated.
     pub(crate) filter: Box<dyn Filtered>,
 }
 
@@ -273,6 +300,10 @@ pub trait Filtered: Debug {
         None
     }
 
+    /// Returns `Some(true)` if this filter is a logical NOT combinator, `None` otherwise.
+    ///
+    /// For filters that represent a logical NOT (negation), this should return `Some(true)`.
+    /// For all other filters, this returns `None` by default.
     fn is_not(&self) -> Option<bool> {
         None
     }
