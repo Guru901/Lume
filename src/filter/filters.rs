@@ -516,3 +516,79 @@ pub fn not_in_array<T: Debug>(
         in_array: false,
     }
 }
+
+/// Creates a filter that matches rows where the column's value is `NULL`.
+///
+/// This is equivalent to a SQL `IS NULL` clause. The filter will match if the column's value is `NULL`.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `IS NULL` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::is_null;
+/// use lume::define_schema;
+/// use lume::schema::ColumnInfo;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String,
+///     }
+/// }
+///
+/// let filter = is_null(User::name());
+/// ```
+pub fn is_null<T: Debug>(column: &'static Column<T>) -> impl Filtered + 'static {
+    Filter {
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(Value::Null),
+        column_two: None,
+        filter_type: FilterType::Eq,
+    }
+}
+
+/// Creates a filter that matches rows where the column's value is *not* `NULL`.
+///
+/// This is equivalent to a SQL `IS NOT NULL` clause. The filter will match if the column's value is not `NULL`.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `IS NOT NULL` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::is_not_null;
+/// use lume::define_schema;
+/// use lume::schema::ColumnInfo;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         name: String,
+///     }
+/// }
+///
+/// let filter = is_not_null(User::name());
+/// ```
+pub fn is_not_null<T: Debug>(column: &'static Column<T>) -> impl Filtered + 'static {
+    Filter {
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(Value::Null),
+        column_two: None,
+        filter_type: FilterType::Neq,
+    }
+}

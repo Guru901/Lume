@@ -1,5 +1,9 @@
 # Changelog
 
+- Added update operation
+- Added is_null and is_not_null filters
+- Renamed QueryTable to SelectTable
+
 ## [0.6.0] - 2025-10-01
 
 - Api for selecting made easier `Users::selected().id()` and `Users::selected().all()`

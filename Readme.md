@@ -65,8 +65,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Type-safe queries
     let users = db
-        .query::<Users, QueryUsers>()
-        .select(QueryUsers::selected().age().username())
+        .query::<Users, SelectUsers>()
+        .select(SelectUsers::selected().age().username())
         .filter(eq_value(Users::username(), "john_doe"))
         .execute()
         .await?;
@@ -151,14 +151,14 @@ use lume::filter::{eq_value, lt};
 
 // Filter by equality
 let active_users = db
-    .query::<Users, QueryUsers>()
+    .query::<Users, SelectUsers>()
     .filter(eq_value(Users::is_active(), true))
     .execute()
     .await?;
 
 // Multiple filters
 let young_active_users = db
-    .query::<Users, QueryUsers>()
+    .query::<Users, SelectUsers>()
     .filter(eq_value(Users::is_active(), true))
     .filter(lt(Users::age(), 25))
     .execute()
@@ -187,8 +187,8 @@ use lume::filter::eq_column;
 // Example joining two tables using a LEFT JOIN
 // Here we assume a schema with `Author` and `Book` where `Book.author_id` references `Author.id`
 let authors_with_books = db
-    .query::<Author, QueryAuthor>()
-    .select(QueryAuthor::selected().name())
+    .query::<Author, SelectAuthor>()
+    .select(SelectAuthor::selected().name())
     .left_join::<Book, QueryBook>(
         eq_column(Author::id(), Book::author_id()),
         QueryBook { title: true, ..Default::default() },
@@ -198,7 +198,7 @@ let authors_with_books = db
 
 // INNER JOIN (returns only matching rows)
 let authors_and_books = db
-    .query::<Author, QueryAuthor>()
+    .query::<Author, SelectAuthor>()
     .inner_join::<Book, QueryBook>(
         eq_column(Author::id(), Book::author_id()),
         QueryBook { title: true, ..Default::default() },
@@ -208,7 +208,7 @@ let authors_and_books = db
 
 // RIGHT JOIN (when supported by your database and use-case)
 let right_joined = db
-    .query::<Author, QueryAuthor>()
+    .query::<Author, SelectAuthor>()
     .right_join::<Book, QueryBook>(
         eq_column(Author::id(), Book::author_id()),
         QueryBook { title: true, ..Default::default() },
@@ -226,7 +226,7 @@ use lume::filter::{and, or, eq_value, gt_value, lt_value, in_values};
 let date_threshold = 1_696_000_000i64; // example UNIX timestamp
 
 let users = db
-    .query::<Users, QueryUsers>()
+    .query::<Users, SelectUsers>()
     .filter(or(
         and(
             eq_value(Users::status(), "active"),
@@ -288,7 +288,7 @@ define_schema! {
 Lume provides comprehensive error handling:
 
 ```rust
-match db.query::<Users, QueryUsers>().execute().await {
+match db.query::<Users, SelectUsers>().execute().await {
     Ok(users) => println!("Found {} users", users.len()),
     Err(e) => eprintln!("Database error: {}", e),
 }

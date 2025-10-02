@@ -51,7 +51,7 @@ use crate::{database::DatabaseError, row::Row, schema::Schema};
 /// #[tokio::main]
 /// async fn main() -> Result<(), lume::database::DatabaseError> {
 ///     let db = Database::connect("mysql://...").await?;
-///     let users = db.query::<User, QueryUser>()
+///     let users = db.query::<User, SelectUser>()
 ///         .filter(eq_value(User::name(), Value::String("John".to_string())))
 ///         .execute()
 ///         .await?;
@@ -150,7 +150,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let query = db.query::<User, QueryUser>()
+    ///     let query = db.query::<User, SelectUser>()
     ///         .filter(eq_value(User::name(), Value::String("John".to_string())));
     ///     Ok(())
     /// }
@@ -220,8 +220,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let results = db.query::<User, QueryUser>()
-    ///         .left_join::<Post, QueryPost>(eq_column(User::id(), Post::user_id()), QueryPost { title: true, ..Default::default() })
+    ///     let results = db.query::<User, SelectUser>()
+    ///         .left_join::<Post, SelectPost>(eq_column(User::id(), Post::user_id()), SelectPost { title: true, ..Default::default() })
     ///         .execute()
     ///         .await?;
     ///     Ok(())
@@ -281,8 +281,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let results = db.query::<User, QueryUser>()
-    ///         .inner_join::<Post, QueryPost>(eq_column(User::id(), Post::user_id()), QueryPost { title: true, ..Default::default() })
+    ///     let results = db.query::<User, SelectUser>()
+    ///         .inner_join::<Post, SelectPost>(eq_column(User::id(), Post::user_id()), SelectPost { title: true, ..Default::default() })
     ///         .execute()
     ///         .await?;
     ///     Ok(())
@@ -343,8 +343,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let results = db.query::<User, QueryUser>()
-    ///         .right_join::<Post, QueryPost>(eq_column(User::id(), Post::user_id()), QueryPost { title: true, ..Default::default() })
+    ///     let results = db.query::<User, SelectUser>()
+    ///         .right_join::<Post, SelectPost>(eq_column(User::id(), Post::user_id()), SelectPost { title: true, ..Default::default() })
     ///         .execute()
     ///         .await?;
     ///     Ok(())
@@ -405,7 +405,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let results = db.query::<User, QueryUser>()
+    ///     let results = db.query::<User, SelectUser>()
     ///         .full_join::<Post>(eq_column(User::id(), Post::user_id()))
     ///         .execute()
     ///         .await?;
@@ -465,8 +465,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let results = db.query::<User, QueryUser>()
-    ///         .cross_join::<Post, QueryPost>(QueryPost { title: true, ..Default::default() })
+    ///     let results = db.query::<User, SelectUser>()
+    ///         .cross_join::<Post, SelectPost>(SelectPost { title: true, ..Default::default() })
     ///         .execute()
     ///         .await?;
     ///     Ok(())
@@ -516,7 +516,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let users = db.query::<User, QueryUser>()
+    ///     let users = db.query::<User, SelectUser>()
     ///         .filter(eq_value(User::name(), Value::String("John".to_string())))
     ///         .execute()
     ///         .await?;
@@ -534,6 +534,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         let sql = Self::joins_sql(sql, &self.joins);
         let mut params: Vec<Value> = Vec::new();
         let sql = Self::filter_sql(sql, self.filters, &mut params);
+
+        println!("{}", sql);
 
         let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
         let mut query = sqlx::query(&sql);

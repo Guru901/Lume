@@ -123,9 +123,9 @@ pub trait UpdateTrait {
 ///     }
 /// }
 ///
-/// // The macro generates a selection struct (e.g., QueryUser) that implements Select.
+/// // The macro generates a selection struct (e.g., SelectUser) that implements Select.
 /// // You can use it to specify which columns to select in a query.
-/// // let selection = QueryUser::default();
+/// // let selection = SelectUser::default();
 /// // let columns = selection.get_selected();
 /// ```
 pub trait Select {
@@ -382,13 +382,13 @@ macro_rules! define_schema {
 
         paste::paste! {
             #[derive(Debug)]
-            pub struct [<Query $struct_name>] {
+            pub struct [<Select $struct_name>] {
                 $(
                     pub $name: bool,
                 )*
             }
 
-            impl [<Query $struct_name>] {
+            impl [<Select $struct_name>] {
 
                 $(
                     fn $name(mut self) -> Self {
@@ -415,7 +415,7 @@ macro_rules! define_schema {
                 }
             }
 
-            impl Default for [<Query $struct_name>] {
+            impl Default for [<Select $struct_name>] {
                 fn default() -> Self {
                     Self {
                         $(
@@ -425,7 +425,7 @@ macro_rules! define_schema {
                 }
             }
 
-            impl $crate::schema::Select for [<Query $struct_name>] {
+            impl $crate::schema::Select for [<Select $struct_name>] {
                 fn default() -> Self {
                     Self {
                         $(

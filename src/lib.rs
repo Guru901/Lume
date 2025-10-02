@@ -38,7 +38,7 @@
 //!     
 //!     // Type-safe queries
 //!     let users = db
-//!         .query::<Users, QueryUsers>()
+//!         .query::<Users, SelectUsers>()
 //!         .filter(lume::filter::Filter::eq_value("username", Value::String("john_doe".to_string())))
 //!         .execute()
 //!         .await?;
@@ -149,6 +149,7 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
         let right = build_filter_expr(f2, params);
         return format!("({} {} {})", left, op, right);
     }
+
     let Some(col1) = filter.column_one() else {
         eprintln!("Warning: Simple filter missing column_one, using tautology");
         return "1=1".to_string();
@@ -201,7 +202,6 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
             col2.1
         )
     } else {
-        // Fallback to a tautology if filter is malformed
-        "1=1".to_string()
+        return "1=1".to_string();
     }
 }
