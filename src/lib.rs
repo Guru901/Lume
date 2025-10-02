@@ -196,8 +196,8 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
                 format!("{}.{} {}", col1.0, col1.1, null_sql)
             }
             Value::Between(min, max) => {
-                params.push(Value::from(min.clone()));
-                params.push(Value::from(max.clone()));
+                params.push((**min).clone());
+                params.push((**max).clone());
                 format!("{}.{} BETWEEN ? AND ?", col1.0, col1.1)
             }
             _ => {
