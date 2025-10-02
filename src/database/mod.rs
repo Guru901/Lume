@@ -9,6 +9,9 @@
 use sqlx::Executor;
 use std::{fmt::Debug, sync::Arc};
 
+/// Error types for database operations.
+pub mod error;
+
 use crate::{
     operations::{
         delete::Delete,
