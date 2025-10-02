@@ -573,7 +573,7 @@ pub enum Value {
     Null,
 
     /// Between value
-    Between(i64, i64),
+    Between(Box<Value>, Box<Value>),
 }
 
 impl Display for Value {

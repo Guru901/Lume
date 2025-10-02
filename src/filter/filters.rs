@@ -748,14 +748,14 @@ pub fn ilike<T: Debug, P: Into<String>>(
 ///
 /// let filter = between(User::age(), 18, 30);
 /// ```
-pub fn between<T: Debug, V: Into<i64>>(
+pub fn between<T: Debug, V: Into<Value>>(
     column: &'static Column<T>,
     min: V,
     max: V,
 ) -> impl Filtered + 'static {
     Filter {
         column_one: (column.table_name().to_string(), column.name().to_string()),
-        value: Some(Value::Between(min.into(), max.into())),
+        value: Some(Value::Between(Box::new(min.into()), Box::new(max.into()))),
         column_two: None,
         filter_type: FilterType::Between,
     }
