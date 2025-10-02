@@ -1,7 +1,7 @@
 # Changelog
 
 - Added update operation
-- Added is_null and is_not_null filters
+- Added is_null, is_not_null, like and not filters
 - Renamed QueryTable to SelectTable
 
 ## [0.6.0] - 2025-10-01
