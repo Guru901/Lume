@@ -197,6 +197,7 @@ impl<T: Schema + Debug> Delete<T> {
                 Value::Float32(f) => query.bind(f),
                 Value::Float64(f) => query.bind(f),
                 Value::Bool(b) => query.bind(b),
+                Value::Between(min, max) => query.bind(min).bind(max),
                 Value::Null => query, // Nulls handled in SQL via IS/IS NOT
             };
         }

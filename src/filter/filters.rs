@@ -671,3 +671,48 @@ pub fn like<T: Debug, P: Into<String>>(
         filter_type: FilterType::Like,
     }
 }
+
+/// Creates a filter that matches rows where the column's value is between the given minimum and maximum values (inclusive).
+///
+/// This is equivalent to a SQL `BETWEEN` clause. The filter will match if the column's value is greater than or equal to `min`
+/// and less than or equal to `max`.
+///
+/// # Arguments
+///
+/// * `column` - The column to filter on.
+/// * `min` - The minimum value (inclusive).
+/// * `max` - The maximum value (inclusive).
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `BETWEEN` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::between;
+/// use lume::define_schema;
+/// use lume::schema::ColumnInfo;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User {
+///         id: i32 [primary_key()],
+///         age: i32,
+///     }
+/// }
+///
+/// let filter = between(User::age(), 18, 30);
+/// ```
+pub fn between<T: Debug, V: Into<i64>>(
+    column: &'static Column<T>,
+    min: V,
+    max: V,
+) -> impl Filtered + 'static {
+    Filter {
+        column_one: (column.table_name().to_string(), column.name().to_string()),
+        value: Some(Value::Between(min.into(), max.into())),
+        column_two: None,
+        filter_type: FilterType::Between,
+    }
+}

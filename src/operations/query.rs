@@ -535,8 +535,6 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         let mut params: Vec<Value> = Vec::new();
         let sql = Self::filter_sql(sql, self.filters, &mut params);
 
-        println!("SQL: {sql}");
-
         let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
         let mut query = sqlx::query(&sql);
         for v in params {
@@ -559,6 +557,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
                 Value::Float32(f) => query.bind(f),
                 Value::Float64(f) => query.bind(f),
                 Value::Bool(b) => query.bind(b),
+                Value::Between(min, max) => query.bind(min).bind(max),
                 Value::Null => query, // Nulls handled in SQL via IS/IS NOT
             };
         }

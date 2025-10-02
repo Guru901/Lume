@@ -571,6 +571,9 @@ pub enum Value {
 
     /// NULL value
     Null,
+
+    /// Between value
+    Between(i64, i64),
 }
 
 impl Display for Value {
@@ -589,6 +592,7 @@ impl Display for Value {
             Value::Float64(val) => write!(f, "{}", val),
             Value::Bool(b) => write!(f, "{}", b),
             Value::Array(arr) => write!(f, "{:?}", arr),
+            Value::Between(min, max) => write!(f, "BETWEEN {} AND {}", min, max),
             Value::Null => write!(f, "NULL"),
         }
     }

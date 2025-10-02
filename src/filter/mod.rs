@@ -50,6 +50,8 @@ pub enum FilterType {
     Like,
     /// NOT operator (NOT)
     Not,
+    /// BETWEEN operator (BETWEEN)
+    Between,
 }
 
 impl FilterType {
@@ -71,6 +73,7 @@ impl FilterType {
             FilterType::And => "AND",
             FilterType::Like => "LIKE",
             FilterType::Not => "NOT",
+            FilterType::Between => "BETWEEN",
         }
     }
 }

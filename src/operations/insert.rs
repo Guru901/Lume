@@ -275,6 +275,7 @@ impl<T: Schema + Debug> Insert<T> {
                         query = query.bind(None::<&str>);
                     }
                 },
+                Value::Between(min, max) => query = query.bind(*min).bind(*max),
             }
         }
 
@@ -515,6 +516,9 @@ impl<T: Schema + Debug> InsertMany<T> {
                             query = query.bind(None::<&str>);
                         }
                     },
+                    Value::Between(min, max) => {
+                        query = query.bind(*min).bind(*max);
+                    }
                 }
             }
 
@@ -536,6 +540,7 @@ impl<T: Schema + Debug> InsertMany<T> {
                     | Value::Float32(_)
                     | Value::Float64(_)
                     | Value::Bool(_)
+                    | Value::Between(_, _)
                     | Value::Null => inserted_ids.push(result.last_insert_id()),
                 }
             } else {
