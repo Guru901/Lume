@@ -13,6 +13,7 @@ use std::{fmt::Debug, sync::Arc};
 pub mod error;
 
 use crate::{
+    database::error::DatabaseError,
     operations::{
         delete::Delete,
         insert::{Insert, InsertMany},
@@ -340,7 +341,7 @@ impl Database {
             sqlx::query(stmt)
                 .execute(&*self.connection)
                 .await
-                .map_err(DatabaseError)?;
+                .map_err(|e| DatabaseError::from(e))?;
         }
         Ok(())
     }
@@ -458,46 +459,11 @@ impl Database {
     /// }
     /// ```
     pub async fn connect(url: &str) -> Result<Database, DatabaseError> {
-        let conn = MySqlPool::connect(url).await.map_err(DatabaseError)?;
+        let conn = MySqlPool::connect(url)
+            .await
+            .map_err(|e| DatabaseError::from(e))?;
         Ok(Database {
             connection: Arc::new(conn),
         })
-    }
-}
-
-/// Error type for database operations.
-///
-/// This error type wraps SQLx errors and provides a unified error interface
-/// for all database operations in Lume.
-///
-/// # Example
-///
-/// ```no_run
-/// use lume::database::{Database, DatabaseError};
-///
-/// async fn example() -> Result<(), DatabaseError> {
-///     let db = Database::connect("mysql://invalid_url").await?;
-///     // Handle database operations...
-///     Ok(())
-/// }
-/// ```
-#[derive(Debug)]
-pub struct DatabaseError(sqlx::Error);
-
-impl std::error::Error for DatabaseError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.0)
-    }
-}
-
-impl std::fmt::Display for DatabaseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Database error: {}", self.0)
-    }
-}
-
-impl From<sqlx::Error> for DatabaseError {
-    fn from(err: sqlx::Error) -> Self {
-        DatabaseError(err)
     }
 }

@@ -12,7 +12,7 @@ use sqlx::MySqlPool;
 use crate::filter::{Filter, Filtered};
 use crate::schema::{ColumnInfo, Select, Value};
 use crate::{StartingSql, build_filter_expr, get_starting_sql};
-use crate::{database::DatabaseError, row::Row, schema::Schema};
+use crate::{database::error::DatabaseError, row::Row, schema::Schema};
 
 /// A type-safe query builder for database operations.
 ///

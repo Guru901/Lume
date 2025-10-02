@@ -4,7 +4,7 @@ use sqlx::MySqlPool;
 
 use crate::{
     StartingSql, build_filter_expr,
-    database::DatabaseError,
+    database::error::DatabaseError,
     filter::Filtered,
     get_starting_sql,
     schema::{Schema, Value},
