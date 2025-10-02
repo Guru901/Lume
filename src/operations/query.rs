@@ -68,6 +68,7 @@ pub struct Query<T, S> {
     conn: Arc<MySqlPool>,
 
     select: Option<S>,
+    distinct: bool,
 
     joins: Vec<JoinInfo>,
 
@@ -115,6 +116,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             table: PhantomData,
             filters: Vec::new(),
             select: None,
+            distinct: false,
             limit: None,
             offset: None,
             joins: Vec::new(),
@@ -260,6 +262,46 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
 
     pub fn select(mut self, select_schema: S) -> Self {
         self.select = Some(select_schema);
+        self
+    }
+
+    /// Specifies that the query should select only distinct rows for the given columns.
+    ///
+    /// This method works like [`select`](Self::select), but adds a `DISTINCT` clause to the SQL query,
+    /// ensuring that duplicate rows are removed from the result set.
+    ///
+    /// # Arguments
+    ///
+    /// - `select_schema`: The selection schema specifying which columns to include in the DISTINCT selection.
+    ///
+    /// # Returns
+    ///
+    /// The query builder instance for method chaining.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use lume::define_schema;
+    /// use lume::database::Database;
+    ///
+    /// define_schema! {
+    ///     User {
+    ///         id: i32 [primary_key()],
+    ///         name: String [not_null()],
+    ///     }
+    /// }
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    ///     let db = Database::connect("mysql://...").await?;
+    ///     // Selects only unique user names
+    ///     let query = db.query::<User, SelectUser>().select_distinct(SelectUser::selected().name());
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn select_distinct(mut self, select_schema: S) -> Self {
+        self.select = Some(select_schema);
+        self.distinct = true;
         self
     }
 
@@ -611,7 +653,12 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     /// ```
     pub async fn execute(self) -> Result<Vec<Row<T>>, DatabaseError> {
-        let sql = get_starting_sql(StartingSql::Select, T::table_name());
+        let mut sql = get_starting_sql(StartingSql::Select, T::table_name());
+
+        if self.distinct {
+            sql.push_str(" DISTINCT ");
+        }
+
         let sql = Self::select_sql(sql, self.select, T::table_name(), &self.joins);
         let sql = Self::joins_sql(sql, &self.joins);
         let mut params: Vec<Value> = Vec::new();
