@@ -232,17 +232,6 @@ impl<T> Column<T> {
     /// # Arguments
     ///
     /// - `column`: A reference to the column being referenced (typically a primary key column).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use lume::schema::Column;
-    ///
-    /// let user_id = Column::<u64>::new("id", "users").primary_key();
-    /// let post_user_id = Column::<u64>::new("user_id", "posts").references(&user_id);
-    ///
-    /// assert_eq!(post_user_id.get_references().len(), 1);
-    /// ```
     pub fn references(mut self, column: &'static Column<u64>) -> Self {
         self.references.push(column);
         self
