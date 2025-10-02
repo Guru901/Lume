@@ -6,7 +6,7 @@
 /// # Example
 ///
 /// ```no_run
-/// use lume::database::{Database, DatabaseError};
+/// use lume::database::{Database, error::DatabaseError};
 ///
 /// async fn example() -> Result<(), DatabaseError> {
 ///     let db = Database::connect("mysql://invalid_url").await?;

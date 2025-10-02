@@ -99,7 +99,7 @@ impl Database {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let query = db.query::<Users, SelectUsers>();
     ///     Ok(())
@@ -135,7 +135,7 @@ impl Database {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///
     ///     db.insert(Users {
@@ -179,7 +179,7 @@ impl Database {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///
     ///     db.delete::<Users>()
@@ -221,7 +221,7 @@ impl Database {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///
     ///     db.update::<Users, UpdateUsers>()
@@ -270,7 +270,7 @@ impl Database {
     ///
     /// ```no_run
     /// use lume::database::Database;
-    /// use lume::database::DatabaseError;
+    /// use lume::database::error::DatabaseError;
     /// use lume::define_schema;
     /// use lume::schema::ColumnInfo;
     /// use lume::schema::Schema;
@@ -450,7 +450,7 @@ impl Database {
     ///
     /// ```no_run
     /// use lume::database::Database;
-    /// use lume::database::DatabaseError;
+    /// use lume::database::error::DatabaseError;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), DatabaseError> {

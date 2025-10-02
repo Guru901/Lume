@@ -52,7 +52,7 @@ use crate::{database::error::DatabaseError, schema::Schema};
 /// }
 ///
 /// #[tokio::main]
-/// async fn main() -> Result<(), lume::database::DatabaseError> {
+/// async fn main() -> Result<(), lume::database::error::DatabaseError> {
 ///     let db = Database::connect("mysql://...").await?;
 ///     db.update::<Users, UpdateUsers>()
 ///         .set(UpdateUsers { age: Some(30), ..Default::default() })
