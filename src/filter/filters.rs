@@ -450,6 +450,7 @@ pub fn and(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) -
 /// use lume::filter::{not, eq_value};
 /// use lume::define_schema;
 /// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
 ///
 /// define_schema! {
 ///     User {

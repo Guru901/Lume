@@ -201,6 +201,7 @@ pub struct AndFilter {
 /// use lume::filter::{not, eq_value};
 /// use lume::define_schema;
 /// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
 ///
 /// define_schema! {
 ///     User {
