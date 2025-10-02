@@ -12,7 +12,7 @@ use sqlx::MySqlPool;
 use crate::filter::Filtered;
 use crate::schema::{UpdateTrait, Value};
 use crate::{StartingSql, build_filter_expr, get_starting_sql};
-use crate::{database::DatabaseError, schema::Schema};
+use crate::{database::error::DatabaseError, schema::Schema};
 
 #[derive(Debug)]
 /// Represents a SQL UPDATE operation for a given table and update struct.
@@ -52,7 +52,7 @@ use crate::{database::DatabaseError, schema::Schema};
 /// }
 ///
 /// #[tokio::main]
-/// async fn main() -> Result<(), lume::database::DatabaseError> {
+/// async fn main() -> Result<(), lume::database::error::DatabaseError> {
 ///     let db = Database::connect("mysql://...").await?;
 ///     db.update::<Users, UpdateUsers>()
 ///         .set(UpdateUsers { age: Some(30), ..Default::default() })

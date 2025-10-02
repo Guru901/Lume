@@ -12,7 +12,7 @@ use sqlx::MySqlPool;
 use crate::filter::{Filter, Filtered};
 use crate::schema::{ColumnInfo, Select, Value};
 use crate::{StartingSql, build_filter_expr, get_starting_sql};
-use crate::{database::DatabaseError, row::Row, schema::Schema};
+use crate::{database::error::DatabaseError, row::Row, schema::Schema};
 
 /// A type-safe query builder for database operations.
 ///
@@ -49,7 +49,7 @@ use crate::{database::DatabaseError, row::Row, schema::Schema};
 /// }
 ///
 /// #[tokio::main]
-/// async fn main() -> Result<(), lume::database::DatabaseError> {
+/// async fn main() -> Result<(), lume::database::error::DatabaseError> {
 ///     let db = Database::connect("mysql://...").await?;
 ///     let users = db.query::<User, SelectUser>()
 ///         .filter(eq_value(User::name(), Value::String("John".to_string())))
@@ -155,7 +155,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let query = db.query::<User, SelectUser>()
     ///         .filter(eq_value(User::name(), Value::String("John".to_string())));
@@ -199,7 +199,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let query = db.query::<User, SelectUser>().limit(10);
     ///     Ok(())
@@ -227,6 +227,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// ```no_run
     /// use lume::define_schema;
     /// use lume::database::Database;
+    /// use lume::filter::Filter;
+    /// use lume::schema::{Schema, ColumnInfo};
     ///
     /// define_schema! {
     ///     User {
@@ -236,7 +238,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let query = db.query::<User, SelectUser>().offset(20);
     ///     Ok(())
@@ -283,6 +285,8 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// ```no_run
     /// use lume::define_schema;
     /// use lume::database::Database;
+    /// use lume::filter::Filter;
+    /// use lume::schema::{Schema, ColumnInfo};
     ///
     /// define_schema! {
     ///     User {
@@ -292,7 +296,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     // Selects only unique user names
     ///     let query = db.query::<User, SelectUser>().select_distinct(SelectUser::selected().name());
@@ -342,7 +346,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let results = db.query::<User, SelectUser>()
     ///         .left_join::<Post, SelectPost>(eq_column(User::id(), Post::user_id()), SelectPost { title: true, ..Default::default() })
@@ -403,7 +407,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let results = db.query::<User, SelectUser>()
     ///         .inner_join::<Post, SelectPost>(eq_column(User::id(), Post::user_id()), SelectPost { title: true, ..Default::default() })
@@ -465,7 +469,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let results = db.query::<User, SelectUser>()
     ///         .right_join::<Post, SelectPost>(eq_column(User::id(), Post::user_id()), SelectPost { title: true, ..Default::default() })
@@ -527,7 +531,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let results = db.query::<User, SelectUser>()
     ///         .full_join::<Post>(eq_column(User::id(), Post::user_id()))
@@ -587,7 +591,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let results = db.query::<User, SelectUser>()
     ///         .cross_join::<Post, SelectPost>(SelectPost { title: true, ..Default::default() })
@@ -638,7 +642,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let users = db.query::<User, SelectUser>()
     ///         .filter(eq_value(User::name(), Value::String("John".to_string())))
@@ -669,6 +673,9 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         }
 
         if let Some(offset) = self.offset {
+            if self.limit.is_none() {
+                sql.push_str(" LIMIT 18446744073709551615");
+            }
             sql.push_str(&format!(" OFFSET {}", offset));
         }
 

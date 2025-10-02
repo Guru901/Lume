@@ -6,7 +6,7 @@
 //! into a MySQL database using a schema definition. It supports optional
 //! returning of inserted rows and handles value binding for various SQL types.
 
-use crate::database::DatabaseError;
+use crate::database::error::DatabaseError;
 use crate::row::Row;
 use crate::schema::{ColumnInfo, Schema, Select, Value};
 use crate::{StartingSql, get_starting_sql, returning_sql};

@@ -9,7 +9,11 @@
 use sqlx::Executor;
 use std::{fmt::Debug, sync::Arc};
 
+/// Error types for database operations.
+pub mod error;
+
 use crate::{
+    database::error::DatabaseError,
     operations::{
         delete::Delete,
         insert::{Insert, InsertMany},
@@ -95,7 +99,7 @@ impl Database {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     let query = db.query::<Users, SelectUsers>();
     ///     Ok(())
@@ -131,7 +135,7 @@ impl Database {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///
     ///     db.insert(Users {
@@ -175,7 +179,7 @@ impl Database {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///
     ///     db.delete::<Users>()
@@ -217,7 +221,7 @@ impl Database {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///
     ///     db.update::<Users, UpdateUsers>()
@@ -266,7 +270,7 @@ impl Database {
     ///
     /// ```no_run
     /// use lume::database::Database;
-    /// use lume::database::DatabaseError;
+    /// use lume::database::error::DatabaseError;
     /// use lume::define_schema;
     /// use lume::schema::ColumnInfo;
     /// use lume::schema::Schema;
@@ -337,7 +341,7 @@ impl Database {
             sqlx::query(stmt)
                 .execute(&*self.connection)
                 .await
-                .map_err(DatabaseError)?;
+                .map_err(|e| DatabaseError::from(e))?;
         }
         Ok(())
     }
@@ -446,7 +450,7 @@ impl Database {
     ///
     /// ```no_run
     /// use lume::database::Database;
-    /// use lume::database::DatabaseError;
+    /// use lume::database::error::DatabaseError;
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), DatabaseError> {
@@ -455,46 +459,11 @@ impl Database {
     /// }
     /// ```
     pub async fn connect(url: &str) -> Result<Database, DatabaseError> {
-        let conn = MySqlPool::connect(url).await.map_err(DatabaseError)?;
+        let conn = MySqlPool::connect(url)
+            .await
+            .map_err(|e| DatabaseError::from(e))?;
         Ok(Database {
             connection: Arc::new(conn),
         })
-    }
-}
-
-/// Error type for database operations.
-///
-/// This error type wraps SQLx errors and provides a unified error interface
-/// for all database operations in Lume.
-///
-/// # Example
-///
-/// ```no_run
-/// use lume::database::{Database, DatabaseError};
-///
-/// async fn example() -> Result<(), DatabaseError> {
-///     let db = Database::connect("mysql://invalid_url").await?;
-///     // Handle database operations...
-///     Ok(())
-/// }
-/// ```
-#[derive(Debug)]
-pub struct DatabaseError(sqlx::Error);
-
-impl std::error::Error for DatabaseError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.0)
-    }
-}
-
-impl std::fmt::Display for DatabaseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Database error: {}", self.0)
-    }
-}
-
-impl From<sqlx::Error> for DatabaseError {
-    fn from(err: sqlx::Error) -> Self {
-        DatabaseError(err)
     }
 }

@@ -4,7 +4,7 @@ use sqlx::MySqlPool;
 
 use crate::{
     StartingSql, build_filter_expr,
-    database::DatabaseError,
+    database::error::DatabaseError,
     filter::Filtered,
     get_starting_sql,
     schema::{Schema, Value},
@@ -44,7 +44,7 @@ use crate::{
 /// }
 ///
 /// #[tokio::main]
-/// async fn main() -> Result<(), lume::database::DatabaseError> {
+/// async fn main() -> Result<(), lume::database::error::DatabaseError> {
 ///     let db = Database::connect("mysql://...").await?;
 ///     db.delete::<User>()
 ///         .filter(eq_value(User::name(), "Alice"))
@@ -113,7 +113,7 @@ impl<T: Schema + Debug> Delete<T> {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     db.delete::<User>()
     ///         .filter(eq_value(User::name(), Value::String("John".to_string())))
@@ -157,7 +157,7 @@ impl<T: Schema + Debug> Delete<T> {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), lume::database::DatabaseError> {
+    /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     db.delete::<User>()
     ///         .filter(eq_value(User::name(), Value::String("John".to_string())))
