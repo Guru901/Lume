@@ -81,6 +81,8 @@ pub struct Column<T> {
     check: Option<&'static str>,
     /// Optional generated column definition (VIRTUAL or STORED)
     generated: Option<GeneratedColumn>,
+
+    references: Vec<&'static Column<u64>>,
     /// Phantom data to maintain type information
     _phantom: PhantomData<T>,
 }
@@ -179,6 +181,7 @@ impl<T> Column<T> {
             invisible: false,
             check: None,
             generated: None,
+            references: Vec::new(),
             _phantom: PhantomData,
         }
     }
@@ -219,6 +222,35 @@ impl<T> Column<T> {
     pub fn not_null(mut self) -> Self {
         self.nullable = false;
         self
+    }
+
+    /// Adds a foreign key reference to another column.
+    ///
+    /// This method sets up a foreign key constraint, indicating that this column
+    /// references the primary key of another table.
+    ///
+    /// # Arguments
+    ///
+    /// - `column`: A reference to the column being referenced (typically a primary key column).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use lume::schema::Column;
+    ///
+    /// let user_id = Column::<u64>::new("id", "users").primary_key();
+    /// let post_user_id = Column::<u64>::new("user_id", "posts").references(&user_id);
+    ///
+    /// assert_eq!(post_user_id.get_references().len(), 1);
+    /// ```
+    pub fn references(mut self, column: &'static Column<u64>) -> Self {
+        self.references.push(column);
+        self
+    }
+
+    /// Returns foreign key references recorded on this column
+    pub fn get_references(&self) -> &Vec<&'static Column<u64>> {
+        &self.references
     }
 
     /// Adds a UNIQUE constraint to this column.
@@ -487,8 +519,6 @@ impl<T> Column<T> {
         self.generated
     }
 }
-
-impl<T: Copy> Copy for Column<T> where T: Copy {}
 
 /// A type-erased value that can represent any database column value.
 ///
