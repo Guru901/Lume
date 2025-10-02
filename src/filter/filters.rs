@@ -3,7 +3,7 @@
 use std::fmt::Debug;
 
 use crate::{
-    filter::{AndFilter, ArrayFilter, Filter, FilterType, Filtered, OrFilter},
+    filter::{AndFilter, ArrayFilter, Filter, FilterType, Filtered, NotFilter, OrFilter},
     schema::{Column, Value},
 };
 
@@ -428,6 +428,12 @@ pub fn and(filter1: impl Filtered + 'static, filter2: impl Filtered + 'static) -
     AndFilter {
         filter1: Box::new(filter1),
         filter2: Box::new(filter2),
+    }
+}
+
+pub fn not(filter: impl Filtered + 'static) -> NotFilter {
+    NotFilter {
+        filter: Box::new(filter),
     }
 }
 

@@ -48,6 +48,8 @@ pub enum FilterType {
     And,
     /// LIKE operator (LIKE)
     Like,
+    /// NOT operator (NOT)
+    Not,
 }
 
 impl FilterType {
@@ -68,6 +70,7 @@ impl FilterType {
             FilterType::Or => "OR",
             FilterType::And => "AND",
             FilterType::Like => "LIKE",
+            FilterType::Not => "NOT",
         }
     }
 }
@@ -183,6 +186,11 @@ pub struct AndFilter {
     pub(crate) filter2: Box<dyn Filtered>,
 }
 
+#[derive(Debug)]
+pub struct NotFilter {
+    pub(crate) filter: Box<dyn Filtered>,
+}
+
 /// Represents a filter for checking if a column's value is (or is not) in a given array of values.
 ///
 /// This struct is used to build SQL `IN` or `NOT IN` conditions for queries, allowing you to
@@ -262,6 +270,10 @@ pub trait Filtered: Debug {
 
     /// Returns `Some(true)` for IN array filters, `Some(false)` for NOT IN, or `None` otherwise.
     fn is_in_array(&self) -> Option<bool> {
+        None
+    }
+
+    fn is_not(&self) -> Option<bool> {
         None
     }
 }
@@ -441,6 +453,52 @@ impl Filtered for ArrayFilter {
 
     fn is_in_array(&self) -> Option<bool> {
         Some(self.in_array)
+    }
+}
+
+impl Filtered for NotFilter {
+    fn value(&self) -> Option<&Value> {
+        None
+    }
+
+    fn column_one(&self) -> Option<&(String, String)> {
+        None
+    }
+
+    fn column_two(&self) -> Option<&(String, String)> {
+        None
+    }
+
+    fn filter_type(&self) -> FilterType {
+        FilterType::Not
+    }
+
+    fn is_or_filter(&self) -> bool {
+        false
+    }
+
+    fn is_and_filter(&self) -> bool {
+        false
+    }
+
+    fn filter1(&self) -> Option<&dyn Filtered> {
+        Some(&*self.filter)
+    }
+
+    fn filter2(&self) -> Option<&dyn Filtered> {
+        None
+    }
+
+    fn array_values(&self) -> Option<&[Value]> {
+        None
+    }
+
+    fn is_in_array(&self) -> Option<bool> {
+        None
+    }
+
+    fn is_not(&self) -> Option<bool> {
+        Some(true)
     }
 }
 

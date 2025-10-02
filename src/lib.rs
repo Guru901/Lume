@@ -150,6 +150,14 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
         return format!("({} {} {})", left, op, right);
     }
 
+    if filter.is_not().unwrap_or(false) {
+        let Some(f) = filter.filter1() else {
+            eprintln!("Warning: Not filter missing filter1, using tautology");
+            return "1=1".to_string();
+        };
+        return format!("NOT ({})", build_filter_expr(f, params));
+    }
+
     let Some(col1) = filter.column_one() else {
         eprintln!("Warning: Simple filter missing column_one, using tautology");
         return "1=1".to_string();
