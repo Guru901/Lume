@@ -260,7 +260,9 @@ pub trait Filtered: Debug {
     ///
     /// For simple column-value filters, this returns `Some(&Value)`.
     /// For logical combinators (AND/OR), this returns `None`.
-    fn value(&self) -> Option<&Value>;
+    fn value(&self) -> Option<&Value> {
+        None
+    }
 
     /// Returns a reference to the first column involved in the filter, if any.
     ///
@@ -272,16 +274,22 @@ pub trait Filtered: Debug {
     ///
     /// This is used for column-to-column comparisons (e.g., joins).
     /// For most filters, this is `None`.
-    fn column_two(&self) -> Option<&(String, String)>;
+    fn column_two(&self) -> Option<&(String, String)> {
+        None
+    }
 
     /// Returns the type of filter (e.g., Eq, Lt, Gt, etc.).
     fn filter_type(&self) -> FilterType;
 
     /// Returns `true` if this filter is a logical OR combinator.
-    fn is_or_filter(&self) -> bool;
+    fn is_or_filter(&self) -> bool {
+        false
+    }
 
     /// Returns `true` if this filter is a logical AND combinator.
-    fn is_and_filter(&self) -> bool;
+    fn is_and_filter(&self) -> bool {
+        false
+    }
 
     /// Returns a reference to the first sub-filter if this is a logical combinator.
     ///
@@ -293,14 +301,18 @@ pub trait Filtered: Debug {
     ///
     /// For AND/OR filters, this returns `Some(&dyn Filtered)`.
     /// For simple filters, this returns `None`.
-    fn filter2(&self) -> Option<&dyn Filtered>;
+    fn filter2(&self) -> Option<&dyn Filtered> {
+        None
+    }
 
     /// Returns a reference to the array of values used in an array filter (e.g., IN/NOT IN), if any.
     ///
     /// For filters that operate on an array of values (such as SQL `IN` or `NOT IN` clauses),
     /// this returns `Some(&[Value])` containing the values being compared.
     /// For other filter types, this returns `None`.
-    fn array_values(&self) -> Option<&[Value]>;
+    fn array_values(&self) -> Option<&[Value]> {
+        None
+    }
 
     /// Returns `Some(true)` for IN array filters, `Some(false)` for NOT IN, or `None` otherwise.
     fn is_in_array(&self) -> Option<bool> {
@@ -336,43 +348,10 @@ impl Filtered for Filter {
     fn filter1(&self) -> Option<&dyn Filtered> {
         None
     }
-
-    fn filter2(&self) -> Option<&dyn Filtered> {
-        None
-    }
-
-    fn is_or_filter(&self) -> bool {
-        false
-    }
-
-    fn is_and_filter(&self) -> bool {
-        false
-    }
-
-    fn array_values(&self) -> Option<&[Value]> {
-        None
-    }
-
-    fn is_in_array(&self) -> Option<bool> {
-        None
-    }
 }
 
 impl Filtered for OrFilter {
-    fn value(&self) -> Option<&Value> {
-        // if self.filter1.value.is_some() {
-        //     self.filter1.value.as_ref()
-        // } else {
-        //     self.filter2.value.as_ref()
-        // }
-        None
-    }
-
     fn column_one(&self) -> Option<&(String, String)> {
-        None
-    }
-
-    fn column_two(&self) -> Option<&(String, String)> {
         None
     }
 
@@ -387,39 +366,10 @@ impl Filtered for OrFilter {
     fn filter2(&self) -> Option<&dyn Filtered> {
         Some(&*self.filter2)
     }
-
-    fn is_or_filter(&self) -> bool {
-        true
-    }
-
-    fn is_and_filter(&self) -> bool {
-        false
-    }
-
-    fn array_values(&self) -> Option<&[Value]> {
-        None
-    }
-
-    fn is_in_array(&self) -> Option<bool> {
-        None
-    }
 }
 
 impl Filtered for AndFilter {
-    fn value(&self) -> Option<&Value> {
-        // if self.filter1.value.is_some() {
-        //     self.filter1.value.as_ref()
-        // } else {
-        //     self.filter2.value.as_ref()
-        // }
-        None
-    }
-
     fn column_one(&self) -> Option<&(String, String)> {
-        None
-    }
-
-    fn column_two(&self) -> Option<&(String, String)> {
         None
     }
 
@@ -431,57 +381,21 @@ impl Filtered for AndFilter {
         Some(&*self.filter2)
     }
 
-    fn is_or_filter(&self) -> bool {
-        false
-    }
-
-    fn is_and_filter(&self) -> bool {
-        true
-    }
-
     fn filter_type(&self) -> FilterType {
         FilterType::And
-    }
-
-    fn array_values(&self) -> Option<&[Value]> {
-        None
-    }
-
-    fn is_in_array(&self) -> Option<bool> {
-        None
     }
 }
 
 impl Filtered for ArrayFilter {
-    fn is_and_filter(&self) -> bool {
-        false
-    }
-
-    fn value(&self) -> Option<&Value> {
-        None
-    }
-
     fn column_one(&self) -> Option<&(String, String)> {
         self.column.as_ref()
-    }
-
-    fn column_two(&self) -> Option<&(String, String)> {
-        None
     }
 
     fn filter_type(&self) -> FilterType {
         FilterType::In
     }
 
-    fn is_or_filter(&self) -> bool {
-        false
-    }
-
     fn filter1(&self) -> Option<&dyn Filtered> {
-        None
-    }
-
-    fn filter2(&self) -> Option<&dyn Filtered> {
         None
     }
 
@@ -495,15 +409,7 @@ impl Filtered for ArrayFilter {
 }
 
 impl Filtered for NotFilter {
-    fn value(&self) -> Option<&Value> {
-        None
-    }
-
     fn column_one(&self) -> Option<&(String, String)> {
-        None
-    }
-
-    fn column_two(&self) -> Option<&(String, String)> {
         None
     }
 
@@ -511,28 +417,8 @@ impl Filtered for NotFilter {
         FilterType::Not
     }
 
-    fn is_or_filter(&self) -> bool {
-        false
-    }
-
-    fn is_and_filter(&self) -> bool {
-        false
-    }
-
     fn filter1(&self) -> Option<&dyn Filtered> {
         Some(&*self.filter)
-    }
-
-    fn filter2(&self) -> Option<&dyn Filtered> {
-        None
-    }
-
-    fn array_values(&self) -> Option<&[Value]> {
-        None
-    }
-
-    fn is_in_array(&self) -> Option<bool> {
-        None
     }
 
     fn is_not(&self) -> Option<bool> {
