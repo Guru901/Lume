@@ -1,6 +1,10 @@
 # Changelog
 
-## [0.7.0] - 2025-10-12
+## [0.7.2] - 2025-10-12
+
+- Removed a debug print statement from the SQL query
+
+## [0.7.1] - 2025-10-12
 
 - Internal refactor
 - Added Send and Sync traits to Filtered trait
