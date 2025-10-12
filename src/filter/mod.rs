@@ -255,7 +255,7 @@ pub struct ArrayFilter {
 /// Implementors of this trait provide access to filter details such as the value being compared,
 /// the columns involved, the filter type (e.g., equality, less-than), and whether the filter
 /// is a logical combinator (AND/OR).
-pub trait Filtered: Debug {
+pub trait Filtered: Debug + Send + Sync {
     /// Returns a reference to the value being compared in the filter, if any.
     ///
     /// For simple column-value filters, this returns `Some(&Value)`.
