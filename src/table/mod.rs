@@ -5,7 +5,10 @@
 //! This module provides table registry functionality and the `TableDefinition` trait
 //! for managing database table metadata and SQL generation.
 
-use std::sync::{Mutex, OnceLock};
+use std::{
+    fmt::Debug,
+    sync::{Mutex, OnceLock},
+};
 
 use crate::schema::{ColumnInfo, Schema, SchemaWrapper};
 
@@ -25,7 +28,7 @@ static TABLE_REGISTRY: OnceLock<Mutex<Vec<Box<dyn TableDefinition>>>> = OnceLock
 /// - **Constraint Handling**: Primary keys, unique constraints, and NOT NULL
 ///
 /// # Example
-pub(crate) trait TableDefinition: Send + Sync {
+pub(crate) trait TableDefinition: Send + Sync + Debug {
     /// Returns the name of this table.
     fn table_name(&self) -> &'static str;
 
@@ -69,7 +72,7 @@ pub(crate) trait TableDefinition: Send + Sync {
 /// // Multiple calls are safe
 /// lume::table::register_table::<User>(); // No duplicate created
 /// ```
-pub fn register_table<T: Schema + Send + Sync + 'static>() {
+pub fn register_table<T: Debug + Schema + Send + Sync + 'static>() {
     let registry = TABLE_REGISTRY.get_or_init(|| Mutex::new(Vec::new()));
     let mut tables = registry.lock().unwrap();
 
