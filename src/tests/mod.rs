@@ -1,10 +1,13 @@
+pub mod database;
+pub mod query;
+
 #[cfg(test)]
 #[allow(dead_code)]
 mod tests {
-    use crate::define_schema;
     use crate::row::Row;
     use crate::schema::{ColumnInfo, Schema};
     use crate::table::TableDefinition;
+    use crate::{define_schema, get_starting_sql};
 
     // Test schema definition
     define_schema! {
@@ -326,5 +329,329 @@ mod tests {
         assert!(create_sql.contains("email VARCHAR(255)"));
         assert!(create_sql.contains("age INTEGER"));
         assert!(create_sql.contains("is_active BOOLEAN NOT NULL"));
+    }
+
+    #[test]
+    fn test_starting_sql() {
+        use crate::StartingSql;
+        assert_eq!(
+            get_starting_sql(StartingSql::Select, "TestUser"),
+            "SELECT ".to_string()
+        );
+        assert_eq!(
+            get_starting_sql(StartingSql::Insert, "TestUser"),
+            "INSERT INTO `TestUser` (".to_string()
+        );
+        assert_eq!(
+            get_starting_sql(StartingSql::Delete, "TestUser"),
+            "DELETE FROM `TestUser` ".to_string()
+        );
+        assert_eq!(
+            get_starting_sql(StartingSql::Update, "TestUser"),
+            "UPDATE `TestUser` SET ".to_string()
+        );
+    }
+}
+
+#[cfg(test)]
+mod build_filter_expr_tests {
+    use crate::build_filter_expr;
+    use crate::filter::{FilterType, Filtered};
+    use crate::schema::Value;
+    use std::sync::Arc;
+
+    #[derive(Debug)]
+    struct DummyFilter {
+        // For composite filters
+        or: bool,
+        and: bool,
+        not: Option<bool>,
+        filter1: Option<Arc<dyn Filtered>>,
+        filter2: Option<Arc<dyn Filtered>>,
+        // For simple filters
+        col1: Option<(String, String)>,
+        col2: Option<(String, String)>,
+        filter_type: FilterType,
+        value: Option<Value>,
+        in_array: Option<bool>,
+        array_values: Option<Vec<Value>>,
+    }
+
+    impl DummyFilter {
+        fn new() -> Self {
+            Self {
+                or: false,
+                and: false,
+                not: None,
+                filter1: None,
+                filter2: None,
+                col1: None,
+                col2: None,
+                filter_type: FilterType::Eq,
+                value: None,
+                in_array: None,
+                array_values: None,
+            }
+        }
+    }
+
+    impl Filtered for DummyFilter {
+        fn is_or_filter(&self) -> bool {
+            self.or
+        }
+        fn is_and_filter(&self) -> bool {
+            self.and
+        }
+        fn is_not(&self) -> Option<bool> {
+            self.not
+        }
+        fn filter1(&self) -> Option<&dyn Filtered> {
+            self.filter1.as_ref().map(|f| f.as_ref())
+        }
+        fn filter2(&self) -> Option<&dyn Filtered> {
+            self.filter2.as_ref().map(|f| f.as_ref())
+        }
+        fn column_one(&self) -> Option<&(String, String)> {
+            self.col1.as_ref()
+        }
+        fn column_two(&self) -> Option<&(String, String)> {
+            self.col2.as_ref()
+        }
+        fn filter_type(&self) -> FilterType {
+            self.filter_type
+        }
+        fn value(&self) -> Option<&Value> {
+            self.value.as_ref()
+        }
+        fn is_in_array(&self) -> Option<bool> {
+            self.in_array
+        }
+        fn array_values(&self) -> Option<&[Value]> {
+            self.array_values.as_ref().map(|v| v.as_slice())
+        }
+    }
+
+    #[test]
+    fn test_and_or_composite_filters() {
+        // (a = 1) AND (b = 2)
+        let left = Arc::new(DummyFilter {
+            col1: Some(("t".to_owned(), "a".to_owned())),
+            filter_type: FilterType::Eq,
+            value: Some(Value::Int32(1)),
+            ..DummyFilter::new()
+        });
+        let right = Arc::new(DummyFilter {
+            col1: Some(("t".to_owned(), "b".to_owned())),
+            filter_type: FilterType::Eq,
+            value: Some(Value::Int32(2)),
+            ..DummyFilter::new()
+        });
+        let and_filter = DummyFilter {
+            and: true,
+            filter1: Some(left.clone()),
+            filter2: Some(right.clone()),
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&and_filter, &mut params);
+        assert_eq!(sql, "(t.a = ? AND t.b = ?)");
+        assert_eq!(params, vec![Value::Int32(1), Value::Int32(2)]);
+
+        // (a = 1) OR (b = 2)
+        let or_filter = DummyFilter {
+            or: true,
+            filter1: Some(left),
+            filter2: Some(right),
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&or_filter, &mut params);
+        assert_eq!(sql, "(t.a = ? OR t.b = ?)");
+        assert_eq!(params, vec![Value::Int32(1), Value::Int32(2)]);
+    }
+
+    #[test]
+    fn test_not_filter() {
+        // NOT (a = 1)
+        let inner = Arc::new(DummyFilter {
+            col1: Some(("t".to_owned(), "a".to_owned())),
+            filter_type: FilterType::Eq,
+            value: Some(Value::Int32(1)),
+            ..DummyFilter::new()
+        });
+        let not_filter = DummyFilter {
+            not: Some(true),
+            filter1: Some(inner),
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&not_filter, &mut params);
+        assert_eq!(sql, "NOT (t.a = ?)");
+        assert_eq!(params, vec![Value::Int32(1)]);
+    }
+
+    #[test]
+    fn test_missing_filter1_filter2() {
+        // Composite filter missing filter1/filter2
+        let and_filter = DummyFilter {
+            and: true,
+            filter1: None,
+            filter2: None,
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&and_filter, &mut params);
+        assert_eq!(sql, "1=1");
+
+        let not_filter = DummyFilter {
+            not: Some(true),
+            filter1: None,
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&not_filter, &mut params);
+        assert_eq!(sql, "1=1");
+    }
+
+    #[test]
+    fn test_missing_column_one() {
+        let filter = DummyFilter {
+            col1: None,
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        assert_eq!(sql, "1=1");
+    }
+
+    #[test]
+    fn test_in_and_not_in_array() {
+        let filter = DummyFilter {
+            col1: Some(("t".to_owned(), "a".to_owned())),
+            in_array: Some(true),
+            array_values: Some(vec![Value::Int32(1), Value::Int32(2)]),
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        assert_eq!(sql, "t.a IN (?, ?)");
+        assert_eq!(params, vec![Value::Int32(1), Value::Int32(2)]);
+
+        // Empty IN array
+        let filter = DummyFilter {
+            col1: Some(("t".to_owned(), "a".to_owned())),
+            in_array: Some(true),
+            array_values: Some(vec![]),
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        assert_eq!(sql, "1=0");
+
+        // NOT IN with values
+        let filter = DummyFilter {
+            col1: Some(("t".to_owned(), "a".to_owned())),
+            in_array: Some(false),
+            array_values: Some(vec![Value::Int32(3)]),
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        assert_eq!(sql, "t.a NOT IN (?)");
+        assert_eq!(params, vec![Value::Int32(3)]);
+
+        // Empty NOT IN array
+        let filter = DummyFilter {
+            col1: Some(("t".to_owned(), "a".to_owned())),
+            in_array: Some(false),
+            array_values: Some(vec![]),
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        assert_eq!(sql, "1=1");
+    }
+
+    #[test]
+    fn test_null_comparisons() {
+        // IS NULL
+        let filter = DummyFilter {
+            col1: Some(("t".to_owned(), "a".to_owned())),
+            filter_type: FilterType::Eq,
+            value: Some(Value::Null),
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        assert_eq!(sql, "t.a IS NULL");
+        assert!(params.is_empty());
+
+        // IS NOT NULL
+        let filter = DummyFilter {
+            col1: Some(("t".to_owned(), "a".to_owned())),
+            filter_type: FilterType::Neq,
+            value: Some(Value::Null),
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        assert_eq!(sql, "t.a IS NOT NULL");
+        assert!(params.is_empty());
+
+        // NULL with unsupported op
+        let filter = DummyFilter {
+            col1: Some(("t".to_owned(), "a".to_owned())),
+            filter_type: FilterType::Gt,
+            value: Some(Value::Null),
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        assert_eq!(sql, "1=0");
+    }
+
+    #[test]
+    fn test_between() {
+        let filter = DummyFilter {
+            col1: Some(("t".to_owned(), "a".to_owned())),
+            filter_type: FilterType::Between,
+            value: Some(Value::Between(
+                Box::new(Value::Int32(1)),
+                Box::new(Value::Int32(5)),
+            )),
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        assert_eq!(sql, "t.a BETWEEN ? AND ?");
+        assert_eq!(params, vec![Value::Int32(1), Value::Int32(5)]);
+    }
+
+    #[test]
+    fn test_simple_comparison() {
+        let filter = DummyFilter {
+            col1: Some(("t".to_owned(), "a".to_owned())),
+            filter_type: FilterType::Gt,
+            value: Some(Value::Int32(10)),
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        assert_eq!(sql, "t.a > ?");
+        assert_eq!(params, vec![Value::Int32(10)]);
+    }
+
+    #[test]
+    fn test_column_to_column_comparison() {
+        let filter = DummyFilter {
+            col1: Some(("t".to_owned(), "a".to_owned())),
+            col2: Some(("t".to_owned(), "b".to_owned())),
+            filter_type: FilterType::Eq,
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        assert_eq!(sql, "t.a = t.b");
+        assert!(params.is_empty());
     }
 }

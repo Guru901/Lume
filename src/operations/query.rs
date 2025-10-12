@@ -61,19 +61,19 @@ use crate::{database::error::DatabaseError, row::Row, schema::Schema};
 #[derive(Debug)]
 pub struct Query<T, S> {
     /// Phantom data to maintain schema type information
-    table: PhantomData<T>,
+    pub(crate) table: PhantomData<T>,
     /// List of filters to apply to the query
-    filters: Vec<Box<dyn Filtered>>,
+    pub(crate) filters: Vec<Box<dyn Filtered>>,
     /// Database connection pool
-    conn: Arc<MySqlPool>,
+    pub(crate) conn: Arc<MySqlPool>,
 
-    select: Option<S>,
-    distinct: bool,
+    pub(crate) select: Option<S>,
+    pub(crate) distinct: bool,
 
-    joins: Vec<JoinInfo>,
+    pub(crate) joins: Vec<JoinInfo>,
 
-    limit: Option<u64>,
-    offset: Option<u64>,
+    pub(crate) limit: Option<u64>,
+    pub(crate) offset: Option<u64>,
 }
 
 /// Information about a join operation
@@ -91,7 +91,7 @@ pub(crate) struct JoinInfo {
     pub(crate) selected_columns: Vec<&'static str>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum JoinType {
     Left,
     Inner,

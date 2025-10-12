@@ -38,6 +38,7 @@ use crate::table::TableDefinition;
 pub use column::Column;
 pub use column::Value;
 pub use column::convert_to_value;
+use std::fmt::Debug;
 
 /// Core trait that all database schemas must implement.
 ///
@@ -326,7 +327,7 @@ macro_rules! define_schema {
 
 
 
-            impl Schema for [<Update $struct_name>] {
+            impl $crate::schema::Schema for [<Update $struct_name>] {
                 fn table_name() -> &'static str {
                     stringify!($struct_name)
                 }
@@ -349,13 +350,13 @@ macro_rules! define_schema {
                     });
                 }
 
-                fn get_all_columns() -> Vec<ColumnInfo> {
+                fn get_all_columns() -> Vec<$crate::schema::ColumnInfo> {
                     vec![
                         $(
                             {
                                 let col = Self::$name();
 
-                                ColumnInfo {
+                                $crate::schema::ColumnInfo {
                                     name: col.name(),
                                     data_type: type_to_sql_string::<$type>(),
                                     nullable: col.is_nullable(),
@@ -463,7 +464,7 @@ macro_rules! define_schema {
         }
 
 
-        impl Schema for $struct_name {
+        impl $crate::schema::Schema for $struct_name {
             fn table_name() -> &'static str {
                 stringify!($struct_name)
             }
@@ -486,13 +487,13 @@ macro_rules! define_schema {
                 });
             }
 
-            fn get_all_columns() -> Vec<ColumnInfo> {
+            fn get_all_columns() -> Vec<$crate::schema::ColumnInfo> {
                 vec![
                     $(
                         {
                             let col = Self::$name();
 
-                            ColumnInfo {
+                            $crate::schema::ColumnInfo {
                                 name: col.name(),
                                 data_type: type_to_sql_string::<$type>(),
                                 nullable: col.is_nullable(),
@@ -593,12 +594,13 @@ pub fn type_to_sql_string<T: 'static>() -> &'static str {
 /// # Type Parameters
 ///
 /// - `T`: The schema type that implements [`Schema`]
-pub(crate) struct SchemaWrapper<T: Schema> {
+#[derive(Debug)]
+pub(crate) struct SchemaWrapper<T: Schema + Debug> {
     _phantom: PhantomData<T>,
 }
 
 // Implement Clone for SchemaWrapper<T>
-impl<T: Schema> Clone for SchemaWrapper<T> {
+impl<T: Schema + Debug> Clone for SchemaWrapper<T> {
     fn clone(&self) -> Self {
         Self {
             _phantom: PhantomData,
@@ -606,7 +608,7 @@ impl<T: Schema> Clone for SchemaWrapper<T> {
     }
 }
 
-impl<T: Schema> SchemaWrapper<T> {
+impl<T: Schema + Debug> SchemaWrapper<T> {
     /// Creates a new `SchemaWrapper` instance.
     pub(crate) fn new() -> Self {
         Self {
@@ -615,7 +617,7 @@ impl<T: Schema> SchemaWrapper<T> {
     }
 }
 
-impl<T: Schema + Sync + Send + 'static> TableDefinition for SchemaWrapper<T> {
+impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrapper<T> {
     fn table_name(&self) -> &'static str {
         T::table_name()
     }
