@@ -15,6 +15,9 @@ paste = "1.0.15"
 sqlx = { version = "0.8.6", features = ["mysql", "runtime-tokio"] }
 tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread"] }
 
+[dev-dependencies]
+test_retry = "0.1.0"
+
 [features]
 default = ["mysql"]
 mysql = []

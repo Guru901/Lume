@@ -69,7 +69,7 @@ use sqlx::MySqlPool;
 /// ```
 pub struct Database {
     /// The MySQL connection pool
-    connection: Arc<MySqlPool>,
+    pub(crate) connection: Arc<MySqlPool>,
 }
 
 impl Database {
@@ -356,6 +356,7 @@ impl Database {
     /// A string containing all CREATE TABLE statements, separated by newlines
     pub(crate) fn generate_migration_sql() -> String {
         let tables = get_all_tables();
+
         tables
             .iter()
             .map(|table| table.to_create_sql())

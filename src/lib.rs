@@ -91,6 +91,7 @@ pub mod table;
 
 mod tests;
 
+#[derive(PartialEq, Debug)]
 pub(crate) enum StartingSql {
     Select,
     Insert,
