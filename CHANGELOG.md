@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.7.0] - 2025-10-12
+
+- Internal refactor
+- Added Send and Sync traits to Filtered trait
+
 ## [0.7.0] - 2025-10-02
 
 - Added update operation
