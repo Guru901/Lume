@@ -6,7 +6,7 @@ mod tests {
         define_schema,
         filter::{Filter, Filtered, eq_value},
         operations::query::{JoinType, Query},
-        schema::{Schema, Select},
+        schema::Schema,
     };
 
     use std::sync::Arc;

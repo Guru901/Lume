@@ -679,8 +679,6 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             sql.push_str(&format!(" OFFSET {}", offset));
         }
 
-        println!("SQL: {sql}\n");
-
         let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
         let mut query = sqlx::query(&sql);
         for v in params {
