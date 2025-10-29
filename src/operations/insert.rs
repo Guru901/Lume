@@ -11,8 +11,26 @@ use crate::row::Row;
 use crate::schema::{ColumnInfo, Schema, Select, Value};
 use crate::{StartingSql, get_starting_sql, returning_sql};
 use sqlx::MySqlPool;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
+
+/// Select columns that should be included in an INSERT statement based on provided values.
+///
+/// Omits columns that have defaults or are auto-incremented when their value is absent or Null.
+fn select_insertable_columns(
+    all_columns: Vec<ColumnInfo>,
+    values: &HashMap<String, Value>,
+) -> Vec<ColumnInfo> {
+    all_columns
+        .into_iter()
+        .filter(|col| match values.get(col.name) {
+            None => !(col.has_default || col.auto_increment),
+            Some(Value::Null) => !(col.has_default || col.auto_increment),
+            _ => true,
+        })
+        .collect()
+}
 
 /// A type-safe insert operation for a given schema type.
 ///
@@ -121,14 +139,7 @@ impl<T: Schema + Debug> Insert<T> {
         let all_columns = T::get_all_columns();
 
         // Select columns to include: omit columns with defaults/auto_increment when value is None/Null
-        let selected: Vec<ColumnInfo> = all_columns
-            .into_iter()
-            .filter(|col| match values.get(col.name) {
-                None => !(col.has_default || col.auto_increment),
-                Some(Value::Null) => !(col.has_default || col.auto_increment),
-                _ => true,
-            })
-            .collect();
+        let selected: Vec<ColumnInfo> = select_insertable_columns(all_columns, &values);
 
         let sql = get_starting_sql(StartingSql::Insert, T::table_name());
         let sql = Self::insert_sql(sql, selected.clone());
@@ -425,14 +436,7 @@ impl<T: Schema + Debug> InsertMany<T> {
         for record in &self.data {
             let values = record.values();
             let all_columns = T::get_all_columns();
-            let selected: Vec<ColumnInfo> = all_columns
-                .into_iter()
-                .filter(|col| match values.get(col.name) {
-                    None => !(col.has_default || col.auto_increment),
-                    Some(Value::Null) => !(col.has_default || col.auto_increment),
-                    _ => true,
-                })
-                .collect();
+            let selected: Vec<ColumnInfo> = select_insertable_columns(all_columns, &values);
 
             let sql = get_starting_sql(StartingSql::Insert, T::table_name());
             let sql = Insert::<T>::insert_sql(sql, selected.clone());
