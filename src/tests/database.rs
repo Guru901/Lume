@@ -39,7 +39,7 @@ mod tests {
 
         let tables = Database::list_tables();
 
-        assert_eq!(tables.len(), 2); // Two of them are in other file "TestUser" and "TestDefaults"
+        assert_eq!(tables.len(), 4); // Two of them are in other file "TestUser" and "TestDefaults"
 
         assert!(tables.contains(&"Users".to_string()));
         assert!(tables.contains(&"Posts".to_string()));
