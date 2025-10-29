@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.8.1] - 2025-10-29
+
+- Readme cleanup
+
 ## [0.8.0] - 2025-10-29
 
 ### Changed
