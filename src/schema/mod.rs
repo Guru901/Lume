@@ -40,6 +40,20 @@ pub use column::Value;
 pub use column::convert_to_value;
 use std::fmt::Debug;
 
+/// Helper macro: decides field type as `Option<T>` if `default_value(...)` or
+/// `auto_increment()` is present in the column args; otherwise keeps it as `T`.
+#[macro_export]
+macro_rules! __lume_option_type {
+    ($ty:ty) => { $ty };
+    ($ty:ty, []) => { $ty };
+    // If args contain default_value(...), make it Option
+    ($ty:ty, [ default_value ( $($inner:tt)* ) $($tail:tt)* ]) => { Option<$ty> };
+    // If args contain auto_increment(), make it Option
+    ($ty:ty, [ auto_increment ( ) $($tail:tt)* ]) => { Option<$ty> };
+    // Recurse through any other tokens
+    ($ty:ty, [ $head:tt $($tail:tt)* ]) => { $crate::__lume_option_type!($ty, [ $($tail)* ]) };
+}
+
 /// Core trait that all database schemas must implement.
 ///
 /// This trait provides the interface for schema registration, column retrieval,
@@ -276,7 +290,7 @@ macro_rules! define_schema {
         #[derive(Debug)]
         pub struct $struct_name {
             $(
-                pub $name: $type,
+                pub $name: $crate::__lume_option_type!($type $(, [ $($args)* ])? ),
             )*
         }
 

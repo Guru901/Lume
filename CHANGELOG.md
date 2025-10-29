@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.8.0] - 2025-10-29
+
+### Changed
+
+- Schema macro: Columns declared with `default_value(...)` or `auto_increment()` now generate fields as `Option<T>`. Passing `None` uses the database default/auto-increment.
+- Insert behavior: When a column has a default or is auto-increment and the provided value is `None`/omitted, the column is omitted from the `INSERT` statement so the DB applies its default or auto-increment.
+
+### Breaking
+
+- Generated struct field types may change from `T` to `Option<T>` if the column has a default or auto-increment. Update code constructing these structs to pass `Some(value)` or `None` accordingly.
+
+### Documentation
+
+- Added `docs/` directory with comprehensive guides: getting started, schema, queries, inserts/updates, joins, defaults/auto-increment behavior, and a cookbook.
+
 ## [0.7.2] - 2025-10-12
 
 - Removed a debug print statement from the SQL query
