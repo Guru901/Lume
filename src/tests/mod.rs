@@ -101,6 +101,7 @@ mod tests {
                 comment: None,
                 charset: None,
                 collate: None,
+                references: Vec::new(),
             },
             42,
         );
@@ -123,6 +124,7 @@ mod tests {
                 comment: None,
                 charset: None,
                 collate: None,
+                references: Vec::new(),
             },
             "testuser".to_string(),
         );
@@ -145,6 +147,7 @@ mod tests {
                 comment: None,
                 charset: None,
                 collate: None,
+                references: Vec::new(),
             },
             "test@example.com".to_string(),
         );
@@ -167,6 +170,7 @@ mod tests {
                 comment: None,
                 charset: None,
                 collate: None,
+                references: Vec::new(),
             },
             25,
         );
@@ -189,6 +193,7 @@ mod tests {
                 comment: None,
                 charset: None,
                 collate: None,
+                references: Vec::new(),
             },
             true,
         );
