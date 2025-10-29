@@ -115,16 +115,26 @@ impl<T: Schema + Debug> Insert<T> {
     /// # }
     /// ```
     pub async fn execute(self) -> Result<Option<Vec<Row<T>>>, DatabaseError> {
-        let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-        let sql = Self::insert_sql(sql, T::get_all_columns());
-
         let mut conn = self.conn.acquire().await?;
 
         let values = self.data.values();
-        let columns = T::get_all_columns();
+        let all_columns = T::get_all_columns();
+
+        // Select columns to include: omit columns with defaults/auto_increment when value is None/Null
+        let selected: Vec<ColumnInfo> = all_columns
+            .into_iter()
+            .filter(|col| match values.get(col.name) {
+                None => !(col.has_default || col.auto_increment),
+                Some(Value::Null) => !(col.has_default || col.auto_increment),
+                _ => true,
+            })
+            .collect();
+
+        let sql = get_starting_sql(StartingSql::Insert, T::table_name());
+        let sql = Self::insert_sql(sql, selected.clone());
         let mut query = sqlx::query(&sql);
 
-        for col in columns.iter() {
+        for col in selected.iter() {
             let Some(value) = values.get(col.name) else {
                 // If a value is missing, bind NULL using the column's SQL type.
                 match col.data_type {
@@ -408,19 +418,27 @@ impl<T: Schema + Debug> InsertMany<T> {
 
     /// Executes the insert operation for all records asynchronously.
     pub async fn execute(self) -> Result<Option<Vec<Row<T>>>, DatabaseError> {
-        let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-        let sql = Insert::<T>::insert_sql(sql, T::get_all_columns());
-
         let mut conn = self.conn.acquire().await?;
         let mut final_rows = Vec::new();
         let mut inserted_ids: Vec<u64> = Vec::new();
 
         for record in &self.data {
             let values = record.values();
-            let columns = T::get_all_columns();
+            let all_columns = T::get_all_columns();
+            let selected: Vec<ColumnInfo> = all_columns
+                .into_iter()
+                .filter(|col| match values.get(col.name) {
+                    None => !(col.has_default || col.auto_increment),
+                    Some(Value::Null) => !(col.has_default || col.auto_increment),
+                    _ => true,
+                })
+                .collect();
+
+            let sql = get_starting_sql(StartingSql::Insert, T::table_name());
+            let sql = Insert::<T>::insert_sql(sql, selected.clone());
             let mut query = sqlx::query(&sql);
 
-            for col in columns.iter() {
+            for col in selected.iter() {
                 let Some(value) = values.get(col.name) else {
                     // If a value is missing, bind NULL using the column's SQL type.
                     match col.data_type {
