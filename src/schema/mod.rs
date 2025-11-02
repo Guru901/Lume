@@ -204,6 +204,8 @@ pub struct ColumnInfo {
     pub check: Option<&'static str>,
     /// Optional generated column definition (VIRTUAL or STORED)
     pub generated: Option<GeneratedColumn>,
+    /// Foreign key references as (referenced_table, referenced_column)
+    pub references: Vec<(&'static str, &'static str)>,
 }
 
 /// Defines a database schema with type-safe columns and constraints.
@@ -387,6 +389,11 @@ macro_rules! define_schema {
                                     invisible: col.is_invisible(),
                                     check: col.get_check(),
                                     generated: col.get_generated(),
+                                    references: col
+                                        .get_references()
+                                        .iter()
+                                        .map(|rc| (rc.table_name(), rc.name()))
+                                        .collect(),
                                 }
                             }
                         ),*
@@ -524,6 +531,11 @@ macro_rules! define_schema {
                                 invisible: col.is_invisible(),
                                 check: col.get_check(),
                                 generated: col.get_generated(),
+                                references: col
+                                    .get_references()
+                                    .iter()
+                                    .map(|rc| (rc.table_name(), rc.name()))
+                                    .collect(),
                             }
                         }
                     ),*
@@ -722,6 +734,27 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
         if !indexes.is_empty() {
             sql.push_str("\n\n");
             sql.push_str(&indexes.join("\n"));
+        }
+
+        let references = columns
+            .iter()
+            .filter_map(|col| {
+                if col.references.is_empty() {
+                    return None;
+                }
+
+                // Currently we support a single reference per column
+                let (ref_table, ref_col) = col.references[0];
+                Some(format!(
+                    "ALTER TABLE {} ADD CONSTRAINT fk_{}_{} FOREIGN KEY ({}) REFERENCES {} ({});",
+                    table_name, table_name, col.name, col.name, ref_table, ref_col
+                ))
+            })
+            .collect::<Vec<_>>();
+
+        if !references.is_empty() {
+            sql.push_str("\n\n");
+            sql.push_str(&references.join("\n"));
         }
 
         sql
