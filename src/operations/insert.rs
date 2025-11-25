@@ -410,8 +410,11 @@ impl<T: Schema + Debug> Insert<T> {
                         Value::Int64(i) => query.bind(i),
                         #[cfg(feature = "mysql")]
                         Value::UInt8(u) => query.bind(u),
+                        #[cfg(feature = "postgres")]
                         Value::UInt16(u) => query.bind(u as i32),
+                        #[cfg(feature = "postgres")]
                         Value::UInt32(u) => query.bind(u as i64),
+                        #[cfg(feature = "postgres")]
                         Value::UInt64(u) => query.bind(u as i64),
                         Value::Float32(f) => query.bind(f),
                         Value::Float64(f) => query.bind(f),
