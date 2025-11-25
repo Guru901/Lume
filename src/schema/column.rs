@@ -980,7 +980,6 @@ pub fn convert_to_value<T: Any>(value: &T) -> Value {
     } else if let Some(i) = <dyn Any>::downcast_ref::<i64>(value) {
         Value::Int64(*i)
     } else if let Some(u) = <dyn Any>::downcast_ref::<u8>(value) {
-
         #[cfg(feature = "mysql")]
         return Value::UInt8(*u);
 
@@ -1018,15 +1017,13 @@ pub fn convert_to_value<T: Any>(value: &T) -> Value {
         opt.map(Value::Int32).unwrap_or(Value::Null)
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<i64>>(value) {
         opt.map(Value::Int64).unwrap_or(Value::Null)
-    }
-     else if let Some(opt) = <dyn Any>::downcast_ref::<Option<u8>>(value) {
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<u8>>(value) {
         #[cfg(feature = "mysql")]
         return opt.map(Value::UInt8).unwrap_or(Value::Null);
 
         #[cfg(feature = "postgres")]
         return opt.map(|u| Value::Int16(u as i16)).unwrap_or(Value::Null);
-    }
-     else if let Some(opt) = <dyn Any>::downcast_ref::<Option<u16>>(value) {
+    } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<u16>>(value) {
         opt.map(Value::UInt16).unwrap_or(Value::Null)
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<u32>>(value) {
         opt.map(Value::UInt32).unwrap_or(Value::Null)

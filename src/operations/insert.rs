@@ -360,11 +360,6 @@ impl<T: Schema + Debug> Insert<T> {
                         query = query.bind(None::<&str>);
                     }
                 },
-                #[cfg(feature = "mysql")]
-                Value::UInt8(_) | Value::UInt16(_) | Value::UInt32(_) | Value::UInt64(_) => {
-                    // These are already handled above in the match arms
-                    unreachable!("UInt types should be handled in specific match arms")
-                }
                 Value::Between(min, max) => {
                     query = match (**min).clone() {
                         Value::String(s) => query.bind(s),
@@ -692,21 +687,48 @@ impl<T: Schema + Debug> Insert<T> {
         }
     }
 
+    /// Builds a parameterized INSERT SQL statement, with identifier quoting for MySQL/Postgres and parameter style for both backends.
     pub(crate) fn insert_sql(mut sql: String, columns: Vec<ColumnInfo>) -> String {
+        // Quote identifiers for portability (uses quote_identifier from lib.rs)
         for (i, col) in columns.iter().enumerate() {
             if i > 0 {
                 sql.push_str(", ");
             }
-            sql.push_str(&col.name);
+            sql.push_str(&crate::quote_identifier(&col.name));
         }
         sql.push_str(") VALUES (");
 
-        for (i, _col) in columns.iter().enumerate() {
-            if i > 0 {
-                sql.push_str(", ");
+        #[cfg(feature = "postgres")]
+        {
+            // Use $1, $2, $3... for Postgres
+            for (i, _col) in columns.iter().enumerate() {
+                if i > 0 {
+                    sql.push_str(", ");
+                }
+                sql.push_str(&format!("${}", i + 1));
             }
-            sql.push_str("?");
         }
+        #[cfg(feature = "mysql")]
+        {
+            // Use ? for MySQL
+            for (i, _col) in columns.iter().enumerate() {
+                if i > 0 {
+                    sql.push_str(", ");
+                }
+                sql.push_str("?");
+            }
+        }
+        // fallback (support at least something for no features)
+        #[cfg(all(not(feature = "postgres"), not(feature = "mysql")))]
+        {
+            for (i, _col) in columns.iter().enumerate() {
+                if i > 0 {
+                    sql.push_str(", ");
+                }
+                sql.push_str("?");
+            }
+        }
+
         sql.push_str(")");
 
         sql
