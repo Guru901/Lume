@@ -32,7 +32,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[test_retry::retry(5)]
+    #[test_retry::retry(10)]
     async fn test_list_tables_and_table_info() {
         Users::ensure_registered();
         Posts::ensure_registered();

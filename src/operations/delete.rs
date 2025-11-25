@@ -227,7 +227,13 @@ impl<T: Schema + Debug> Delete<T> {
                 #[cfg(feature = "postgres")]
                 Value::UInt32(u) => query.bind(u as i64),
                 #[cfg(feature = "postgres")]
-                Value::UInt64(u) => query.bind(u as i64),
+                Value::UInt64(u) => {
+                    debug_assert!(
+                        u <= i64::MAX as u64,
+                        "UInt64 value exceeds i64::MAX, data loss will occur"
+                    );
+                    query.bind(u as i64)
+                }
 
                 #[cfg(feature = "mysql")]
                 Value::UInt16(u) => query.bind(u),
