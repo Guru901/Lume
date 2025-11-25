@@ -223,9 +223,9 @@ impl<S: Schema + Debug> Row<S> {
     /// }
     /// ```
     ///
-    /// This would typically be called with POSTGRES query results
-    /// let mysql_rows: Vec<PgRow> = sqlx::query("SELECT * FROM users").fetch_all(&pool).await?;
-    /// let lume_rows: Vec<Row<User>> = Row::from_mysql_row(mysql_rows);
+    /// This would typically be called with PostgreSQL query results:
+    /// let pg_rows: Vec<PgRow> = sqlx::query("SELECT * FROM users").fetch_all(&pool).await?;
+    /// let lume_rows: Vec<Row<User>> = Row::from_postgres_row(pg_rows);
     pub(crate) fn from_postgres_row(rows: Vec<PgRow>, joins: Option<&Vec<JoinInfo>>) -> Vec<Self> {
         let mut rows_: Vec<Self> = Vec::new();
 
