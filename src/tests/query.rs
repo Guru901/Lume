@@ -50,7 +50,7 @@ mod tests {
         let pool = Arc::new(MySqlPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
 
         #[cfg(feature = "postgres")]
-        let pool = Arc::new(PgPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
+        let pool = Arc::new(PgPool::connect_lazy("postgres://user:pass@localhost/db").unwrap());
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
             .limit(10)
             .offset(5)
