@@ -211,17 +211,31 @@ impl<T: Schema + Debug> Delete<T> {
                 Value::Int16(i) => query.bind(i),
                 Value::Int32(i) => query.bind(i),
                 Value::Int64(i) => query.bind(i),
+
                 #[cfg(feature = "mysql")]
                 Value::UInt8(u) => query.bind(u),
+
                 Value::Array(_) => {
                     eprintln!(
                         "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
                     );
                     query
                 }
+
+                #[cfg(feature = "postgres")]
                 Value::UInt16(u) => query.bind(u as i32),
+                #[cfg(feature = "postgres")]
                 Value::UInt32(u) => query.bind(u as i64),
+                #[cfg(feature = "postgres")]
                 Value::UInt64(u) => query.bind(u as i64),
+
+                #[cfg(feature = "mysql")]
+                Value::UInt16(u) => query.bind(u),
+                #[cfg(feature = "mysql")]
+                Value::UInt32(u) => query.bind(u),
+                #[cfg(feature = "mysql")]
+                Value::UInt64(u) => query.bind(u),
+
                 Value::Float32(f) => query.bind(f),
                 Value::Float64(f) => query.bind(f),
                 Value::Bool(b) => query.bind(b),
@@ -232,11 +246,24 @@ impl<T: Schema + Debug> Delete<T> {
                         Value::Int16(i) => query.bind(i),
                         Value::Int32(i) => query.bind(i),
                         Value::Int64(i) => query.bind(i),
+
                         #[cfg(feature = "mysql")]
                         Value::UInt8(u) => query.bind(u),
+
+                        #[cfg(feature = "postgres")]
                         Value::UInt16(u) => query.bind(u as i32),
+                        #[cfg(feature = "postgres")]
                         Value::UInt32(u) => query.bind(u as i64),
+                        #[cfg(feature = "postgres")]
                         Value::UInt64(u) => query.bind(u as i64),
+
+                        #[cfg(feature = "mysql")]
+                        Value::UInt16(u) => query.bind(u),
+                        #[cfg(feature = "mysql")]
+                        Value::UInt32(u) => query.bind(u),
+                        #[cfg(feature = "mysql")]
+                        Value::UInt64(u) => query.bind(u),
+
                         Value::Float32(f) => query.bind(f),
                         Value::Float64(f) => query.bind(f),
                         Value::Bool(b) => query.bind(b),
@@ -260,11 +287,24 @@ impl<T: Schema + Debug> Delete<T> {
                         Value::Int16(i) => query.bind(i),
                         Value::Int32(i) => query.bind(i),
                         Value::Int64(i) => query.bind(i),
+
                         #[cfg(feature = "mysql")]
                         Value::UInt8(u) => query.bind(u),
+
+                        #[cfg(feature = "postgres")]
                         Value::UInt16(u) => query.bind(u as i32),
+                        #[cfg(feature = "postgres")]
                         Value::UInt32(u) => query.bind(u as i64),
+                        #[cfg(feature = "postgres")]
                         Value::UInt64(u) => query.bind(u as i64),
+
+                        #[cfg(feature = "mysql")]
+                        Value::UInt16(u) => query.bind(u),
+                        #[cfg(feature = "mysql")]
+                        Value::UInt32(u) => query.bind(u),
+                        #[cfg(feature = "mysql")]
+                        Value::UInt64(u) => query.bind(u),
+
                         Value::Float32(f) => query.bind(f),
                         Value::Float64(f) => query.bind(f),
                         Value::Bool(b) => query.bind(b),

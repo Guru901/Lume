@@ -123,7 +123,6 @@ impl<T: Schema + Debug> Insert<T> {
         }
     }
 
-
     /// Configures the insert to return the inserted row(s).
     ///
     /// # Returns
@@ -272,19 +271,38 @@ impl<T: Schema + Debug> Insert<T> {
                 Value::Int64(v) => {
                     query = query.bind(*v);
                 }
+
                 #[cfg(feature = "mysql")]
                 Value::UInt8(v) => {
                     query = query.bind(*v);
                 }
+
+                #[cfg(feature = "postgres")]
                 Value::UInt16(v) => {
                     query = query.bind(*v as i32);
                 }
+                #[cfg(feature = "postgres")]
                 Value::UInt32(v) => {
                     query = query.bind(*v as i64);
                 }
+                #[cfg(feature = "postgres")]
                 Value::UInt64(v) => {
                     query = query.bind(*v as i64);
                 }
+
+                #[cfg(feature = "mysql")]
+                Value::UInt16(v) => {
+                    query = query.bind(*v);
+                }
+                #[cfg(feature = "mysql")]
+                Value::UInt32(v) => {
+                    query = query.bind(*v);
+                }
+                #[cfg(feature = "mysql")]
+                Value::UInt64(v) => {
+                    query = query.bind(*v);
+                }
+
                 Value::Float32(v) => {
                     query = query.bind(*v);
                 }
@@ -354,11 +372,24 @@ impl<T: Schema + Debug> Insert<T> {
                         Value::Int16(i) => query.bind(i),
                         Value::Int32(i) => query.bind(i),
                         Value::Int64(i) => query.bind(i),
+
                         #[cfg(feature = "mysql")]
-                        Value::UInt8(u) => query.bind(u),
-                        Value::UInt16(u) => query.bind(u as i32),
-                        Value::UInt32(u) => query.bind(u as i64),
-                        Value::UInt64(u) => query.bind(u as i64),
+                        Value::UInt8(v) => query.bind(v),
+
+                        #[cfg(feature = "postgres")]
+                        Value::UInt16(v) => query.bind(v as i32),
+                        #[cfg(feature = "postgres")]
+                        Value::UInt32(v) => query.bind(v as i64),
+                        #[cfg(feature = "postgres")]
+                        Value::UInt64(v) => query.bind(v as i64),
+
+                        #[cfg(feature = "mysql")]
+                        Value::UInt16(v) => query.bind(v),
+                        #[cfg(feature = "mysql")]
+                        Value::UInt32(v) => query.bind(v),
+                        #[cfg(feature = "mysql")]
+                        Value::UInt64(v) => query.bind(v),
+
                         Value::Float32(f) => query.bind(f),
                         Value::Float64(f) => query.bind(f),
                         Value::Bool(b) => query.bind(b),
@@ -451,37 +482,35 @@ impl<T: Schema + Debug> Insert<T> {
                 };
 
                 match value {
-                    Value::Array(_arr) => {
-                        match col.data_type {
-                            "VARCHAR(255)" | "TEXT" => {
-                                query = query.bind(None::<&str>);
-                            }
-                            "TINYINT" => {
-                                query = query.bind(None::<i8>);
-                            }
-                            "SMALLINT" => {
-                                query = query.bind(None::<i16>);
-                            }
-                            "INTEGER" => {
-                                query = query.bind(None::<i32>);
-                            }
-                            "BIGINT" => {
-                                query = query.bind(None::<i64>);
-                            }
-                            "FLOAT" => {
-                                query = query.bind(None::<f32>);
-                            }
-                            "DOUBLE" => {
-                                query = query.bind(None::<f64>);
-                            }
-                            "BOOLEAN" => {
-                                query = query.bind(None::<bool>);
-                            }
-                            _ => {
-                                query = query.bind(None::<&str>);
-                            }
+                    Value::Array(_arr) => match col.data_type {
+                        "VARCHAR(255)" | "TEXT" => {
+                            query = query.bind(None::<&str>);
                         }
-                    }
+                        "TINYINT" => {
+                            query = query.bind(None::<i8>);
+                        }
+                        "SMALLINT" => {
+                            query = query.bind(None::<i16>);
+                        }
+                        "INTEGER" => {
+                            query = query.bind(None::<i32>);
+                        }
+                        "BIGINT" => {
+                            query = query.bind(None::<i64>);
+                        }
+                        "FLOAT" => {
+                            query = query.bind(None::<f32>);
+                        }
+                        "DOUBLE" => {
+                            query = query.bind(None::<f64>);
+                        }
+                        "BOOLEAN" => {
+                            query = query.bind(None::<bool>);
+                        }
+                        _ => {
+                            query = query.bind(None::<&str>);
+                        }
+                    },
                     Value::Int8(v) => {
                         query = query.bind(*v);
                     }
@@ -584,11 +613,8 @@ impl<T: Schema + Debug> Insert<T> {
                                 query
                             }
                             Value::Null => query,
-                            #[cfg(feature = "postgres")]
                             Value::UInt16(v) => query.bind(v as i32),
-                            #[cfg(feature = "postgres")]
                             Value::UInt32(v) => query.bind(v as i64),
-                            #[cfg(feature = "postgres")]
                             Value::UInt64(v) => query.bind(v as i64),
                         };
                         query = match (**max).clone() {
@@ -613,34 +639,18 @@ impl<T: Schema + Debug> Insert<T> {
                                 query
                             }
                             Value::Null => query,
-                            #[cfg(feature = "mysql")]
-                            Value::UInt8(v) => query.bind(*v as i16),
-
-                            #[cfg(feature = "postgres")]
                             Value::UInt16(v) => query.bind(v as i32),
-                            #[cfg(feature = "postgres")]
                             Value::UInt32(v) => query.bind(v as i64),
-                            #[cfg(feature = "postgres")]
                             Value::UInt64(v) => query.bind(v as i64),
                         };
                     }
-                    #[cfg(feature = "mysql")]
-                    Value::UInt8(v) => {
-                        query = query.bind(*v);
-                    }
-                    #[cfg(feature = "postgres")]
                     Value::UInt16(v) => {
-                        // PostgreSQL doesn't support unsigned integers, convert to signed
                         query = query.bind(*v as i32);
                     }
-                    #[cfg(feature = "postgres")]
                     Value::UInt32(v) => {
-                        // PostgreSQL doesn't support unsigned integers, convert to signed
                         query = query.bind(*v as i64);
                     }
-                    #[cfg(feature = "postgres")]
                     Value::UInt64(v) => {
-                        // PostgreSQL doesn't support unsigned integers, convert to signed
                         query = query.bind(*v as i64);
                     }
                 }
@@ -743,7 +753,6 @@ impl<T: Schema + Debug> InsertMany<T> {
             returning: Vec::new(),
         }
     }
-
 
     /// Configures the insert to return the inserted row(s).
     pub fn returning<S: Select + Debug>(mut self, select: S) -> Self {
@@ -856,19 +865,38 @@ impl<T: Schema + Debug> InsertMany<T> {
                     Value::Int64(v) => {
                         query = query.bind(*v);
                     }
+
                     #[cfg(feature = "mysql")]
                     Value::UInt8(v) => {
                         query = query.bind(*v);
                     }
+
+                    #[cfg(feature = "postgres")]
                     Value::UInt16(v) => {
                         query = query.bind(*v as i32);
                     }
+                    #[cfg(feature = "postgres")]
                     Value::UInt32(v) => {
                         query = query.bind(*v as i64);
                     }
+                    #[cfg(feature = "postgres")]
                     Value::UInt64(v) => {
                         query = query.bind(*v as i64);
                     }
+
+                    #[cfg(feature = "mysql")]
+                    Value::UInt16(v) => {
+                        query = query.bind(*v);
+                    }
+                    #[cfg(feature = "mysql")]
+                    Value::UInt32(v) => {
+                        query = query.bind(*v);
+                    }
+                    #[cfg(feature = "mysql")]
+                    Value::UInt64(v) => {
+                        query = query.bind(*v);
+                    }
+
                     Value::Float32(v) => {
                         query = query.bind(*v);
                     }
@@ -926,11 +954,6 @@ impl<T: Schema + Debug> InsertMany<T> {
                             query = query.bind(None::<&str>);
                         }
                     },
-                    #[cfg(feature = "mysql")]
-                    Value::UInt8(_) | Value::UInt16(_) | Value::UInt32(_) | Value::UInt64(_) => {
-                        // These are already handled above in the match arms
-                        unreachable!("UInt types should be handled in specific match arms")
-                    }
                     Value::Between(min, max) => {
                         query = match (**min).clone() {
                             Value::String(s) => query.bind(s),
@@ -938,11 +961,24 @@ impl<T: Schema + Debug> InsertMany<T> {
                             Value::Int16(i) => query.bind(i),
                             Value::Int32(i) => query.bind(i),
                             Value::Int64(i) => query.bind(i),
+
                             #[cfg(feature = "mysql")]
                             Value::UInt8(u) => query.bind(u),
+
+                            #[cfg(feature = "postgres")]
                             Value::UInt16(u) => query.bind(u as i32),
+                            #[cfg(feature = "postgres")]
                             Value::UInt32(u) => query.bind(u as i64),
+                            #[cfg(feature = "postgres")]
                             Value::UInt64(u) => query.bind(u as i64),
+
+                            #[cfg(feature = "mysql")]
+                            Value::UInt16(u) => query.bind(u),
+                            #[cfg(feature = "mysql")]
+                            Value::UInt32(u) => query.bind(u),
+                            #[cfg(feature = "mysql")]
+                            Value::UInt64(u) => query.bind(u),
+
                             Value::Float32(f) => query.bind(f),
                             Value::Float64(f) => query.bind(f),
                             Value::Bool(b) => query.bind(b),
@@ -968,9 +1004,21 @@ impl<T: Schema + Debug> InsertMany<T> {
                             Value::Int64(i) => query.bind(i),
                             #[cfg(feature = "mysql")]
                             Value::UInt8(u) => query.bind(u),
+
+                            #[cfg(feature = "postgres")]
                             Value::UInt16(u) => query.bind(u as i32),
+                            #[cfg(feature = "postgres")]
                             Value::UInt32(u) => query.bind(u as i64),
+                            #[cfg(feature = "postgres")]
                             Value::UInt64(u) => query.bind(u as i64),
+
+                            #[cfg(feature = "mysql")]
+                            Value::UInt16(u) => query.bind(u),
+                            #[cfg(feature = "mysql")]
+                            Value::UInt32(u) => query.bind(u),
+                            #[cfg(feature = "mysql")]
+                            Value::UInt64(u) => query.bind(u),
+
                             Value::Float32(f) => query.bind(f),
                             Value::Float64(f) => query.bind(f),
                             Value::Bool(b) => query.bind(b),
@@ -1064,37 +1112,35 @@ impl<T: Schema + Debug> InsertMany<T> {
                         };
 
                         match value {
-                            Value::Array(_arr) => {
-                                match col.data_type {
-                                    "VARCHAR(255)" | "TEXT" => {
-                                        query = query.bind(None::<&str>);
-                                    }
-                                    "TINYINT" => {
-                                        query = query.bind(None::<i8>);
-                                    }
-                                    "SMALLINT" => {
-                                        query = query.bind(None::<i16>);
-                                    }
-                                    "INTEGER" => {
-                                        query = query.bind(None::<i32>);
-                                    }
-                                    "BIGINT" => {
-                                        query = query.bind(None::<i64>);
-                                    }
-                                    "FLOAT" => {
-                                        query = query.bind(None::<f32>);
-                                    }
-                                    "DOUBLE" => {
-                                        query = query.bind(None::<f64>);
-                                    }
-                                    "BOOLEAN" => {
-                                        query = query.bind(None::<bool>);
-                                    }
-                                    _ => {
-                                        query = query.bind(None::<&str>);
-                                    }
+                            Value::Array(_arr) => match col.data_type {
+                                "VARCHAR(255)" | "TEXT" => {
+                                    query = query.bind(None::<&str>);
                                 }
-                            }
+                                "TINYINT" => {
+                                    query = query.bind(None::<i8>);
+                                }
+                                "SMALLINT" => {
+                                    query = query.bind(None::<i16>);
+                                }
+                                "INTEGER" => {
+                                    query = query.bind(None::<i32>);
+                                }
+                                "BIGINT" => {
+                                    query = query.bind(None::<i64>);
+                                }
+                                "FLOAT" => {
+                                    query = query.bind(None::<f32>);
+                                }
+                                "DOUBLE" => {
+                                    query = query.bind(None::<f64>);
+                                }
+                                "BOOLEAN" => {
+                                    query = query.bind(None::<bool>);
+                                }
+                                _ => {
+                                    query = query.bind(None::<&str>);
+                                }
+                            },
                             Value::Int8(v) => {
                                 query = query.bind(*v);
                             }
@@ -1211,7 +1257,6 @@ impl<T: Schema + Debug> InsertMany<T> {
                                     Value::Null => query,
                                 };
                             }
-                            
                         }
                     }
 
@@ -1221,7 +1266,7 @@ impl<T: Schema + Debug> InsertMany<T> {
                 } else {
                     // Execute without returning
                     query.execute(&mut *conn).await?;
-                    
+
                     // Capture id: prefer provided id
                     if let Some(id_val) = values.get("id") {
                         match id_val {
@@ -1251,7 +1296,7 @@ impl<T: Schema + Debug> InsertMany<T> {
             select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
 
             for id in inserted_ids {
-                let q = sqlx::query(&select_sql).bind(id as i64);
+                let q = sqlx::query(&select_sql).bind(id);
                 let rows = q.fetch_all(&mut *conn).await?;
 
                 let rows = Row::<T>::from_mysql_row(rows, None);
