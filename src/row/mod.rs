@@ -411,15 +411,6 @@ impl<S: Schema + Debug> Row<S> {
                     None
                 }
             }
-            "TINYINT" => {
-                if let Ok(val) = row.try_get::<i8, _>(column_name) {
-                    Some(Value::Int8(val))
-                } else if let Ok(val) = row.try_get::<Option<i8>, _>(column_name) {
-                    val.map(Value::Int8)
-                } else {
-                    None
-                }
-            }
             "SMALLINT" => {
                 if let Ok(val) = row.try_get::<i16, _>(column_name) {
                     Some(Value::Int16(val))
