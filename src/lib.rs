@@ -109,7 +109,7 @@ pub(crate) fn get_starting_sql(starting_sql: StartingSql, table_name: &str) -> S
     }
 }
 
-fn quote_identifier(identifier: &str) -> String {
+pub(crate) fn quote_identifier(identifier: &str) -> String {
     #[cfg(feature = "mysql")]
     {
         return format!("`{}`", identifier);
@@ -117,7 +117,7 @@ fn quote_identifier(identifier: &str) -> String {
 
     #[cfg(all(not(feature = "mysql"), feature = "postgres"))]
     {
-        return identifier.to_string();
+        return format!("\"{}\"", identifier);
     }
 }
 
