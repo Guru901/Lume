@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.0] - 2025-11-25
+
+- Added postgres support
+
 ## [0.8.1] - 2025-10-29
 
 - Readme cleanup
