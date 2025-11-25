@@ -612,32 +612,6 @@ impl<T: Schema + Debug> Insert<T> {
                             Value::UInt32(v) => query.bind(v as i64),
                             Value::UInt64(v) => query.bind(v as i64),
                         };
-                        query = match (**max).clone() {
-                            Value::String(s) => query.bind(s),
-                            Value::Int8(i) => query.bind(i),
-                            Value::Int16(i) => query.bind(i),
-                            Value::Int32(i) => query.bind(i),
-                            Value::Int64(i) => query.bind(i),
-                            Value::Float32(f) => query.bind(f),
-                            Value::Float64(f) => query.bind(f),
-                            Value::Bool(b) => query.bind(b),
-                            Value::Array(_arr) => {
-                                eprintln!(
-                                    "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
-                                );
-                                query
-                            }
-                            Value::Between(_, _) => {
-                                eprintln!(
-                                    "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
-                                );
-                                query
-                            }
-                            Value::Null => query,
-                            Value::UInt16(v) => query.bind(v as i32),
-                            Value::UInt32(v) => query.bind(v as i64),
-                            Value::UInt64(v) => query.bind(v as i64),
-                        };
                     }
                     Value::UInt16(v) => {
                         query = query.bind(*v as i32);
