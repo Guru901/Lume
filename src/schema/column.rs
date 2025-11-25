@@ -552,6 +552,7 @@ pub enum Value {
     /// 64-bit signed integer value
     Int64(i64),
     /// 8-bit unsigned integer value
+    #[cfg(feature = "mysql")]
     UInt8(u8),
     /// 16-bit unsigned integer value
     UInt16(u16),
@@ -584,6 +585,7 @@ impl Display for Value {
             Value::Int16(i) => write!(f, "{}", i),
             Value::Int32(i) => write!(f, "{}", i),
             Value::Int64(i) => write!(f, "{}", i),
+            #[cfg(feature = "mysql")]
             Value::UInt8(u) => write!(f, "{}", u),
             Value::UInt16(u) => write!(f, "{}", u),
             Value::UInt32(u) => write!(f, "{}", u),
@@ -637,6 +639,7 @@ impl From<i64> for Value {
 }
 
 // Unsigned integer types
+#[cfg(feature = "mysql")]
 impl From<u8> for Value {
     fn from(u: u8) -> Self {
         Value::UInt8(u)
@@ -702,6 +705,7 @@ impl TryFrom<Value> for i8 {
             Value::Int16(i) if i >= i8::MIN as i16 && i <= i8::MAX as i16 => Ok(i as i8),
             Value::Int32(i) if i >= i8::MIN as i32 && i <= i8::MAX as i32 => Ok(i as i8),
             Value::Int64(i) if i >= i8::MIN as i64 && i <= i8::MAX as i64 => Ok(i as i8),
+            #[cfg(feature = "mysql")]
             Value::UInt8(u) if u <= i8::MAX as u8 => Ok(u as i8),
             Value::UInt16(u) if u <= i8::MAX as u16 => Ok(u as i8),
             Value::UInt32(u) if u <= i8::MAX as u32 => Ok(u as i8),
@@ -720,6 +724,7 @@ impl TryFrom<Value> for i16 {
             Value::Int16(i) => Ok(i),
             Value::Int32(i) if i >= i16::MIN as i32 && i <= i16::MAX as i32 => Ok(i as i16),
             Value::Int64(i) if i >= i16::MIN as i64 && i <= i16::MAX as i64 => Ok(i as i16),
+            #[cfg(feature = "mysql")]
             Value::UInt8(u) => Ok(u as i16),
             Value::UInt16(u) if u <= i16::MAX as u16 => Ok(u as i16),
             Value::UInt32(u) if u <= i16::MAX as u32 => Ok(u as i16),
@@ -738,6 +743,7 @@ impl TryFrom<Value> for i32 {
             Value::Int16(i) => Ok(i as i32),
             Value::Int32(i) => Ok(i),
             Value::Int64(i) if i >= i32::MIN as i64 && i <= i32::MAX as i64 => Ok(i as i32),
+            #[cfg(feature = "mysql")]
             Value::UInt8(u) => Ok(u as i32),
             Value::UInt16(u) => Ok(u as i32),
             Value::UInt32(u) if u <= i32::MAX as u32 => Ok(u as i32),
@@ -756,6 +762,7 @@ impl TryFrom<Value> for i64 {
             Value::Int16(i) => Ok(i as i64),
             Value::Int32(i) => Ok(i as i64),
             Value::Int64(i) => Ok(i),
+            #[cfg(feature = "mysql")]
             Value::UInt8(u) => Ok(u as i64),
             Value::UInt16(u) => Ok(u as i64),
             Value::UInt32(u) => Ok(u as i64),
@@ -775,6 +782,7 @@ impl TryFrom<Value> for u8 {
             Value::Int16(i) if i >= 0 && i <= u8::MAX as i16 => Ok(i as u8),
             Value::Int32(i) if i >= 0 && i <= u8::MAX as i32 => Ok(i as u8),
             Value::Int64(i) if i >= 0 && i <= u8::MAX as i64 => Ok(i as u8),
+            #[cfg(feature = "mysql")]
             Value::UInt8(u) => Ok(u),
             Value::UInt16(u) if u <= u8::MAX as u16 => Ok(u as u8),
             Value::UInt32(u) if u <= u8::MAX as u32 => Ok(u as u8),
@@ -793,6 +801,7 @@ impl TryFrom<Value> for u16 {
             Value::Int16(i) if i >= 0 => Ok(i as u16),
             Value::Int32(i) if i >= 0 && i <= u16::MAX as i32 => Ok(i as u16),
             Value::Int64(i) if i >= 0 && i <= u16::MAX as i64 => Ok(i as u16),
+            #[cfg(feature = "mysql")]
             Value::UInt8(u) => Ok(u as u16),
             Value::UInt16(u) => Ok(u),
             Value::UInt32(u) if u <= u16::MAX as u32 => Ok(u as u16),
@@ -811,6 +820,7 @@ impl TryFrom<Value> for u32 {
             Value::Int16(i) if i >= 0 => Ok(i as u32),
             Value::Int32(i) if i >= 0 => Ok(i as u32),
             Value::Int64(i) if i >= 0 && i <= u32::MAX as i64 => Ok(i as u32),
+            #[cfg(feature = "mysql")]
             Value::UInt8(u) => Ok(u as u32),
             Value::UInt16(u) => Ok(u as u32),
             Value::UInt32(u) => Ok(u),
@@ -829,6 +839,7 @@ impl TryFrom<Value> for u64 {
             Value::Int16(i) if i >= 0 => Ok(i as u64),
             Value::Int32(i) if i >= 0 => Ok(i as u64),
             Value::Int64(i) if i >= 0 => Ok(i as u64),
+            #[cfg(feature = "mysql")]
             Value::UInt8(u) => Ok(u as u64),
             Value::UInt16(u) => Ok(u as u64),
             Value::UInt32(u) => Ok(u as u64),
@@ -850,6 +861,7 @@ impl TryFrom<Value> for f32 {
             Value::Int16(i) => Ok(i as f32),
             Value::Int32(i) => Ok(i as f32),
             Value::Int64(i) => Ok(i as f32),
+            #[cfg(feature = "mysql")]
             Value::UInt8(u) => Ok(u as f32),
             Value::UInt16(u) => Ok(u as f32),
             Value::UInt32(u) => Ok(u as f32),
@@ -870,6 +882,7 @@ impl TryFrom<Value> for f64 {
             Value::Int16(i) => Ok(i as f64),
             Value::Int32(i) => Ok(i as f64),
             Value::Int64(i) => Ok(i as f64),
+            #[cfg(feature = "mysql")]
             Value::UInt8(u) => Ok(u as f64),
             Value::UInt16(u) => Ok(u as f64),
             Value::UInt32(u) => Ok(u as f64),
@@ -967,7 +980,11 @@ pub fn convert_to_value<T: Any>(value: &T) -> Value {
     } else if let Some(i) = <dyn Any>::downcast_ref::<i64>(value) {
         Value::Int64(*i)
     } else if let Some(u) = <dyn Any>::downcast_ref::<u8>(value) {
-        Value::UInt8(*u)
+        #[cfg(feature = "mysql")]
+        return Value::UInt8(*u);
+
+        #[cfg(feature = "postgres")]
+        return Value::Int8(*u as i8);
     } else if let Some(u) = <dyn Any>::downcast_ref::<u16>(value) {
         Value::UInt16(*u)
     } else if let Some(u) = <dyn Any>::downcast_ref::<u32>(value) {
@@ -1001,7 +1018,11 @@ pub fn convert_to_value<T: Any>(value: &T) -> Value {
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<i64>>(value) {
         opt.map(Value::Int64).unwrap_or(Value::Null)
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<u8>>(value) {
-        opt.map(Value::UInt8).unwrap_or(Value::Null)
+        #[cfg(feature = "mysql")]
+        return opt.map(Value::UInt8).unwrap_or(Value::Null);
+
+        #[cfg(feature = "postgres")]
+        return opt.map(|u| Value::Int16(u as i16)).unwrap_or(Value::Null);
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<u16>>(value) {
         opt.map(Value::UInt16).unwrap_or(Value::Null)
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<u32>>(value) {

@@ -33,7 +33,7 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     // Connect to your MySQL database
+//!     // Connect to your MySQL/Postgres database
 //!     let db = Database::connect("mysql://user:password@localhost/database").await?;
 //!     
 //!     // Type-safe queries
@@ -100,11 +100,24 @@ pub(crate) enum StartingSql {
 }
 
 pub(crate) fn get_starting_sql(starting_sql: StartingSql, table_name: &str) -> String {
+    let table_ident = quote_identifier(table_name);
     match starting_sql {
         StartingSql::Select => "SELECT ".to_string(),
-        StartingSql::Insert => format!("INSERT INTO `{}` (", table_name),
-        StartingSql::Delete => format!("DELETE FROM `{}` ", table_name),
-        StartingSql::Update => format!("UPDATE `{}` SET ", table_name),
+        StartingSql::Insert => format!("INSERT INTO {} (", table_ident),
+        StartingSql::Delete => format!("DELETE FROM {} ", table_ident),
+        StartingSql::Update => format!("UPDATE {} SET ", table_ident),
+    }
+}
+
+pub(crate) fn quote_identifier(identifier: &str) -> String {
+    #[cfg(feature = "mysql")]
+    {
+        return format!("`{}`", identifier);
+    }
+
+    #[cfg(all(not(feature = "mysql"), feature = "postgres"))]
+    {
+        return format!("\"{}\"", identifier);
     }
 }
 

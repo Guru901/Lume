@@ -331,8 +331,31 @@ mod tests {
         assert!(create_sql.contains("is_active BOOLEAN NOT NULL"));
     }
 
+    #[cfg(feature = "postgres")]
     #[test]
-    fn test_starting_sql() {
+    fn test_starting_sql_postgres() {
+        use crate::StartingSql;
+        assert_eq!(
+            get_starting_sql(StartingSql::Select, "TestUser"),
+            "SELECT ".to_string()
+        );
+        assert_eq!(
+            get_starting_sql(StartingSql::Insert, "TestUser"),
+            "INSERT INTO TestUser (".to_string()
+        );
+        assert_eq!(
+            get_starting_sql(StartingSql::Delete, "TestUser"),
+            "DELETE FROM TestUser ".to_string()
+        );
+        assert_eq!(
+            get_starting_sql(StartingSql::Update, "TestUser"),
+            "UPDATE TestUser SET ".to_string()
+        );
+    }
+
+    #[cfg(feature = "mysql")]
+    #[test]
+    fn test_starting_sql_mysql() {
         use crate::StartingSql;
         assert_eq!(
             get_starting_sql(StartingSql::Select, "TestUser"),

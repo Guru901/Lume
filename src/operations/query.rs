@@ -7,7 +7,11 @@
 
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
+#[cfg(feature = "mysql")]
 use sqlx::MySqlPool;
+
+#[cfg(feature = "postgres")]
+use sqlx::PgPool;
 
 use crate::filter::{Filter, Filtered};
 use crate::schema::{ColumnInfo, Select, Value};
@@ -64,8 +68,14 @@ pub struct Query<T, S> {
     pub(crate) table: PhantomData<T>,
     /// List of filters to apply to the query
     pub(crate) filters: Vec<Box<dyn Filtered>>,
+
+    #[cfg(feature = "mysql")]
     /// Database connection pool
     pub(crate) conn: Arc<MySqlPool>,
+
+    #[cfg(feature = "postgres")]
+    /// Database connection pool
+    pub(crate) conn: Arc<PgPool>,
 
     pub(crate) select: Option<S>,
     pub(crate) distinct: bool,
@@ -102,6 +112,7 @@ pub(crate) enum JoinType {
 }
 
 impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
+    #[cfg(feature = "mysql")]
     /// Creates a new query builder for the specified schema type.
     ///
     /// # Arguments
@@ -112,6 +123,29 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     ///
     /// A new `Query<T>` instance ready for building queries
     pub(crate) fn new(conn: Arc<MySqlPool>) -> Self {
+        Self {
+            table: PhantomData,
+            filters: Vec::new(),
+            select: None,
+            distinct: false,
+            limit: None,
+            offset: None,
+            joins: Vec::new(),
+            conn,
+        }
+    }
+
+    #[cfg(feature = "postgres")]
+    /// Creates a new query builder for the specified schema type.
+    ///
+    /// # Arguments
+    ///
+    /// - `conn`: The database connection pool
+    ///
+    /// # Returns
+    ///
+    /// A new `Query<T>` instance ready for building queries
+    pub(crate) fn new(conn: Arc<PgPool>) -> Self {
         Self {
             table: PhantomData,
             filters: Vec::new(),
@@ -511,12 +545,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// # Example
     ///
     /// ```no_run
-    /// use lume::define_schema;
-    /// use lume::database::Database;
-    /// use lume::filter::Filter;
-    /// use lume::schema::{Schema, ColumnInfo};
-    /// use lume::filter::eq_column;
-    ///
+    /// use lume::{database::Database, define_schema, filter::eq_column};
     /// define_schema! {
     ///     User {
     ///         id: i32 [primary_key()],
@@ -533,8 +562,12 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let results = db.query::<User, SelectUser>()
-    ///         .full_join::<Post>(eq_column(User::id(), Post::user_id()))
+    ///     let results = db
+    ///         .query::<User, SelectUser>()
+    ///         .full_join::<Post, SelectPost>(
+    ///             eq_column(User::id(), Post::user_id()),
+    ///             SelectPost::selected(),
+    ///         )
     ///         .execute()
     ///         .await?;
     ///     Ok(())
@@ -688,16 +721,30 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
                 Value::Int16(i) => query.bind(i),
                 Value::Int32(i) => query.bind(i),
                 Value::Int64(i) => query.bind(i),
-                Value::UInt8(u) => query.bind(u),
                 Value::Array(_arr) => {
                     eprintln!(
                         "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
                     );
                     query
                 }
+
+                #[cfg(feature = "mysql")]
+                Value::UInt8(u) => query.bind(u),
+
+                #[cfg(feature = "postgres")]
+                Value::UInt16(u) => query.bind(u as i32),
+                #[cfg(feature = "postgres")]
+                Value::UInt32(u) => query.bind(u as i64),
+                #[cfg(feature = "postgres")]
+                Value::UInt64(u) => query.bind(u as i64),
+
+                #[cfg(feature = "mysql")]
                 Value::UInt16(u) => query.bind(u),
+                #[cfg(feature = "mysql")]
                 Value::UInt32(u) => query.bind(u),
+                #[cfg(feature = "mysql")]
                 Value::UInt64(u) => query.bind(u),
+
                 Value::Float32(f) => query.bind(f),
                 Value::Float64(f) => query.bind(f),
                 Value::Bool(b) => query.bind(b),
@@ -708,10 +755,23 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
                         Value::Int16(i) => query.bind(i),
                         Value::Int32(i) => query.bind(i),
                         Value::Int64(i) => query.bind(i),
+                        #[cfg(feature = "mysql")]
                         Value::UInt8(u) => query.bind(u),
+
+                        #[cfg(feature = "postgres")]
+                        Value::UInt16(u) => query.bind(u as i32),
+                        #[cfg(feature = "postgres")]
+                        Value::UInt32(u) => query.bind(u as i64),
+                        #[cfg(feature = "postgres")]
+                        Value::UInt64(u) => query.bind(u as i64),
+
+                        #[cfg(feature = "mysql")]
                         Value::UInt16(u) => query.bind(u),
+                        #[cfg(feature = "mysql")]
                         Value::UInt32(u) => query.bind(u),
+                        #[cfg(feature = "mysql")]
                         Value::UInt64(u) => query.bind(u),
+
                         Value::Float32(f) => query.bind(f),
                         Value::Float64(f) => query.bind(f),
                         Value::Bool(b) => query.bind(b),
@@ -735,10 +795,24 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
                         Value::Int16(i) => query.bind(i),
                         Value::Int32(i) => query.bind(i),
                         Value::Int64(i) => query.bind(i),
+
+                        #[cfg(feature = "mysql")]
                         Value::UInt8(u) => query.bind(u),
+
+                        #[cfg(feature = "postgres")]
+                        Value::UInt16(u) => query.bind(u as i32),
+                        #[cfg(feature = "postgres")]
+                        Value::UInt32(u) => query.bind(u as i64),
+                        #[cfg(feature = "postgres")]
+                        Value::UInt64(u) => query.bind(u as i64),
+
+                        #[cfg(feature = "mysql")]
                         Value::UInt16(u) => query.bind(u),
+                        #[cfg(feature = "mysql")]
                         Value::UInt32(u) => query.bind(u),
+                        #[cfg(feature = "mysql")]
                         Value::UInt64(u) => query.bind(u),
+
                         Value::Float32(f) => query.bind(f),
                         Value::Float64(f) => query.bind(f),
                         Value::Bool(b) => query.bind(b),
@@ -766,7 +840,11 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             .await
             .map_err(DatabaseError::from)?;
 
+        #[cfg(feature = "mysql")]
         let rows = Row::from_mysql_row(data, Some(&self.joins));
+
+        #[cfg(feature = "postgres")]
+        let rows = Row::from_postgres_row(data, Some(&self.joins));
 
         Ok(rows)
     }
