@@ -19,6 +19,6 @@ tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread"] }
 test_retry = "0.1.0"
 
 [features]
-default = ["postgres"]
+default = ["mysql"]
 mysql = ["sqlx/mysql", "sqlx/runtime-tokio"]
 postgres = ["sqlx/postgres", "sqlx/runtime-tokio"]

@@ -64,7 +64,6 @@ mod tests {
     #[tokio::test]
     #[ignore = "CI Fails"]
     async fn test_query_builder_filter() {
-
         #[cfg(feature = "mysql")]
         let pool = Arc::new(MySqlPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
 
@@ -78,7 +77,6 @@ mod tests {
     #[tokio::test]
     #[ignore = "CI Fails"]
     async fn test_query_builder_select_distinct() {
-
         #[cfg(feature = "mysql")]
         let pool = Arc::new(MySqlPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
 
@@ -94,7 +92,6 @@ mod tests {
     #[tokio::test]
     #[ignore = "CI Fails"]
     async fn test_query_builder_joins() {
-
         #[cfg(feature = "mysql")]
         let pool = Arc::new(MySqlPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
 
@@ -125,7 +122,6 @@ mod tests {
     #[tokio::test]
     #[ignore = "For now"]
     async fn test_select_sql_and_joins_sql() {
-
         #[cfg(feature = "mysql")]
         let pool = Arc::new(MySqlPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
 
@@ -161,7 +157,6 @@ mod tests {
     #[tokio::test]
     #[ignore = "For now"]
     async fn test_filter_sql() {
-
         #[cfg(feature = "mysql")]
         let pool = Arc::new(MySqlPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
 
