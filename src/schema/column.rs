@@ -1024,7 +1024,7 @@ pub fn convert_to_value<T: Any>(value: &T) -> Value {
         return opt.map(Value::UInt8).unwrap_or(Value::Null);
 
         #[cfg(feature = "postgres")]
-        return opt.map(|u| Value::Int8(u as i8)).unwrap_or(Value::Null);
+        return opt.map(|u| Value::Int16(u as i16)).unwrap_or(Value::Null);
     }
      else if let Some(opt) = <dyn Any>::downcast_ref::<Option<u16>>(value) {
         opt.map(Value::UInt16).unwrap_or(Value::Null)
