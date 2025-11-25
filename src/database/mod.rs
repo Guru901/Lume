@@ -28,7 +28,6 @@ use crate::{
 };
 #[cfg(feature = "mysql")]
 use sqlx::MySqlPool;
-#[cfg(feature = "postgres")]
 
 /// A database connection manager that provides type-safe access to MySQL databases.
 ///

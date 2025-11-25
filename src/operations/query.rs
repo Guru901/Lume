@@ -158,7 +158,6 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         }
     }
 
-
     /// Adds a filter condition to the query.
     ///
     /// This method allows chaining multiple filter conditions to build
@@ -546,12 +545,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// # Example
     ///
     /// ```no_run
-    /// use lume::define_schema;
-    /// use lume::database::Database;
-    /// use lume::filter::Filter;
-    /// use lume::schema::{Schema, ColumnInfo};
-    /// use lume::filter::eq_column;
-    ///
+    /// use lume::{database::Database, define_schema, filter::eq_column};
     /// define_schema! {
     ///     User {
     ///         id: i32 [primary_key()],
@@ -568,8 +562,12 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     /// #[tokio::main]
     /// async fn main() -> Result<(), lume::database::error::DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
-    ///     let results = db.query::<User, SelectUser>()
-    ///         .full_join::<Post>(eq_column(User::id(), Post::user_id()))
+    ///     let results = db
+    ///         .query::<User, SelectUser>()
+    ///         .full_join::<Post, SelectPost>(
+    ///             eq_column(User::id(), Post::user_id()),
+    ///             SelectPost::selected(),
+    ///         )
     ///         .execute()
     ///         .await?;
     ///     Ok(())

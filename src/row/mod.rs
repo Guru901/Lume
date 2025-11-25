@@ -213,7 +213,7 @@ impl<S: Schema + Debug> Row<S> {
     /// use lume::define_schema;
     /// use lume::row::Row;
     /// use lume::schema::{Schema, ColumnInfo};
-    /// use sqlx::mysql::MySqlRow;
+    /// use sqlx::postgres::PgRow;
     ///
     /// define_schema! {
     ///     User {
