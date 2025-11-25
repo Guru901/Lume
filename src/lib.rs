@@ -33,7 +33,7 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     // Connect to your MySQL database
+//!     // Connect to your MySQL/Postgres database
 //!     let db = Database::connect("mysql://user:password@localhost/database").await?;
 //!     
 //!     // Type-safe queries

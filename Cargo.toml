@@ -12,12 +12,13 @@ description = "A simple and intuitive Query Builder inspired by Drizzle"
 
 [dependencies]
 paste = "1.0.15"
-sqlx = { version = "0.8.6", features = ["mysql", "runtime-tokio"] }
+sqlx = { version = "0.8.6", features = [], default-features = false, optional = false }
 tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
 test_retry = "0.1.0"
 
 [features]
-default = ["mysql"]
-mysql = []
+default = ["postgres"]
+mysql = ["sqlx/mysql", "sqlx/runtime-tokio"]
+postgres = ["sqlx/postgres", "sqlx/runtime-tokio"]

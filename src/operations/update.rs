@@ -7,7 +7,11 @@
 
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
+#[cfg(feature = "mysql")]
 use sqlx::MySqlPool;
+
+#[cfg(feature = "postgres")]
+use sqlx::PgPool;
 
 use crate::filter::Filtered;
 use crate::schema::{UpdateTrait, Value};
@@ -70,13 +74,28 @@ pub struct Update<T: Schema + Debug, U: UpdateTrait + Debug> {
     /// List of filters to apply to the update query.
     filters: Vec<Box<dyn Filtered>>,
     /// Database connection pool.
+    #[cfg(feature = "mysql")]
     conn: Arc<MySqlPool>,
+    #[cfg(feature = "postgres")]
+    conn: Arc<PgPool>,
     /// Vector of (column name, value) pairs to be updated.
     update_data: Vec<(&'static str, Value)>,
 }
 
 impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
+    #[cfg(feature = "mysql")]
     pub(crate) fn new(conn: Arc<MySqlPool>) -> Self {
+        Self {
+            table: PhantomData,
+            update_table: PhantomData,
+            filters: Vec::new(),
+            update_data: Vec::new(),
+            conn,
+        }
+    }
+
+    #[cfg(feature = "postgres")]
+    pub(crate) fn new(conn: Arc<PgPool>) -> Self {
         Self {
             table: PhantomData,
             update_table: PhantomData,
@@ -235,6 +254,7 @@ impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
                 Value::Int16(i) => query.bind(i),
                 Value::Int32(i) => query.bind(i),
                 Value::Int64(i) => query.bind(i),
+                #[cfg(feature = "mysql")]
                 Value::UInt8(u) => query.bind(u),
                 Value::Array(_arr) => {
                     eprintln!(
@@ -242,9 +262,9 @@ impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
                     );
                     query
                 }
-                Value::UInt16(u) => query.bind(u),
-                Value::UInt32(u) => query.bind(u),
-                Value::UInt64(u) => query.bind(u),
+                Value::UInt16(u) => query.bind(u as i32),
+                Value::UInt32(u) => query.bind(u as i64),
+                Value::UInt64(u) => query.bind(u as i64),
                 Value::Float32(f) => query.bind(f),
                 Value::Float64(f) => query.bind(f),
                 Value::Bool(b) => query.bind(b),
@@ -255,10 +275,11 @@ impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
                         Value::Int16(i) => query.bind(i),
                         Value::Int32(i) => query.bind(i),
                         Value::Int64(i) => query.bind(i),
+                        #[cfg(feature = "mysql")]
                         Value::UInt8(u) => query.bind(u),
-                        Value::UInt16(u) => query.bind(u),
-                        Value::UInt32(u) => query.bind(u),
-                        Value::UInt64(u) => query.bind(u),
+                        Value::UInt16(u) => query.bind(u as i32),
+                        Value::UInt32(u) => query.bind(u as i64),
+                        Value::UInt64(u) => query.bind(u as i64),
                         Value::Float32(f) => query.bind(f),
                         Value::Float64(f) => query.bind(f),
                         Value::Bool(b) => query.bind(b),
@@ -282,10 +303,11 @@ impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
                         Value::Int16(i) => query.bind(i),
                         Value::Int32(i) => query.bind(i),
                         Value::Int64(i) => query.bind(i),
+                        #[cfg(feature = "mysql")]
                         Value::UInt8(u) => query.bind(u),
-                        Value::UInt16(u) => query.bind(u),
-                        Value::UInt32(u) => query.bind(u),
-                        Value::UInt64(u) => query.bind(u),
+                        Value::UInt16(u) => query.bind(u as i32),
+                        Value::UInt32(u) => query.bind(u as i64),
+                        Value::UInt64(u) => query.bind(u as i64),
                         Value::Float32(f) => query.bind(f),
                         Value::Float64(f) => query.bind(f),
                         Value::Bool(b) => query.bind(b),

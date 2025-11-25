@@ -7,6 +7,8 @@
 //! executing database operations.
 
 use sqlx::Executor;
+#[cfg(feature = "postgres")]
+use sqlx::PgPool;
 use std::{fmt::Debug, sync::Arc};
 
 /// Error types for database operations.
@@ -24,7 +26,9 @@ use crate::{
     schema::{ColumnInfo, Schema, Select, UpdateTrait},
     table::get_all_tables,
 };
+#[cfg(feature = "mysql")]
 use sqlx::MySqlPool;
+#[cfg(feature = "postgres")]
 
 /// A database connection manager that provides type-safe access to MySQL databases.
 ///
@@ -69,7 +73,11 @@ use sqlx::MySqlPool;
 /// ```
 pub struct Database {
     /// The MySQL connection pool
+    #[cfg(feature = "mysql")]
     pub(crate) connection: Arc<MySqlPool>,
+
+    #[cfg(feature = "postgres")]
+    pub(crate) connection: Arc<PgPool>,
 }
 
 impl Database {
@@ -294,7 +302,13 @@ impl Database {
     pub async fn sql<T: Schema + Debug>(&self, sql: &str) -> Result<Vec<Row<T>>, DatabaseError> {
         let mut conn = self.connection.acquire().await?;
         let rows = conn.fetch_all(sql).await?;
+
+        #[cfg(feature = "mysql")]
         let rows = Row::from_mysql_row(rows, None);
+
+        #[cfg(feature = "postgres")]
+        let rows = Row::from_postgres_row(rows, None);
+
         Ok(rows)
     }
 
@@ -460,7 +474,14 @@ impl Database {
     /// }
     /// ```
     pub async fn connect(url: &str) -> Result<Database, DatabaseError> {
+
+        #[cfg(feature = "mysql")]
         let conn = MySqlPool::connect(url)
+            .await
+            .map_err(|e| DatabaseError::from(e))?;
+
+        #[cfg(feature = "postgres")]
+        let conn = PgPool::connect(url)
             .await
             .map_err(|e| DatabaseError::from(e))?;
         Ok(Database {
