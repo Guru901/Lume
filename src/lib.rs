@@ -69,8 +69,6 @@
 //! - `indexed()` - Creates an index on the column
 //! - `default_value(value)` - Sets a default value
 
-use crate::{filter::Filtered, schema::Value};
-
 /// Database connection and management functionality
 pub mod database;
 

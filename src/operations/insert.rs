@@ -450,6 +450,8 @@ impl<T: Schema + Debug> Insert<T> {
         // For PostgreSQL with RETURNING, we need to add RETURNING clause to the INSERT
         #[cfg(feature = "postgres")]
         if !self.returning.is_empty() {
+            use crate::helpers::returning_sql;
+
             let sql = get_starting_sql(StartingSql::Insert, T::table_name());
             let sql = Self::insert_sql(sql, selected.clone());
             let sql = returning_sql(sql, &self.returning);
@@ -643,7 +645,7 @@ impl<T: Schema + Debug> Insert<T> {
             return Ok(Some(rows));
         }
 
-        let result = query.execute(&mut *conn).await?;
+        let _result = query.execute(&mut *conn).await?;
 
         if self.returning.is_empty() {
             return Ok(None);
@@ -662,7 +664,7 @@ impl<T: Schema + Debug> Insert<T> {
 
             let mut query = sqlx::query(&select_sql);
 
-            query = query.bind(result.last_insert_id());
+            query = query.bind(_result.last_insert_id());
 
             let rows = query.fetch_all(&mut *conn).await?;
             let rows = Row::<T>::from_mysql_row(rows, None);
@@ -1083,6 +1085,8 @@ impl<T: Schema + Debug> InsertMany<T> {
             {
                 // For PostgreSQL, if returning is requested, we need to use RETURNING clause
                 if !self.returning.is_empty() {
+                    use crate::helpers::returning_sql;
+
                     let sql = get_starting_sql(StartingSql::Insert, T::table_name());
                     let sql = Insert::<T>::insert_sql(sql, selected.clone());
                     let sql = returning_sql(sql, &self.returning);
@@ -1326,6 +1330,8 @@ impl<T: Schema + Debug> InsertMany<T> {
                 Ok(Some(final_rows))
             } else if !inserted_ids.is_empty() {
                 // Fetch selected columns for all inserted ids
+
+                use crate::helpers::returning_sql;
                 let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
                 let mut select_sql = returning_sql(select_sql, &self.returning);
                 select_sql.push_str(format!(" FROM {} WHERE id = $1;", T::table_name()).as_str());

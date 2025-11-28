@@ -335,7 +335,8 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[test]
     fn test_starting_sql_postgres() {
-        use crate::StartingSql;
+        use crate::helpers::StartingSql;
+
         assert_eq!(
             get_starting_sql(StartingSql::Select, "TestUser"),
             "SELECT ".to_string()
