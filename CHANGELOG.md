@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.1] - 2025-11-28
+
+- Internal refactor: improved code maintenance and readability
+
 ## [0.9.0] - 2025-11-25
 
 - Added postgres support
