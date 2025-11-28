@@ -14,7 +14,7 @@ use sqlx::MySqlPool;
 use sqlx::PgPool;
 
 use crate::filter::{Filter, Filtered};
-use crate::helpers::{StartingSql, build_filter_expr, get_starting_sql};
+use crate::helpers::{StartingSql, bind_value, build_filter_expr, get_starting_sql};
 use crate::schema::{ColumnInfo, Select, Value};
 use crate::{database::error::DatabaseError, row::Row, schema::Schema};
 
@@ -715,124 +715,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
         let mut query = sqlx::query(&sql);
         for v in params {
-            query = match v {
-                Value::String(s) => query.bind(s),
-                Value::Int8(i) => query.bind(i),
-                Value::Int16(i) => query.bind(i),
-                Value::Int32(i) => query.bind(i),
-                Value::Int64(i) => query.bind(i),
-                Value::Array(_arr) => {
-                    eprintln!(
-                        "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
-                    );
-                    query
-                }
-
-                #[cfg(feature = "mysql")]
-                Value::UInt8(u) => query.bind(u),
-
-                #[cfg(feature = "postgres")]
-                Value::UInt16(u) => query.bind(u as i32),
-                #[cfg(feature = "postgres")]
-                Value::UInt32(u) => query.bind(u as i64),
-                #[cfg(feature = "postgres")]
-                Value::UInt64(u) => query.bind(u as i64),
-
-                #[cfg(feature = "mysql")]
-                Value::UInt16(u) => query.bind(u),
-                #[cfg(feature = "mysql")]
-                Value::UInt32(u) => query.bind(u),
-                #[cfg(feature = "mysql")]
-                Value::UInt64(u) => query.bind(u),
-
-                Value::Float32(f) => query.bind(f),
-                Value::Float64(f) => query.bind(f),
-                Value::Bool(b) => query.bind(b),
-                Value::Between(min, max) => {
-                    let query = match *min {
-                        Value::String(s) => query.bind(s),
-                        Value::Int8(i) => query.bind(i),
-                        Value::Int16(i) => query.bind(i),
-                        Value::Int32(i) => query.bind(i),
-                        Value::Int64(i) => query.bind(i),
-                        #[cfg(feature = "mysql")]
-                        Value::UInt8(u) => query.bind(u),
-
-                        #[cfg(feature = "postgres")]
-                        Value::UInt16(u) => query.bind(u as i32),
-                        #[cfg(feature = "postgres")]
-                        Value::UInt32(u) => query.bind(u as i64),
-                        #[cfg(feature = "postgres")]
-                        Value::UInt64(u) => query.bind(u as i64),
-
-                        #[cfg(feature = "mysql")]
-                        Value::UInt16(u) => query.bind(u),
-                        #[cfg(feature = "mysql")]
-                        Value::UInt32(u) => query.bind(u),
-                        #[cfg(feature = "mysql")]
-                        Value::UInt64(u) => query.bind(u),
-
-                        Value::Float32(f) => query.bind(f),
-                        Value::Float64(f) => query.bind(f),
-                        Value::Bool(b) => query.bind(b),
-                        Value::Array(_arr) => {
-                            eprintln!(
-                                "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
-                            );
-                            query
-                        }
-                        Value::Between(_, _) => {
-                            eprintln!(
-                                "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
-                            );
-                            query
-                        }
-                        Value::Null => query,
-                    };
-                    match *max {
-                        Value::String(s) => query.bind(s),
-                        Value::Int8(i) => query.bind(i),
-                        Value::Int16(i) => query.bind(i),
-                        Value::Int32(i) => query.bind(i),
-                        Value::Int64(i) => query.bind(i),
-
-                        #[cfg(feature = "mysql")]
-                        Value::UInt8(u) => query.bind(u),
-
-                        #[cfg(feature = "postgres")]
-                        Value::UInt16(u) => query.bind(u as i32),
-                        #[cfg(feature = "postgres")]
-                        Value::UInt32(u) => query.bind(u as i64),
-                        #[cfg(feature = "postgres")]
-                        Value::UInt64(u) => query.bind(u as i64),
-
-                        #[cfg(feature = "mysql")]
-                        Value::UInt16(u) => query.bind(u),
-                        #[cfg(feature = "mysql")]
-                        Value::UInt32(u) => query.bind(u),
-                        #[cfg(feature = "mysql")]
-                        Value::UInt64(u) => query.bind(u),
-
-                        Value::Float32(f) => query.bind(f),
-                        Value::Float64(f) => query.bind(f),
-                        Value::Bool(b) => query.bind(b),
-                        Value::Array(_arr) => {
-                            eprintln!(
-                                "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
-                            );
-                            query
-                        }
-                        Value::Between(_, _) => {
-                            eprintln!(
-                                "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
-                            );
-                            query
-                        }
-                        Value::Null => query,
-                    }
-                }
-                Value::Null => query, // Nulls handled in SQL via IS/IS NOT
-            };
+            query = bind_value(query, v);
         }
 
         let data = query

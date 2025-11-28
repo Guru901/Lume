@@ -1,4 +1,12 @@
-use crate::{filter::Filtered, schema::Value};
+use crate::{
+    filter::Filtered,
+    schema::{ColumnInfo, Value},
+};
+
+#[cfg(feature = "mysql")]
+use sqlx::{MySql, mysql::MySqlArguments};
+#[cfg(feature = "postgres")]
+use sqlx::{Postgres, postgres::PgArguments};
 
 #[derive(PartialEq, Debug)]
 pub(crate) enum StartingSql {
@@ -139,5 +147,151 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
         )
     } else {
         return "1=1".to_string();
+    }
+}
+
+#[cfg(feature = "mysql")]
+pub(crate) type SqlBindQuery<'q> = sqlx::query::Query<'q, MySql, MySqlArguments>;
+
+#[cfg(feature = "postgres")]
+pub(crate) type SqlBindQuery<'q> = sqlx::query::Query<'q, Postgres, PgArguments>;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum ColumnBindingKind {
+    Varchar,
+    Text,
+    TinyInt,
+    SmallInt,
+    Integer,
+    BigInt,
+    TinyIntUnsigned,
+    SmallIntUnsigned,
+    IntegerUnsigned,
+    BigIntUnsigned,
+    Float,
+    Double,
+    Boolean,
+    Unknown,
+}
+
+impl ColumnBindingKind {
+    fn from_column(column: &ColumnInfo) -> Self {
+        match column.data_type {
+            "VARCHAR(255)" => ColumnBindingKind::Varchar,
+            "TEXT" => ColumnBindingKind::Text,
+            "TINYINT" => ColumnBindingKind::TinyInt,
+            "SMALLINT" => ColumnBindingKind::SmallInt,
+            "INTEGER" => ColumnBindingKind::Integer,
+            "BIGINT" => ColumnBindingKind::BigInt,
+            "TINYINT UNSIGNED" => ColumnBindingKind::TinyIntUnsigned,
+            "SMALLINT UNSIGNED" => ColumnBindingKind::SmallIntUnsigned,
+            "INTEGER UNSIGNED" => ColumnBindingKind::IntegerUnsigned,
+            "BIGINT UNSIGNED" => ColumnBindingKind::BigIntUnsigned,
+            "FLOAT" => ColumnBindingKind::Float,
+            "DOUBLE" => ColumnBindingKind::Double,
+            "BOOLEAN" => ColumnBindingKind::Boolean,
+            _ => ColumnBindingKind::Unknown,
+        }
+    }
+}
+
+/// Binds an optional value for a specific column, falling back to NULL binding when needed.
+pub(crate) fn bind_column_value<'q>(
+    query: SqlBindQuery<'q>,
+    column: &ColumnInfo,
+    value: Option<&Value>,
+) -> SqlBindQuery<'q> {
+    let kind = ColumnBindingKind::from_column(column);
+    match value {
+        None => bind_null(query, kind),
+        Some(Value::Null) => bind_null(query, kind),
+        Some(Value::Array(_)) => bind_null(query, kind),
+        Some(other) => bind_value(query, other.clone()),
+    }
+}
+
+/// Binds a generic [`Value`] into the provided SQLx query, handling backend differences.
+pub(crate) fn bind_value<'q>(query: SqlBindQuery<'q>, value: Value) -> SqlBindQuery<'q> {
+    match value {
+        Value::String(s) => query.bind(s),
+        Value::Int8(i) => query.bind(i),
+        Value::Int16(i) => query.bind(i),
+        Value::Int32(i) => query.bind(i),
+        Value::Int64(i) => query.bind(i),
+
+        #[cfg(feature = "mysql")]
+        Value::UInt8(u) => query.bind(u),
+
+        #[cfg(feature = "postgres")]
+        Value::UInt16(u) => query.bind(u as i32),
+        #[cfg(feature = "postgres")]
+        Value::UInt32(u) => query.bind(u as i64),
+        #[cfg(feature = "postgres")]
+        Value::UInt64(u) => {
+            debug_assert!(
+                u <= i64::MAX as u64,
+                "UInt64 value exceeds i64::MAX, data loss will occur"
+            );
+            query.bind(u as i64)
+        }
+
+        #[cfg(feature = "mysql")]
+        Value::UInt16(u) => query.bind(u),
+        #[cfg(feature = "mysql")]
+        Value::UInt32(u) => query.bind(u),
+        #[cfg(feature = "mysql")]
+        Value::UInt64(u) => query.bind(u),
+
+        Value::Float32(f) => query.bind(f),
+        Value::Float64(f) => query.bind(f),
+        Value::Bool(b) => query.bind(b),
+        Value::Between(min, max) => {
+            let query = bind_value(query, *min);
+            bind_value(query, *max)
+        }
+        Value::Array(_arr) => {
+            eprintln!("Warning: Attempted to bind Value::Array, which is not supported. Skipping.");
+            query
+        }
+        Value::Null => query,
+    }
+}
+
+#[cfg(feature = "mysql")]
+fn bind_null<'q>(query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQuery<'q> {
+    match kind {
+        ColumnBindingKind::Varchar | ColumnBindingKind::Text | ColumnBindingKind::Unknown => {
+            query.bind(None::<&str>)
+        }
+        ColumnBindingKind::TinyInt => query.bind(None::<i8>),
+        ColumnBindingKind::SmallInt => query.bind(None::<i16>),
+        ColumnBindingKind::Integer => query.bind(None::<i32>),
+        ColumnBindingKind::BigInt => query.bind(None::<i64>),
+        ColumnBindingKind::TinyIntUnsigned => query.bind(None::<u8>),
+        ColumnBindingKind::SmallIntUnsigned => query.bind(None::<u16>),
+        ColumnBindingKind::IntegerUnsigned => query.bind(None::<u32>),
+        ColumnBindingKind::BigIntUnsigned => query.bind(None::<u64>),
+        ColumnBindingKind::Float => query.bind(None::<f32>),
+        ColumnBindingKind::Double => query.bind(None::<f64>),
+        ColumnBindingKind::Boolean => query.bind(None::<bool>),
+    }
+}
+
+#[cfg(feature = "postgres")]
+fn bind_null<'q>(query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQuery<'q> {
+    match kind {
+        ColumnBindingKind::Varchar
+        | ColumnBindingKind::Text
+        | ColumnBindingKind::TinyIntUnsigned
+        | ColumnBindingKind::Unknown => query.bind(None::<&str>),
+        ColumnBindingKind::TinyInt => query.bind(None::<i8>),
+        ColumnBindingKind::SmallInt => query.bind(None::<i16>),
+        ColumnBindingKind::SmallIntUnsigned => query.bind(None::<i32>),
+        ColumnBindingKind::Integer => query.bind(None::<i32>),
+        ColumnBindingKind::IntegerUnsigned => query.bind(None::<i64>),
+        ColumnBindingKind::BigInt | ColumnBindingKind::BigIntUnsigned => query.bind(None::<i64>),
+        ColumnBindingKind::Float => query.bind(None::<f32>),
+        ColumnBindingKind::Double => query.bind(None::<f64>),
+        ColumnBindingKind::Boolean => query.bind(None::<bool>),
     }
 }
