@@ -29,12 +29,12 @@ pub(crate) fn get_starting_sql(starting_sql: StartingSql, table_name: &str) -> S
 pub(crate) fn quote_identifier(identifier: &str) -> String {
     #[cfg(feature = "mysql")]
     {
-        return format!("`{}`", identifier);
+        return format!("`{}`", identifier.replace('`', "``"));
     }
 
     #[cfg(all(not(feature = "mysql"), feature = "postgres"))]
     {
-        return format!("\"{}\"", identifier);
+        return format!("\"{}\"", identifier.replace('"', "\"\""));
     }
 }
 
