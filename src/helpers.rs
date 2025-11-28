@@ -103,11 +103,17 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
                 "1=1".to_string()
             };
         }
-        let mut placeholders: Vec<&'static str> = Vec::with_capacity(values.len());
-        for v in values.iter().cloned() {
+
+        let start_idx = params.len();
+        let mut placeholders: Vec<String> = Vec::with_capacity(values.len());
+        for (i, v) in values.iter().cloned().enumerate() {
             params.push(v);
-            placeholders.push("?");
+            #[cfg(feature = "mysql")]
+            placeholders.push("?".to_string());
+            #[cfg(feature = "postgres")]
+            placeholders.push(format!("${}", start_idx + i + 1));
         }
+
         let op = if in_array { "IN" } else { "NOT IN" };
         return format!("{}.{} {} ({})", col1.0, col1.1, op, placeholders.join(", "));
     }
