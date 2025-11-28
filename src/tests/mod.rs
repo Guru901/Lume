@@ -343,15 +343,15 @@ mod tests {
         );
         assert_eq!(
             get_starting_sql(StartingSql::Insert, "TestUser"),
-            "INSERT INTO TestUser (".to_string()
+            "INSERT INTO \"TestUser\" (".to_string()
         );
         assert_eq!(
             get_starting_sql(StartingSql::Delete, "TestUser"),
-            "DELETE FROM TestUser ".to_string()
+            "DELETE FROM \"TestUser\" ".to_string()
         );
         assert_eq!(
             get_starting_sql(StartingSql::Update, "TestUser"),
-            "UPDATE TestUser SET ".to_string()
+            "UPDATE \"TestUser\" SET ".to_string()
         );
     }
 

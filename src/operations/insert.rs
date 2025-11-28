@@ -38,6 +38,157 @@ fn select_insertable_columns(
         .collect()
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum ColumnBindingKind {
+    Varchar,
+    Text,
+    TinyInt,
+    SmallInt,
+    Integer,
+    BigInt,
+    TinyIntUnsigned,
+    SmallIntUnsigned,
+    IntegerUnsigned,
+    BigIntUnsigned,
+    Float,
+    Double,
+    Boolean,
+    Unknown,
+}
+
+impl ColumnBindingKind {
+    fn from_column(column: &ColumnInfo) -> Self {
+        match column.data_type {
+            "VARCHAR(255)" => ColumnBindingKind::Varchar,
+            "TEXT" => ColumnBindingKind::Text,
+            "TINYINT" => ColumnBindingKind::TinyInt,
+            "SMALLINT" => ColumnBindingKind::SmallInt,
+            "INTEGER" => ColumnBindingKind::Integer,
+            "BIGINT" => ColumnBindingKind::BigInt,
+            "TINYINT UNSIGNED" => ColumnBindingKind::TinyIntUnsigned,
+            "SMALLINT UNSIGNED" => ColumnBindingKind::SmallIntUnsigned,
+            "INTEGER UNSIGNED" => ColumnBindingKind::IntegerUnsigned,
+            "BIGINT UNSIGNED" => ColumnBindingKind::BigIntUnsigned,
+            "FLOAT" => ColumnBindingKind::Float,
+            "DOUBLE" => ColumnBindingKind::Double,
+            "BOOLEAN" => ColumnBindingKind::Boolean,
+            _ => ColumnBindingKind::Unknown,
+        }
+    }
+}
+
+#[cfg(feature = "mysql")]
+type DbQuery<'q> = sqlx::query::Query<'q, sqlx::MySql, sqlx::mysql::MySqlArguments>;
+
+#[cfg(feature = "postgres")]
+type DbQuery<'q> = sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments>;
+
+fn bind_column_value<'q>(
+    query: DbQuery<'q>,
+    column: &ColumnInfo,
+    value: Option<&'q Value>,
+) -> DbQuery<'q> {
+    let kind = ColumnBindingKind::from_column(column);
+    match value {
+        None => bind_null(query, kind),
+        Some(Value::Null) => bind_null(query, kind),
+        Some(Value::Array(_)) => bind_null(query, kind),
+        Some(other) => bind_scalar_value(query, other),
+    }
+}
+
+#[cfg(feature = "mysql")]
+fn bind_null<'q>(query: DbQuery<'q>, kind: ColumnBindingKind) -> DbQuery<'q> {
+    match kind {
+        ColumnBindingKind::Varchar | ColumnBindingKind::Text | ColumnBindingKind::Unknown => {
+            query.bind(None::<&str>)
+        }
+        ColumnBindingKind::TinyInt => query.bind(None::<i8>),
+        ColumnBindingKind::SmallInt => query.bind(None::<i16>),
+        ColumnBindingKind::Integer => query.bind(None::<i32>),
+        ColumnBindingKind::BigInt => query.bind(None::<i64>),
+        ColumnBindingKind::TinyIntUnsigned => query.bind(None::<u8>),
+        ColumnBindingKind::SmallIntUnsigned => query.bind(None::<u16>),
+        ColumnBindingKind::IntegerUnsigned => query.bind(None::<u32>),
+        ColumnBindingKind::BigIntUnsigned => query.bind(None::<u64>),
+        ColumnBindingKind::Float => query.bind(None::<f32>),
+        ColumnBindingKind::Double => query.bind(None::<f64>),
+        ColumnBindingKind::Boolean => query.bind(None::<bool>),
+    }
+}
+
+#[cfg(feature = "postgres")]
+fn bind_null<'q>(query: DbQuery<'q>, kind: ColumnBindingKind) -> DbQuery<'q> {
+    match kind {
+        ColumnBindingKind::Varchar
+        | ColumnBindingKind::Text
+        | ColumnBindingKind::TinyIntUnsigned
+        | ColumnBindingKind::Unknown => query.bind(None::<&str>),
+        ColumnBindingKind::TinyInt => query.bind(None::<i8>),
+        ColumnBindingKind::SmallInt => query.bind(None::<i16>),
+        ColumnBindingKind::SmallIntUnsigned => query.bind(None::<i32>),
+        ColumnBindingKind::Integer => query.bind(None::<i32>),
+        ColumnBindingKind::IntegerUnsigned => query.bind(None::<i64>),
+        ColumnBindingKind::BigInt | ColumnBindingKind::BigIntUnsigned => query.bind(None::<i64>),
+        ColumnBindingKind::Float => query.bind(None::<f32>),
+        ColumnBindingKind::Double => query.bind(None::<f64>),
+        ColumnBindingKind::Boolean => query.bind(None::<bool>),
+    }
+}
+
+#[cfg(feature = "mysql")]
+fn bind_scalar_value<'q>(query: DbQuery<'q>, value: &'q Value) -> DbQuery<'q> {
+    match value {
+        Value::String(v) => query.bind(v.as_str()),
+        Value::Int8(v) => query.bind(*v),
+        Value::Int16(v) => query.bind(*v),
+        Value::Int32(v) => query.bind(*v),
+        Value::Int64(v) => query.bind(*v),
+        Value::UInt8(v) => query.bind(*v),
+        Value::UInt16(v) => query.bind(*v),
+        Value::UInt32(v) => query.bind(*v),
+        Value::UInt64(v) => query.bind(*v),
+        Value::Float32(v) => query.bind(*v),
+        Value::Float64(v) => query.bind(*v),
+        Value::Bool(v) => query.bind(*v),
+        Value::Between(min, max) => {
+            let query = bind_scalar_value(query, min.as_ref());
+            bind_scalar_value(query, max.as_ref())
+        }
+        Value::Array(_arr) => {
+            eprintln!("Warning: Attempted to bind Value::Array, which is not supported. Skipping.");
+            query
+        }
+        Value::Null => query,
+    }
+}
+
+#[cfg(feature = "postgres")]
+fn bind_scalar_value<'q>(query: DbQuery<'q>, value: &'q Value) -> DbQuery<'q> {
+    match value {
+        Value::String(v) => query.bind(v.as_str()),
+        Value::Int8(v) => query.bind(*v),
+        Value::Int16(v) => query.bind(*v),
+        Value::Int32(v) => query.bind(*v),
+        Value::Int64(v) => query.bind(*v),
+        Value::UInt16(v) => query.bind(*v as i32),
+        Value::UInt32(v) => query.bind(*v as i64),
+        Value::UInt64(v) => query.bind(*v as i64),
+        Value::Float32(v) => query.bind(*v),
+        Value::Float64(v) => query.bind(*v),
+        Value::Bool(v) => query.bind(*v),
+        Value::Between(min, max) => {
+            let query = bind_scalar_value(query, min.as_ref());
+            bind_scalar_value(query, max.as_ref())
+        }
+        Value::Array(_arr) => {
+            eprintln!("Warning: Attempted to bind Value::Array, which is not supported. Skipping.");
+            query
+        }
+        Value::Null => query,
+    }
+}
+
 /// A type-safe insert operation for a given schema type.
 ///
 /// The [`Insert`] struct allows you to insert a record of type `T` (which must
@@ -179,272 +330,8 @@ impl<T: Schema + Debug> Insert<T> {
         let mut query = sqlx::query(&sql);
 
         for col in selected.iter() {
-            let Some(value) = values.get(col.name) else {
-                // If a value is missing, bind NULL using the column's SQL type.
-                match col.data_type {
-                    "VARCHAR(255)" | "TEXT" => {
-                        query = query.bind(None::<&str>);
-                    }
-                    "INTEGER" => {
-                        query = query.bind(None::<i32>);
-                    }
-                    "BIGINT" => {
-                        query = query.bind(None::<i64>);
-                    }
-                    "FLOAT" => {
-                        query = query.bind(None::<f32>);
-                    }
-                    "DOUBLE" => {
-                        query = query.bind(None::<f64>);
-                    }
-                    "BOOLEAN" => {
-                        query = query.bind(None::<bool>);
-                    }
-                    _ => {
-                        query = query.bind(None::<&str>);
-                    }
-                }
-                continue;
-            };
-
-            match value {
-                Value::Array(_arr) => {
-                    // Arrays are not directly insertable; bind NULL using the column's SQL type
-                    match col.data_type {
-                        "VARCHAR(255)" | "TEXT" => {
-                            query = query.bind(None::<&str>);
-                        }
-                        "TINYINT" => {
-                            query = query.bind(None::<i8>);
-                        }
-                        "SMALLINT" => {
-                            query = query.bind(None::<i16>);
-                        }
-                        "INTEGER" => {
-                            query = query.bind(None::<i32>);
-                        }
-                        "BIGINT" => {
-                            query = query.bind(None::<i64>);
-                        }
-                        #[cfg(feature = "mysql")]
-                        "TINYINT UNSIGNED" => {
-                            query = query.bind(None::<u8>);
-                        }
-
-                        #[cfg(feature = "mysql")]
-                        "SMALLINT UNSIGNED" => {
-                            query = query.bind(None::<u16>);
-                        }
-
-                        #[cfg(feature = "mysql")]
-                        "INTEGER UNSIGNED" => {
-                            query = query.bind(None::<u32>);
-                        }
-
-                        #[cfg(feature = "mysql")]
-                        "BIGINT UNSIGNED" => {
-                            query = query.bind(None::<u64>);
-                        }
-                        "FLOAT" => {
-                            query = query.bind(None::<f32>);
-                        }
-                        "DOUBLE" => {
-                            query = query.bind(None::<f64>);
-                        }
-                        "BOOLEAN" => {
-                            query = query.bind(None::<bool>);
-                        }
-                        _ => {
-                            query = query.bind(None::<&str>);
-                        }
-                    }
-                }
-                Value::Int8(v) => {
-                    query = query.bind(*v);
-                }
-                Value::Int16(v) => {
-                    query = query.bind(*v);
-                }
-                Value::Int32(v) => {
-                    query = query.bind(*v);
-                }
-                Value::Int64(v) => {
-                    query = query.bind(*v);
-                }
-
-                #[cfg(feature = "mysql")]
-                Value::UInt8(v) => {
-                    query = query.bind(*v);
-                }
-
-                #[cfg(feature = "postgres")]
-                Value::UInt16(v) => {
-                    query = query.bind(*v as i32);
-                }
-                #[cfg(feature = "postgres")]
-                Value::UInt32(v) => {
-                    query = query.bind(*v as i64);
-                }
-                #[cfg(feature = "postgres")]
-                Value::UInt64(v) => {
-                    query = query.bind(*v as i64);
-                }
-
-                #[cfg(feature = "mysql")]
-                Value::UInt16(v) => {
-                    query = query.bind(*v);
-                }
-                #[cfg(feature = "mysql")]
-                Value::UInt32(v) => {
-                    query = query.bind(*v);
-                }
-                #[cfg(feature = "mysql")]
-                Value::UInt64(v) => {
-                    query = query.bind(*v);
-                }
-
-                Value::Float32(v) => {
-                    query = query.bind(*v);
-                }
-                Value::Float64(v) => {
-                    query = query.bind(*v);
-                }
-                Value::Bool(v) => {
-                    query = query.bind(*v);
-                }
-                Value::String(v) => {
-                    query = query.bind(v.as_str());
-                }
-                Value::Null => match col.data_type {
-                    "VARCHAR(255)" | "TEXT" => {
-                        query = query.bind(None::<&str>);
-                    }
-                    "TINYINT" => {
-                        query = query.bind(None::<i8>);
-                    }
-                    "SMALLINT" => {
-                        query = query.bind(None::<i16>);
-                    }
-                    "INTEGER" => {
-                        query = query.bind(None::<i32>);
-                    }
-                    "BIGINT" => {
-                        query = query.bind(None::<i64>);
-                    }
-                    #[cfg(feature = "mysql")]
-                    "TINYINT UNSIGNED" => {
-                        query = query.bind(None::<u8>);
-                    }
-                    #[cfg(feature = "mysql")]
-                    "SMALLINT UNSIGNED" => {
-                        query = query.bind(None::<u16>);
-                    }
-                    #[cfg(feature = "mysql")]
-                    "INTEGER UNSIGNED" => {
-                        query = query.bind(None::<u32>);
-                    }
-                    #[cfg(feature = "mysql")]
-                    "BIGINT UNSIGNED" => {
-                        query = query.bind(None::<u64>);
-                    }
-                    "FLOAT" => {
-                        query = query.bind(None::<f32>);
-                    }
-                    "DOUBLE" => {
-                        query = query.bind(None::<f64>);
-                    }
-                    "BOOLEAN" => {
-                        query = query.bind(None::<bool>);
-                    }
-                    _ => {
-                        query = query.bind(None::<&str>);
-                    }
-                },
-                Value::Between(min, max) => {
-                    query = match (**min).clone() {
-                        Value::String(s) => query.bind(s),
-                        Value::Int8(i) => query.bind(i),
-                        Value::Int16(i) => query.bind(i),
-                        Value::Int32(i) => query.bind(i),
-                        Value::Int64(i) => query.bind(i),
-
-                        #[cfg(feature = "mysql")]
-                        Value::UInt8(v) => query.bind(v),
-
-                        #[cfg(feature = "postgres")]
-                        Value::UInt16(v) => query.bind(v as i32),
-                        #[cfg(feature = "postgres")]
-                        Value::UInt32(v) => query.bind(v as i64),
-                        #[cfg(feature = "postgres")]
-                        Value::UInt64(v) => query.bind(v as i64),
-
-                        #[cfg(feature = "mysql")]
-                        Value::UInt16(v) => query.bind(v),
-                        #[cfg(feature = "mysql")]
-                        Value::UInt32(v) => query.bind(v),
-                        #[cfg(feature = "mysql")]
-                        Value::UInt64(v) => query.bind(v),
-
-                        Value::Float32(f) => query.bind(f),
-                        Value::Float64(f) => query.bind(f),
-                        Value::Bool(b) => query.bind(b),
-                        Value::Array(_arr) => {
-                            eprintln!(
-                                "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
-                            );
-                            query
-                        }
-                        Value::Between(_, _) => {
-                            eprintln!(
-                                "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
-                            );
-                            query
-                        }
-                        Value::Null => query,
-                    };
-                    query = match (**max).clone() {
-                        Value::String(s) => query.bind(s),
-                        Value::Int8(i) => query.bind(i),
-                        Value::Int16(i) => query.bind(i),
-                        Value::Int32(i) => query.bind(i),
-                        Value::Int64(i) => query.bind(i),
-
-                        #[cfg(feature = "mysql")]
-                        Value::UInt8(u) => query.bind(u),
-
-                        #[cfg(feature = "postgres")]
-                        Value::UInt16(u) => query.bind(u as i32),
-                        #[cfg(feature = "postgres")]
-                        Value::UInt32(u) => query.bind(u as i64),
-                        #[cfg(feature = "postgres")]
-                        Value::UInt64(u) => query.bind(u as i64),
-
-                        #[cfg(feature = "mysql")]
-                        Value::UInt16(u) => query.bind(u),
-                        #[cfg(feature = "mysql")]
-                        Value::UInt32(u) => query.bind(u),
-                        #[cfg(feature = "mysql")]
-                        Value::UInt64(u) => query.bind(u),
-
-                        Value::Float32(f) => query.bind(f),
-                        Value::Float64(f) => query.bind(f),
-                        Value::Bool(b) => query.bind(b),
-                        Value::Array(_arr) => {
-                            eprintln!(
-                                "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
-                            );
-                            query
-                        }
-                        Value::Between(_, _) => {
-                            eprintln!(
-                                "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
-                            );
-                            query
-                        }
-                        Value::Null => query,
-                    };
-                }
-            }
+            let value = values.get(col.name);
+            query = bind_column_value(query, col, value);
         }
 
         // For PostgreSQL with RETURNING, we need to add RETURNING clause to the INSERT
@@ -458,186 +345,8 @@ impl<T: Schema + Debug> Insert<T> {
             let mut query = sqlx::query(&sql);
 
             for col in selected.iter() {
-                let Some(value) = values.get(col.name) else {
-                    match col.data_type {
-                        "VARCHAR(255)" | "TEXT" => {
-                            query = query.bind(None::<&str>);
-                        }
-                        "TINYINT" => {
-                            query = query.bind(None::<i8>);
-                        }
-                        "SMALLINT" => {
-                            query = query.bind(None::<i16>);
-                        }
-                        "INTEGER" => {
-                            query = query.bind(None::<i32>);
-                        }
-                        "BIGINT" => {
-                            query = query.bind(None::<i64>);
-                        }
-                        "FLOAT" => {
-                            query = query.bind(None::<f32>);
-                        }
-                        "DOUBLE" => {
-                            query = query.bind(None::<f64>);
-                        }
-                        "BOOLEAN" => {
-                            query = query.bind(None::<bool>);
-                        }
-                        _ => {
-                            query = query.bind(None::<&str>);
-                        }
-                    }
-                    continue;
-                };
-
-                match value {
-                    Value::Array(_arr) => match col.data_type {
-                        "VARCHAR(255)" | "TEXT" => {
-                            query = query.bind(None::<&str>);
-                        }
-                        "TINYINT" => {
-                            query = query.bind(None::<i8>);
-                        }
-                        "SMALLINT" => {
-                            query = query.bind(None::<i16>);
-                        }
-                        "INTEGER" => {
-                            query = query.bind(None::<i32>);
-                        }
-                        "BIGINT" => {
-                            query = query.bind(None::<i64>);
-                        }
-                        "FLOAT" => {
-                            query = query.bind(None::<f32>);
-                        }
-                        "DOUBLE" => {
-                            query = query.bind(None::<f64>);
-                        }
-                        "BOOLEAN" => {
-                            query = query.bind(None::<bool>);
-                        }
-                        _ => {
-                            query = query.bind(None::<&str>);
-                        }
-                    },
-                    Value::Int8(v) => {
-                        query = query.bind(*v);
-                    }
-                    Value::Int16(v) => {
-                        query = query.bind(*v);
-                    }
-                    Value::Int32(v) => {
-                        query = query.bind(*v);
-                    }
-                    Value::Int64(v) => {
-                        query = query.bind(*v);
-                    }
-                    Value::Float32(v) => {
-                        query = query.bind(*v);
-                    }
-                    Value::Float64(v) => {
-                        query = query.bind(*v);
-                    }
-                    Value::Bool(v) => {
-                        query = query.bind(*v);
-                    }
-                    Value::String(v) => {
-                        query = query.bind(v.as_str());
-                    }
-                    Value::Null => match col.data_type {
-                        "VARCHAR(255)" | "TEXT" => {
-                            query = query.bind(None::<&str>);
-                        }
-                        "TINYINT" => {
-                            query = query.bind(None::<i8>);
-                        }
-                        "SMALLINT" => {
-                            query = query.bind(None::<i16>);
-                        }
-                        "INTEGER" => {
-                            query = query.bind(None::<i32>);
-                        }
-                        "BIGINT" => {
-                            query = query.bind(None::<i64>);
-                        }
-                        "FLOAT" => {
-                            query = query.bind(None::<f32>);
-                        }
-                        "DOUBLE" => {
-                            query = query.bind(None::<f64>);
-                        }
-                        "BOOLEAN" => {
-                            query = query.bind(None::<bool>);
-                        }
-                        _ => {
-                            query = query.bind(None::<&str>);
-                        }
-                    },
-                    Value::Between(min, max) => {
-                        query = match (**min).clone() {
-                            Value::String(s) => query.bind(s),
-                            Value::Int8(i) => query.bind(i),
-                            Value::Int16(i) => query.bind(i),
-                            Value::Int32(i) => query.bind(i),
-                            Value::Int64(i) => query.bind(i),
-                            Value::UInt16(u) => query.bind(u as i32),
-                            Value::UInt32(u) => query.bind(u as i64),
-                            Value::UInt64(u) => query.bind(u as i64),
-                            Value::Float32(f) => query.bind(f),
-                            Value::Float64(f) => query.bind(f),
-                            Value::Bool(b) => query.bind(b),
-                            Value::Array(_arr) => {
-                                eprintln!(
-                                    "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
-                                );
-                                query
-                            }
-                            Value::Between(_, _) => {
-                                eprintln!(
-                                    "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
-                                );
-                                query
-                            }
-                            Value::Null => query,
-                        };
-                        query = match (**max).clone() {
-                            Value::String(s) => query.bind(s),
-                            Value::Int8(i) => query.bind(i),
-                            Value::Int16(i) => query.bind(i),
-                            Value::Int32(i) => query.bind(i),
-                            Value::Int64(i) => query.bind(i),
-                            Value::Float32(f) => query.bind(f),
-                            Value::Float64(f) => query.bind(f),
-                            Value::Bool(b) => query.bind(b),
-                            Value::Array(_arr) => {
-                                eprintln!(
-                                    "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
-                                );
-                                query
-                            }
-                            Value::Between(_, _) => {
-                                eprintln!(
-                                    "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
-                                );
-                                query
-                            }
-                            Value::Null => query,
-                            Value::UInt16(v) => query.bind(v as i32),
-                            Value::UInt32(v) => query.bind(v as i64),
-                            Value::UInt64(v) => query.bind(v as i64),
-                        };
-                    }
-                    Value::UInt16(v) => {
-                        query = query.bind(*v as i32);
-                    }
-                    Value::UInt32(v) => {
-                        query = query.bind(*v as i64);
-                    }
-                    Value::UInt64(v) => {
-                        query = query.bind(*v as i64);
-                    }
-                }
+                let value = values.get(col.name);
+                query = bind_column_value(query, col, value);
             }
 
             let rows = query.fetch_all(&mut *conn).await?;
@@ -789,268 +498,8 @@ impl<T: Schema + Debug> InsertMany<T> {
             let mut query = sqlx::query(&sql);
 
             for col in selected.iter() {
-                let Some(value) = values.get(col.name) else {
-                    // If a value is missing, bind NULL using the column's SQL type.
-                    match col.data_type {
-                        "VARCHAR(255)" | "TEXT" => {
-                            query = query.bind(None::<&str>);
-                        }
-                        "INTEGER" => {
-                            query = query.bind(None::<i32>);
-                        }
-                        "BIGINT" => {
-                            query = query.bind(None::<i64>);
-                        }
-                        "FLOAT" => {
-                            query = query.bind(None::<f32>);
-                        }
-                        "DOUBLE" => {
-                            query = query.bind(None::<f64>);
-                        }
-                        "BOOLEAN" => {
-                            query = query.bind(None::<bool>);
-                        }
-                        _ => {
-                            query = query.bind(None::<&str>);
-                        }
-                    }
-                    continue;
-                };
-
-                match value {
-                    Value::Array(_arr) => {
-                        // Arrays are not directly insertable; bind NULL using the column's SQL type
-                        match col.data_type {
-                            "VARCHAR(255)" | "TEXT" => {
-                                query = query.bind(None::<&str>);
-                            }
-                            "TINYINT" => {
-                                query = query.bind(None::<i8>);
-                            }
-                            "SMALLINT" => {
-                                query = query.bind(None::<i16>);
-                            }
-                            "INTEGER" => {
-                                query = query.bind(None::<i32>);
-                            }
-                            "BIGINT" => {
-                                query = query.bind(None::<i64>);
-                            }
-                            #[cfg(feature = "mysql")]
-                            "TINYINT UNSIGNED" => {
-                                query = query.bind(None::<u8>);
-                            }
-                            #[cfg(feature = "mysql")]
-                            "SMALLINT UNSIGNED" => {
-                                query = query.bind(None::<u16>);
-                            }
-                            #[cfg(feature = "mysql")]
-                            "INTEGER UNSIGNED" => {
-                                query = query.bind(None::<u32>);
-                            }
-                            #[cfg(feature = "mysql")]
-                            "BIGINT UNSIGNED" => {
-                                query = query.bind(None::<u64>);
-                            }
-                            "FLOAT" => {
-                                query = query.bind(None::<f32>);
-                            }
-                            "DOUBLE" => {
-                                query = query.bind(None::<f64>);
-                            }
-                            "BOOLEAN" => {
-                                query = query.bind(None::<bool>);
-                            }
-                            _ => {
-                                query = query.bind(None::<&str>);
-                            }
-                        }
-                    }
-                    Value::Int8(v) => {
-                        query = query.bind(*v);
-                    }
-                    Value::Int16(v) => {
-                        query = query.bind(*v);
-                    }
-                    Value::Int32(v) => {
-                        query = query.bind(*v);
-                    }
-                    Value::Int64(v) => {
-                        query = query.bind(*v);
-                    }
-
-                    #[cfg(feature = "mysql")]
-                    Value::UInt8(v) => {
-                        query = query.bind(*v);
-                    }
-
-                    #[cfg(feature = "postgres")]
-                    Value::UInt16(v) => {
-                        query = query.bind(*v as i32);
-                    }
-                    #[cfg(feature = "postgres")]
-                    Value::UInt32(v) => {
-                        query = query.bind(*v as i64);
-                    }
-                    #[cfg(feature = "postgres")]
-                    Value::UInt64(v) => {
-                        query = query.bind(*v as i64);
-                    }
-
-                    #[cfg(feature = "mysql")]
-                    Value::UInt16(v) => {
-                        query = query.bind(*v);
-                    }
-                    #[cfg(feature = "mysql")]
-                    Value::UInt32(v) => {
-                        query = query.bind(*v);
-                    }
-                    #[cfg(feature = "mysql")]
-                    Value::UInt64(v) => {
-                        query = query.bind(*v);
-                    }
-
-                    Value::Float32(v) => {
-                        query = query.bind(*v);
-                    }
-                    Value::Float64(v) => {
-                        query = query.bind(*v);
-                    }
-                    Value::Bool(v) => {
-                        query = query.bind(*v);
-                    }
-                    Value::String(v) => {
-                        query = query.bind(v.as_str());
-                    }
-                    Value::Null => match col.data_type {
-                        "VARCHAR(255)" | "TEXT" => {
-                            query = query.bind(None::<&str>);
-                        }
-                        "TINYINT" => {
-                            query = query.bind(None::<i8>);
-                        }
-                        "SMALLINT" => {
-                            query = query.bind(None::<i16>);
-                        }
-                        "INTEGER" => {
-                            query = query.bind(None::<i32>);
-                        }
-                        "BIGINT" => {
-                            query = query.bind(None::<i64>);
-                        }
-                        #[cfg(feature = "mysql")]
-                        "TINYINT UNSIGNED" => {
-                            query = query.bind(None::<u8>);
-                        }
-                        #[cfg(feature = "mysql")]
-                        "SMALLINT UNSIGNED" => {
-                            query = query.bind(None::<u16>);
-                        }
-                        #[cfg(feature = "mysql")]
-                        "INTEGER UNSIGNED" => {
-                            query = query.bind(None::<u32>);
-                        }
-                        #[cfg(feature = "mysql")]
-                        "BIGINT UNSIGNED" => {
-                            query = query.bind(None::<u64>);
-                        }
-                        "FLOAT" => {
-                            query = query.bind(None::<f32>);
-                        }
-                        "DOUBLE" => {
-                            query = query.bind(None::<f64>);
-                        }
-                        "BOOLEAN" => {
-                            query = query.bind(None::<bool>);
-                        }
-                        _ => {
-                            query = query.bind(None::<&str>);
-                        }
-                    },
-                    Value::Between(min, max) => {
-                        query = match (**min).clone() {
-                            Value::String(s) => query.bind(s),
-                            Value::Int8(i) => query.bind(i),
-                            Value::Int16(i) => query.bind(i),
-                            Value::Int32(i) => query.bind(i),
-                            Value::Int64(i) => query.bind(i),
-
-                            #[cfg(feature = "mysql")]
-                            Value::UInt8(u) => query.bind(u),
-
-                            #[cfg(feature = "postgres")]
-                            Value::UInt16(u) => query.bind(u as i32),
-                            #[cfg(feature = "postgres")]
-                            Value::UInt32(u) => query.bind(u as i64),
-                            #[cfg(feature = "postgres")]
-                            Value::UInt64(u) => query.bind(u as i64),
-
-                            #[cfg(feature = "mysql")]
-                            Value::UInt16(u) => query.bind(u),
-                            #[cfg(feature = "mysql")]
-                            Value::UInt32(u) => query.bind(u),
-                            #[cfg(feature = "mysql")]
-                            Value::UInt64(u) => query.bind(u),
-
-                            Value::Float32(f) => query.bind(f),
-                            Value::Float64(f) => query.bind(f),
-                            Value::Bool(b) => query.bind(b),
-                            Value::Array(_arr) => {
-                                eprintln!(
-                                    "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
-                                );
-                                query
-                            }
-                            Value::Between(_, _) => {
-                                eprintln!(
-                                    "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
-                                );
-                                query
-                            }
-                            Value::Null => query,
-                        };
-                        query = match (**max).clone() {
-                            Value::String(s) => query.bind(s),
-                            Value::Int8(i) => query.bind(i),
-                            Value::Int16(i) => query.bind(i),
-                            Value::Int32(i) => query.bind(i),
-                            Value::Int64(i) => query.bind(i),
-                            #[cfg(feature = "mysql")]
-                            Value::UInt8(u) => query.bind(u),
-
-                            #[cfg(feature = "postgres")]
-                            Value::UInt16(u) => query.bind(u as i32),
-                            #[cfg(feature = "postgres")]
-                            Value::UInt32(u) => query.bind(u as i64),
-                            #[cfg(feature = "postgres")]
-                            Value::UInt64(u) => query.bind(u as i64),
-
-                            #[cfg(feature = "mysql")]
-                            Value::UInt16(u) => query.bind(u),
-                            #[cfg(feature = "mysql")]
-                            Value::UInt32(u) => query.bind(u),
-                            #[cfg(feature = "mysql")]
-                            Value::UInt64(u) => query.bind(u),
-
-                            Value::Float32(f) => query.bind(f),
-                            Value::Float64(f) => query.bind(f),
-                            Value::Bool(b) => query.bind(b),
-                            Value::Array(_arr) => {
-                                eprintln!(
-                                    "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
-                                );
-                                query
-                            }
-                            Value::Between(_, _) => {
-                                eprintln!(
-                                    "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
-                                );
-                                query
-                            }
-                            Value::Null => query,
-                        };
-                    }
-                }
+                let value = values.get(col.name);
+                query = bind_column_value(query, col, value);
             }
 
             #[cfg(feature = "mysql")]
@@ -1093,186 +542,8 @@ impl<T: Schema + Debug> InsertMany<T> {
                     let mut query = sqlx::query(&sql);
 
                     for col in selected.iter() {
-                        let Some(value) = values.get(col.name) else {
-                            match col.data_type {
-                                "VARCHAR(255)" | "TEXT" => {
-                                    query = query.bind(None::<&str>);
-                                }
-                                "TINYINT" => {
-                                    query = query.bind(None::<i8>);
-                                }
-                                "SMALLINT" => {
-                                    query = query.bind(None::<i16>);
-                                }
-                                "INTEGER" => {
-                                    query = query.bind(None::<i32>);
-                                }
-                                "BIGINT" => {
-                                    query = query.bind(None::<i64>);
-                                }
-                                "FLOAT" => {
-                                    query = query.bind(None::<f32>);
-                                }
-                                "DOUBLE" => {
-                                    query = query.bind(None::<f64>);
-                                }
-                                "BOOLEAN" => {
-                                    query = query.bind(None::<bool>);
-                                }
-                                _ => {
-                                    query = query.bind(None::<&str>);
-                                }
-                            }
-                            continue;
-                        };
-
-                        match value {
-                            Value::Array(_arr) => match col.data_type {
-                                "VARCHAR(255)" | "TEXT" => {
-                                    query = query.bind(None::<&str>);
-                                }
-                                "TINYINT" => {
-                                    query = query.bind(None::<i8>);
-                                }
-                                "SMALLINT" => {
-                                    query = query.bind(None::<i16>);
-                                }
-                                "INTEGER" => {
-                                    query = query.bind(None::<i32>);
-                                }
-                                "BIGINT" => {
-                                    query = query.bind(None::<i64>);
-                                }
-                                "FLOAT" => {
-                                    query = query.bind(None::<f32>);
-                                }
-                                "DOUBLE" => {
-                                    query = query.bind(None::<f64>);
-                                }
-                                "BOOLEAN" => {
-                                    query = query.bind(None::<bool>);
-                                }
-                                _ => {
-                                    query = query.bind(None::<&str>);
-                                }
-                            },
-                            Value::Int8(v) => {
-                                query = query.bind(*v);
-                            }
-                            Value::Int16(v) => {
-                                query = query.bind(*v);
-                            }
-                            Value::Int32(v) => {
-                                query = query.bind(*v);
-                            }
-                            Value::Int64(v) => {
-                                query = query.bind(*v);
-                            }
-                            Value::UInt16(v) => {
-                                query = query.bind(*v as i32);
-                            }
-                            Value::UInt32(v) => {
-                                query = query.bind(*v as i64);
-                            }
-                            Value::UInt64(v) => {
-                                query = query.bind(*v as i64);
-                            }
-                            Value::Float32(v) => {
-                                query = query.bind(*v);
-                            }
-                            Value::Float64(v) => {
-                                query = query.bind(*v);
-                            }
-                            Value::Bool(v) => {
-                                query = query.bind(*v);
-                            }
-                            Value::String(v) => {
-                                query = query.bind(v.as_str());
-                            }
-                            Value::Null => match col.data_type {
-                                "VARCHAR(255)" | "TEXT" => {
-                                    query = query.bind(None::<&str>);
-                                }
-                                "TINYINT" => {
-                                    query = query.bind(None::<i8>);
-                                }
-                                "SMALLINT" => {
-                                    query = query.bind(None::<i16>);
-                                }
-                                "INTEGER" => {
-                                    query = query.bind(None::<i32>);
-                                }
-                                "BIGINT" => {
-                                    query = query.bind(None::<i64>);
-                                }
-                                "FLOAT" => {
-                                    query = query.bind(None::<f32>);
-                                }
-                                "DOUBLE" => {
-                                    query = query.bind(None::<f64>);
-                                }
-                                "BOOLEAN" => {
-                                    query = query.bind(None::<bool>);
-                                }
-                                _ => {
-                                    query = query.bind(None::<&str>);
-                                }
-                            },
-                            Value::Between(min, max) => {
-                                query = match (**min).clone() {
-                                    Value::String(s) => query.bind(s),
-                                    Value::Int8(i) => query.bind(i),
-                                    Value::Int16(i) => query.bind(i),
-                                    Value::Int32(i) => query.bind(i),
-                                    Value::Int64(i) => query.bind(i),
-                                    Value::UInt16(u) => query.bind(u as i32),
-                                    Value::UInt32(u) => query.bind(u as i64),
-                                    Value::UInt64(u) => query.bind(u as i64),
-                                    Value::Float32(f) => query.bind(f),
-                                    Value::Float64(f) => query.bind(f),
-                                    Value::Bool(b) => query.bind(b),
-                                    Value::Array(_arr) => {
-                                        eprintln!(
-                                            "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
-                                        );
-                                        query
-                                    }
-                                    Value::Between(_, _) => {
-                                        eprintln!(
-                                            "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
-                                        );
-                                        query
-                                    }
-                                    Value::Null => query,
-                                };
-                                query = match (**max).clone() {
-                                    Value::String(s) => query.bind(s),
-                                    Value::Int8(i) => query.bind(i),
-                                    Value::Int16(i) => query.bind(i),
-                                    Value::Int32(i) => query.bind(i),
-                                    Value::Int64(i) => query.bind(i),
-                                    Value::UInt16(u) => query.bind(u as i32),
-                                    Value::UInt32(u) => query.bind(u as i64),
-                                    Value::UInt64(u) => query.bind(u as i64),
-                                    Value::Float32(f) => query.bind(f),
-                                    Value::Float64(f) => query.bind(f),
-                                    Value::Bool(b) => query.bind(b),
-                                    Value::Array(_arr) => {
-                                        eprintln!(
-                                            "Warning: Attempted to bind Value::Array, which is not supported. Skipping."
-                                        );
-                                        query
-                                    }
-                                    Value::Between(_, _) => {
-                                        eprintln!(
-                                            "Warning: Attempted to bind Value::Between directly, which is not supported. Use the individual min/max values instead."
-                                        );
-                                        query
-                                    }
-                                    Value::Null => query,
-                                };
-                            }
-                        }
+                        let value = values.get(col.name);
+                        query = bind_column_value(query, col, value);
                     }
 
                     let rows = query.fetch_all(&mut *conn).await?;
