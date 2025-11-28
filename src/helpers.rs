@@ -290,9 +290,8 @@ fn bind_null<'q>(query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQue
     match kind {
         ColumnBindingKind::Varchar
         | ColumnBindingKind::Text
-        | ColumnBindingKind::TinyIntUnsigned
         | ColumnBindingKind::Unknown => query.bind(None::<&str>),
-        ColumnBindingKind::TinyInt => query.bind(None::<i8>),
+        ColumnBindingKind::TinyInt | ColumnBindingKind::TinyIntUnsigned => query.bind(None::<i16>),
         ColumnBindingKind::SmallInt => query.bind(None::<i16>),
         ColumnBindingKind::SmallIntUnsigned => query.bind(None::<i32>),
         ColumnBindingKind::Integer => query.bind(None::<i32>),
