@@ -4,10 +4,11 @@ pub mod query;
 #[cfg(test)]
 #[allow(dead_code)]
 mod tests {
+    use crate::define_schema;
+    use crate::helpers::get_starting_sql;
     use crate::row::Row;
     use crate::schema::{ColumnInfo, Schema};
     use crate::table::TableDefinition;
-    use crate::{define_schema, get_starting_sql};
 
     // Test schema definition
     define_schema! {
@@ -334,29 +335,31 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[test]
     fn test_starting_sql_postgres() {
-        use crate::StartingSql;
+        use crate::helpers::StartingSql;
+
         assert_eq!(
             get_starting_sql(StartingSql::Select, "TestUser"),
             "SELECT ".to_string()
         );
         assert_eq!(
             get_starting_sql(StartingSql::Insert, "TestUser"),
-            "INSERT INTO TestUser (".to_string()
+            "INSERT INTO \"TestUser\" (".to_string()
         );
         assert_eq!(
             get_starting_sql(StartingSql::Delete, "TestUser"),
-            "DELETE FROM TestUser ".to_string()
+            "DELETE FROM \"TestUser\" ".to_string()
         );
         assert_eq!(
             get_starting_sql(StartingSql::Update, "TestUser"),
-            "UPDATE TestUser SET ".to_string()
+            "UPDATE \"TestUser\" SET ".to_string()
         );
     }
 
     #[cfg(feature = "mysql")]
     #[test]
     fn test_starting_sql_mysql() {
-        use crate::StartingSql;
+        use crate::helpers::StartingSql;
+
         assert_eq!(
             get_starting_sql(StartingSql::Select, "TestUser"),
             "SELECT ".to_string()
@@ -378,8 +381,8 @@ mod tests {
 
 #[cfg(test)]
 mod build_filter_expr_tests {
-    use crate::build_filter_expr;
     use crate::filter::{FilterType, Filtered};
+    use crate::helpers::build_filter_expr;
     use crate::schema::Value;
     use std::sync::Arc;
 

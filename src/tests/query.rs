@@ -8,7 +8,7 @@ mod tests {
 
     use crate::{
         define_schema,
-        filter::{Filter, Filtered, eq_value},
+        filter::{Filter, Filtered, eq_column, eq_value},
         operations::query::{JoinType, Query},
         schema::Schema,
     };
@@ -68,7 +68,7 @@ mod tests {
         let pool = Arc::new(MySqlPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
 
         #[cfg(feature = "postgres")]
-        let pool = Arc::new(PgPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
+        let pool = Arc::new(PgPool::connect_lazy("postgres://user:pass@localhost/db").unwrap());
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone()).filter(DummyFilter);
 
         assert_eq!(query.filters.len(), 1);
@@ -81,7 +81,7 @@ mod tests {
         let pool = Arc::new(MySqlPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
 
         #[cfg(feature = "postgres")]
-        let pool = Arc::new(PgPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
+        let pool = Arc::new(PgPool::connect_lazy("postgres://user:pass@localhost/db").unwrap());
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
             .select_distinct(SelectDummySchema::selected().all());
 
@@ -96,7 +96,7 @@ mod tests {
         let pool = Arc::new(MySqlPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
 
         #[cfg(feature = "postgres")]
-        let pool = Arc::new(PgPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
+        let pool = Arc::new(PgPool::connect_lazy("postgres://user:pass@localhost/db").unwrap());
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
             .left_join::<DummySchema, SelectDummySchema>(
                 Filter::default(),
@@ -120,17 +120,16 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "For now"]
     async fn test_select_sql_and_joins_sql() {
         #[cfg(feature = "mysql")]
         let pool = Arc::new(MySqlPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
 
         #[cfg(feature = "postgres")]
-        let pool = Arc::new(PgPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
+        let pool = Arc::new(PgPool::connect_lazy("postgres://user:pass@localhost/db").unwrap());
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
             .select(SelectDummySchema::selected().all())
             .left_join::<DummySchema, SelectDummySchema>(
-                eq_value(DummySchema::id(), 1),
+                eq_column(DummySchema::id(), DummySchema::id()),
                 SelectDummySchema::selected().all(),
             );
 
@@ -155,14 +154,14 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "For now"]
     async fn test_filter_sql() {
         #[cfg(feature = "mysql")]
         let pool = Arc::new(MySqlPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
 
         #[cfg(feature = "postgres")]
-        let pool = Arc::new(PgPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
-        let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone()).filter(DummyFilter);
+        let pool = Arc::new(PgPool::connect_lazy("postgres://user:pass@localhost/db").unwrap());
+        let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
+            .filter(eq_value(DummySchema::id(), 1));
 
         let mut params = vec![];
         let sql = Query::<DummySchema, SelectDummySchema>::filter_sql(
