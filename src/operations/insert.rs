@@ -7,9 +7,9 @@
 //! returning of inserted rows and handles value binding for various SQL types.
 
 use crate::database::error::DatabaseError;
+use crate::helpers::{StartingSql, get_starting_sql, quote_identifier};
 use crate::row::Row;
 use crate::schema::{ColumnInfo, Schema, Select, Value};
-use crate::{StartingSql, get_starting_sql, returning_sql};
 
 #[cfg(feature = "mysql")]
 use sqlx::MySqlPool;
@@ -652,6 +652,8 @@ impl<T: Schema + Debug> Insert<T> {
         // For MySQL, build SELECT ... WHERE id = ? using either provided id or last_insert_id
         #[cfg(feature = "mysql")]
         {
+            use crate::helpers::returning_sql;
+
             let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
             let mut select_sql = returning_sql(select_sql, &self.returning);
             select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
@@ -681,7 +683,7 @@ impl<T: Schema + Debug> Insert<T> {
             if i > 0 {
                 sql.push_str(", ");
             }
-            sql.push_str(&crate::quote_identifier(&col.name));
+            sql.push_str(&quote_identifier(&col.name));
         }
         sql.push_str(") VALUES (");
 
@@ -1295,6 +1297,8 @@ impl<T: Schema + Debug> InsertMany<T> {
 
         #[cfg(feature = "mysql")]
         {
+            use crate::helpers::returning_sql;
+
             if self.returning.is_empty() {
                 return Ok(None);
             }
