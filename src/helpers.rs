@@ -60,8 +60,8 @@ pub(crate) fn returning_sql(mut sql: String, returning: &Vec<&'static str>) -> S
     if returning.is_empty() {
         return sql;
     }
-    sql.push_str(&returning.join(", "));
-
+    // MySQL does not support RETURNING clause in the same way as PostgreSQL.
+    // Return SQL unchanged or implement alternative strategy (e.g., SELECT LAST_INSERT_ID()).
     sql
 }
 
@@ -290,9 +290,8 @@ fn bind_null<'q>(query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQue
     match kind {
         ColumnBindingKind::Varchar
         | ColumnBindingKind::Text
-        | ColumnBindingKind::TinyIntUnsigned
         | ColumnBindingKind::Unknown => query.bind(None::<&str>),
-        ColumnBindingKind::TinyInt => query.bind(None::<i8>),
+        ColumnBindingKind::TinyInt | ColumnBindingKind::TinyIntUnsigned => query.bind(None::<i16>),
         ColumnBindingKind::SmallInt => query.bind(None::<i16>),
         ColumnBindingKind::SmallIntUnsigned => query.bind(None::<i32>),
         ColumnBindingKind::Integer => query.bind(None::<i32>),
