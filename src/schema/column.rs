@@ -240,31 +240,115 @@ impl<T> Column<T> {
         self
     }
 
+    /// Marks this column as requiring a valid email address.
+    ///
+    /// This is a semantic hint for validation and UI. It does not enforce
+    /// format checks in the database (unless paired with a `check`).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use lume::schema::Column;
+    /// let col = Column::<String>::new("email", "users").email();
+    /// assert!(col.is_email());
+    /// ```
     pub fn email(mut self) -> Self {
         self.email = true;
         self
     }
 
+    /// Marks this column as containing a link (URL).
+    ///
+    /// This is a semantic hint for validation and UI, but does not enforce
+    /// link format at the database level (unless paired with a `check`).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use lume::schema::Column;
+    /// let col = Column::<String>::new("website", "users").link();
+    /// assert!(col.is_link());
+    /// ```
     pub fn link(mut self) -> Self {
         self.link = true;
         self
     }
 
+    /// Sets the minimum allowed length for this column's string values.
+    ///
+    /// Only meaningful for string-like types.
+    ///
+    /// # Arguments
+    ///
+    /// * `min` - The minimum character length allowed.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use lume::schema::Column;
+    /// let col = Column::<String>::new("username", "users").min_len(3);
+    /// assert_eq!(col.min_len, Some(3));
+    /// ```
     pub fn min_len(mut self, min: i32) -> Self {
         self.min_len = Some(min);
         self
     }
 
+    /// Sets the maximum allowed length for this column's string values.
+    ///
+    /// Only meaningful for string-like types.
+    ///
+    /// # Arguments
+    ///
+    /// * `max` - The maximum character length allowed.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use lume::schema::Column;
+    /// let col = Column::<String>::new("username", "users").max_len(10);
+    /// assert_eq!(col.max_len, Some(10));
+    /// ```
     pub fn max_len(mut self, max: i32) -> Self {
         self.max_len = Some(max);
         self
     }
 
+    /// Sets the minimum allowed value for numeric columns.
+    ///
+    /// Only meaningful for numeric types.
+    ///
+    /// # Arguments
+    ///
+    /// * `min` - The minimum value allowed.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use lume::schema::Column;
+    /// let col = Column::<u32>::new("age", "users").min(18);
+    /// assert_eq!(col.min, Some(18));
+    /// ```
     pub fn min(mut self, min: usize) -> Self {
         self.min = Some(min);
         self
     }
 
+    /// Sets the maximum allowed value for numeric columns.
+    ///
+    /// Only meaningful for numeric types.
+    ///
+    /// # Arguments
+    ///
+    /// * `max` - The maximum value allowed.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use lume::schema::Column;
+    /// let col = Column::<u32>::new("age", "users").max(100);
+    /// assert_eq!(col.max, Some(100));
+    /// ```
     pub fn max(mut self, max: usize) -> Self {
         self.max = Some(max);
         self
@@ -379,168 +463,87 @@ impl<T> Column<T> {
         self
     }
 
-    /// Returns the name of this column.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::schema::Column;
-    ///
-    /// let col = Column::<String>::new("username", "users");
-    /// assert_eq!(col.name(), "username");
-    /// ```
+    #[doc(hidden)]
     pub fn name(&self) -> &'static str {
         self.name
     }
 
-    /// Returns the name of the table this column belongs to
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::schema::Column;
-    ///
-    /// let col = Column::<String>::new("username", "users");
-    /// assert_eq!(col.table_name(), "users");
-    /// ```
+    #[doc(hidden)]
     pub fn table_name(&self) -> &'static str {
         self.table_name
     }
 
-    /// Returns a reference to the default value, if any.
-    ///
-    /// # Returns
-    ///
-    /// - `Some(&T)`: A reference to the default value
-    /// - `None`: If no default value is set
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::schema::Column;
-    ///
-    /// let col = Column::<String>::new("name", "users")
-    ///     .default_value("Anonymous".to_string());
-    ///
-    /// assert_eq!(col.get_default(), Some(&"Anonymous".to_string()));
-    /// ```
+    #[doc(hidden)]
     pub fn get_default(&self) -> Option<&T> {
         self.default_value.as_ref()
     }
 
-    /// Returns whether this column allows NULL values.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::schema::Column;
-    ///
-    /// let nullable_col = Column::<String>::new("bio", "users");
-    /// let not_null_col = Column::<String>::new("name", "users").not_null();
-    ///
-    /// assert!(nullable_col.is_nullable());
-    /// assert!(!not_null_col.is_nullable());
-    /// ```
+    #[doc(hidden)]
     pub fn is_nullable(&self) -> bool {
         self.nullable
     }
 
-    /// Returns whether this column has a UNIQUE constraint.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::schema::Column;
-    ///
-    /// let unique_col = Column::<String>::new("email", "users").unique();
-    /// let normal_col = Column::<String>::new("name", "users");
-    ///
-    /// assert!(unique_col.is_unique());
-    /// assert!(!normal_col.is_unique());
-    /// ```
+    #[doc(hidden)]
     pub fn is_unique(&self) -> bool {
         self.unique
     }
 
-    /// Returns whether this column is a primary key.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::schema::Column;
-    ///
-    /// let pk_col = Column::<i32>::new("id", "users").primary_key();
-    /// let normal_col = Column::<String>::new("name", "users");
-    ///
-    /// assert!(pk_col.is_primary_key());
-    /// assert!(!normal_col.is_primary_key());
-    /// ```
+    #[doc(hidden)]
     pub fn is_primary_key(&self) -> bool {
         self.primary_key
     }
 
-    /// Returns whether this column has an index.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::schema::Column;
-    ///
-    /// let indexed_col = Column::<String>::new("username", "users").indexed();
-    /// let normal_col = Column::<String>::new("name", "users");
-    ///
-    /// assert!(indexed_col.is_indexed());
-    /// assert!(!normal_col.is_indexed());
-    /// ```
+    #[doc(hidden)]
     pub fn is_indexed(&self) -> bool {
         self.indexed
     }
 
-    /// Returns whether this column is AUTO_INCREMENT.
+    #[doc(hidden)]
     pub fn is_auto_increment(&self) -> bool {
         self.auto_increment
     }
 
-    /// Returns the column comment if set.
+    #[doc(hidden)]
     pub fn get_comment(&self) -> Option<&'static str> {
         self.comment
     }
 
-    /// Returns the character set if set.
+    #[doc(hidden)]
     pub fn get_charset(&self) -> Option<&'static str> {
         self.charset
     }
 
-    /// Returns the collation if set.
+    #[doc(hidden)]
     pub fn get_collate(&self) -> Option<&'static str> {
         self.collate
     }
 
-    /// Returns whether the column has ON UPDATE CURRENT_TIMESTAMP behavior.
+    #[doc(hidden)]
     pub fn has_on_update_current_timestamp(&self) -> bool {
         self.on_update_current_timestamp
     }
 
-    /// Returns whether the column is INVISIBLE.
+    #[doc(hidden)]
     pub fn is_invisible(&self) -> bool {
         self.invisible
     }
 
-    /// Returns the CHECK constraint expression if set.
+    #[doc(hidden)]
     pub fn get_check(&self) -> Option<&'static str> {
         self.check
     }
 
-    /// Returns the generated column definition if set.
+    #[doc(hidden)]
     pub fn get_generated(&self) -> Option<GeneratedColumn> {
         self.generated
     }
 
-    /// Returns bool if the column is an email
+    #[doc(hidden)]
     pub fn is_email(&self) -> bool {
         self.email
     }
 
+    #[doc(hidden)]
     pub fn is_link(&self) -> bool {
         self.link
     }
