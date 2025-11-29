@@ -180,6 +180,10 @@ pub struct ColumnInfo {
     pub nullable: bool,
     /// Whether the data should be an email
     pub email: bool,
+    /// Minimum length of the column
+    pub min: Option<i32>,
+    /// Maximum length of the column
+    pub max: Option<i32>,
     /// Whether the column has a UNIQUE constraint
     pub unique: bool,
     /// Whether the column is a primary key
@@ -390,6 +394,8 @@ macro_rules! define_schema {
                                     check: col.get_check(),
                                     generated: col.get_generated(),
                                     email: col.is_email(),
+                                    min: col.min(),
+                                    max: col.max(),
                                 }
                             }
                         ),*
@@ -528,6 +534,8 @@ macro_rules! define_schema {
                                 check: col.get_check(),
                                 generated: col.get_generated(),
                                 email: col.is_email(),
+                                min: col.min(),
+                                max: col.max(),
                             }
                         }
                     ),*

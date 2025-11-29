@@ -103,6 +103,8 @@ mod tests {
                 charset: None,
                 collate: None,
                 email: false,
+                min: None,
+                max: None,
             },
             42,
         );
@@ -126,6 +128,8 @@ mod tests {
                 charset: None,
                 collate: None,
                 email: false,
+                min: None,
+                max: None,
             },
             "testuser".to_string(),
         );
@@ -149,6 +153,8 @@ mod tests {
                 charset: None,
                 collate: None,
                 email: false,
+                min: None,
+                max: None,
             },
             "test@example.com".to_string(),
         );
@@ -172,6 +178,8 @@ mod tests {
                 charset: None,
                 collate: None,
                 email: false,
+                min: None,
+                max: None,
             },
             25,
         );
@@ -195,6 +203,8 @@ mod tests {
                 charset: None,
                 collate: None,
                 email: false,
+                min: None,
+                max: None,
             },
             true,
         );

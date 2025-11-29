@@ -83,6 +83,13 @@ pub struct Column<T> {
     generated: Option<GeneratedColumn>,
     /// Whether this column's data should be an email
     email: bool,
+
+    /// Minimum length of the column
+    min: Option<i32>,
+
+    /// Maximum length of the column
+    max: Option<i32>,
+
     /// Phantom data to maintain type information
     _phantom: PhantomData<T>,
 }
@@ -182,6 +189,8 @@ impl<T> Column<T> {
             check: None,
             generated: None,
             email: false,
+            max: None,
+            min: None,
             _phantom: PhantomData,
         }
     }
@@ -226,6 +235,16 @@ impl<T> Column<T> {
 
     pub fn email(mut self) -> Self {
         self.email = true;
+        self
+    }
+
+    pub fn min_len(mut self, min: i32) -> Self {
+        self.min = Some(min);
+        self
+    }
+
+    pub fn max_len(mut self, max: i32) -> Self {
+        self.max = Some(max);
         self
     }
 
@@ -495,8 +514,19 @@ impl<T> Column<T> {
         self.generated
     }
 
+    /// Returns bool if the column is an email
     pub fn is_email(&self) -> bool {
         self.email
+    }
+
+    /// Returns the minimum length of the column
+    pub fn min(&self) -> Option<i32> {
+        self.min
+    }
+
+    /// Returns the maximum length of the column
+    pub fn max(&self) -> Option<i32> {
+        self.max
     }
 }
 

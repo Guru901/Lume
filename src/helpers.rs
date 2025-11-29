@@ -221,8 +221,18 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
     if let Some(Value::String(s)) = value {
         if column.email {
             return is_valid_email(s);
-        } else {
-            return true;
+        }
+
+        if let Some(min) = column.min {
+            if s.len() < min as usize {
+                return false;
+            }
+        }
+
+        if let Some(max) = column.max {
+            if s.len() > max as usize {
+                return false;
+            }
         }
     }
     true
