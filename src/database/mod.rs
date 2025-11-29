@@ -299,8 +299,21 @@ impl Database {
     /// ```
 
     pub async fn sql<T: Schema + Debug>(&self, sql: &str) -> Result<Vec<Row<T>>, DatabaseError> {
-        let mut conn = self.connection.acquire().await?;
-        let rows = conn.fetch_all(sql).await?;
+        let conn = self.connection.acquire().await;
+
+        if let Err(e) = conn {
+            return Err(DatabaseError::ConnectionError(e));
+        }
+
+        let mut conn = conn.unwrap();
+
+        let rows = conn.fetch_all(sql).await;
+
+        if let Err(e) = rows {
+            return Err(DatabaseError::QueryError(e.to_string()));
+        }
+
+        let rows = rows.unwrap();
 
         #[cfg(feature = "mysql")]
         let rows = Row::from_mysql_row(rows, None);
@@ -354,7 +367,7 @@ impl Database {
             sqlx::query(stmt)
                 .execute(&*self.connection)
                 .await
-                .map_err(|e| DatabaseError::from(e))?;
+                .map_err(|e| DatabaseError::ExecutionError(e.to_string()))?;
         }
         Ok(())
     }
@@ -508,7 +521,7 @@ impl Database {
         #[cfg(feature = "mysql")]
         let conn = MySqlPool::connect(url)
             .await
-            .map_err(|e| DatabaseError::from(e))?;
+            .map_err(|e| DatabaseError::ConnectionError(e))?;
 
         #[cfg(feature = "postgres")]
         let conn = PgPool::connect(url)

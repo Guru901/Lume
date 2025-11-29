@@ -15,22 +15,20 @@
 /// }
 /// ```
 #[derive(Debug)]
-pub struct DatabaseError(sqlx::Error);
-
-impl std::error::Error for DatabaseError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.0)
-    }
+pub enum DatabaseError {
+    InvalidValue(String),
+    ConnectionError(sqlx::Error),
+    QueryError(String),
+    ExecutionError(String),
 }
 
-impl std::fmt::Display for DatabaseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Database error: {}", self.0)
-    }
-}
-
-impl From<sqlx::Error> for DatabaseError {
-    fn from(err: sqlx::Error) -> Self {
-        DatabaseError(err)
+impl DatabaseError {
+    pub fn reason(&self) -> String {
+        match self {
+            DatabaseError::InvalidValue(reason) => reason.clone(),
+            DatabaseError::ConnectionError(e) => e.to_string(),
+            DatabaseError::QueryError(e) => e.clone(),
+            DatabaseError::ExecutionError(e) => e.clone(),
+        }
     }
 }
