@@ -180,6 +180,8 @@ pub struct ColumnInfo {
     pub nullable: bool,
     /// Whether the data should be an email
     pub email: bool,
+    /// Whether the column is a link
+    pub link: bool,
     /// Minimum length of the column
     pub min_len: Option<i32>,
     /// Maximum length of the column
@@ -402,6 +404,7 @@ macro_rules! define_schema {
                                     max: col.max,
                                     min_len: col.min_len,
                                     max_len: col.max_len,
+                                    link: col.is_link(),
                                 }
                             }
                         ),*
@@ -544,6 +547,7 @@ macro_rules! define_schema {
                                 max: col.max,
                                 min_len: col.min_len,
                                 max_len: col.max_len,
+                                link: col.is_link(),
                             }
                         }
                     ),*

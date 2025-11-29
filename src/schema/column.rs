@@ -83,6 +83,8 @@ pub struct Column<T> {
     generated: Option<GeneratedColumn>,
     /// Whether this column's data should be an email
     email: bool,
+    /// Whether this column is a link
+    link: bool,
     /// Minimum length of the column
     pub min_len: Option<i32>,
     /// Maximum length of the column
@@ -196,6 +198,7 @@ impl<T> Column<T> {
             min: None,
             max: None,
             _phantom: PhantomData,
+            link: false,
         }
     }
 
@@ -239,6 +242,11 @@ impl<T> Column<T> {
 
     pub fn email(mut self) -> Self {
         self.email = true;
+        self
+    }
+
+    pub fn link(mut self) -> Self {
+        self.link = true;
         self
     }
 
@@ -531,6 +539,10 @@ impl<T> Column<T> {
     /// Returns bool if the column is an email
     pub fn is_email(&self) -> bool {
         self.email
+    }
+
+    pub fn is_link(&self) -> bool {
+        self.link
     }
 }
 

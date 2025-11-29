@@ -107,6 +107,7 @@ mod tests {
                 max_len: None,
                 min: None,
                 max: None,
+                link: false,
             },
             42,
         );
@@ -134,6 +135,7 @@ mod tests {
                 max_len: None,
                 min: None,
                 max: None,
+                link: false,
             },
             "testuser".to_string(),
         );
@@ -161,6 +163,7 @@ mod tests {
                 max_len: None,
                 min: None,
                 max: None,
+                link: false,
             },
             "test@example.com".to_string(),
         );
@@ -188,6 +191,7 @@ mod tests {
                 max_len: None,
                 min: None,
                 max: None,
+                link: false,
             },
             25,
         );
@@ -215,6 +219,7 @@ mod tests {
                 max_len: None,
                 min: None,
                 max: None,
+                link: false,
             },
             true,
         );

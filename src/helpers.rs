@@ -221,9 +221,14 @@ pub(crate) fn bind_column_value<'q>(
 pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) -> bool {
     match value {
         Some(Value::String(s)) => {
-            if column.email && !is_valid_email(s) {
+            if column.email && !EMAIL_REGEX.is_match(s) {
                 return false;
             }
+
+            if column.link && !LINK_REGEX.is_match(s) {
+                return false;
+            }
+
             if let Some(min) = column.min_len {
                 if s.len() < min as usize {
                     return false;
@@ -234,6 +239,7 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
                     return false;
                 }
             }
+
             true
         }
         Some(Value::Int32(i)) => {
@@ -322,9 +328,8 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
 static EMAIL_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$").unwrap());
 
-fn is_valid_email(email: &str) -> bool {
-    EMAIL_REGEX.is_match(email)
-}
+static LINK_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^https?:\/\/[^\s/$.?#].[^\s]*$").unwrap());
 
 /// Binds a generic [`Value`] into the provided SQLx query, handling backend differences.
 pub(crate) fn bind_value<'q>(query: SqlBindQuery<'q>, value: Value) -> SqlBindQuery<'q> {
