@@ -3,6 +3,7 @@ use crate::{
     schema::{ColumnInfo, Value},
 };
 
+use regex::Regex;
 #[cfg(feature = "mysql")]
 use sqlx::{MySql, mysql::MySqlArguments};
 #[cfg(feature = "postgres")]
@@ -56,7 +57,7 @@ pub(crate) fn returning_sql(mut sql: String, returning: &Vec<&'static str>) -> S
 }
 
 #[cfg(feature = "mysql")]
-pub(crate) fn returning_sql(mut sql: String, returning: &Vec<&'static str>) -> String {
+pub(crate) fn returning_sql(sql: String, returning: &Vec<&'static str>) -> String {
     if returning.is_empty() {
         return sql;
     }
@@ -216,6 +217,22 @@ pub(crate) fn bind_column_value<'q>(
     }
 }
 
+pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) -> bool {
+    if let Some(Value::String(s)) = value {
+        if column.email {
+            return is_valid_email(s);
+        } else {
+            return true;
+        }
+    }
+    true
+}
+
+fn is_valid_email(email: &str) -> bool {
+    let re = Regex::new(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$").unwrap();
+    re.is_match(email)
+}
+
 /// Binds a generic [`Value`] into the provided SQLx query, handling backend differences.
 pub(crate) fn bind_value<'q>(query: SqlBindQuery<'q>, value: Value) -> SqlBindQuery<'q> {
     match value {
@@ -288,9 +305,9 @@ fn bind_null<'q>(query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQue
 #[cfg(feature = "postgres")]
 fn bind_null<'q>(query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQuery<'q> {
     match kind {
-        ColumnBindingKind::Varchar
-        | ColumnBindingKind::Text
-        | ColumnBindingKind::Unknown => query.bind(None::<&str>),
+        ColumnBindingKind::Varchar | ColumnBindingKind::Text | ColumnBindingKind::Unknown => {
+            query.bind(None::<&str>)
+        }
         ColumnBindingKind::TinyInt | ColumnBindingKind::TinyIntUnsigned => query.bind(None::<i16>),
         ColumnBindingKind::SmallInt => query.bind(None::<i16>),
         ColumnBindingKind::SmallIntUnsigned => query.bind(None::<i32>),
