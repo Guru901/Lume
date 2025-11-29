@@ -57,3 +57,18 @@ impl DatabaseError {
         }
     }
 }
+
+impl std::fmt::Display for DatabaseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.reason())
+    }
+}
+
+impl std::error::Error for DatabaseError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            DatabaseError::ConnectionError(e) => Some(e),
+            _ => None,
+        }
+    }
+}
