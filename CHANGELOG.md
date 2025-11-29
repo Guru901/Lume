@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.10.0] - 2025-11-29
+
+- Added validators like
+  .email() - Mark column as email field
+  .link() - Mark column as URL/link field
+  .min_len(i32) - Set minimum length constraint
+  .max_len(i32) - Set maximum length constraint
+  .min(usize) - Set minimum numeric value
+  .max(usize) - Set maximum numeric value
+
 ## [0.9.1] - 2025-11-28
 
 - Internal refactor: improved code maintenance and readability
