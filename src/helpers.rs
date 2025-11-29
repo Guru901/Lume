@@ -219,24 +219,104 @@ pub(crate) fn bind_column_value<'q>(
 }
 
 pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) -> bool {
-    if let Some(Value::String(s)) = value {
-        if column.email {
-            return is_valid_email(s);
-        }
-
-        if let Some(min) = column.min {
-            if s.len() < min as usize {
+    match value {
+        Some(Value::String(s)) => {
+            if column.email && !is_valid_email(s) {
                 return false;
             }
-        }
-
-        if let Some(max) = column.max {
-            if s.len() > max as usize {
-                return false;
+            if let Some(min) = column.min_len {
+                if s.len() < min as usize {
+                    return false;
+                }
             }
+            if let Some(max) = column.max_len {
+                if s.len() > max as usize {
+                    return false;
+                }
+            }
+            true
         }
+        Some(Value::Int32(i)) => {
+            if let Some(min) = column.min {
+                if (*i as isize) < (min as isize) {
+                    return false;
+                }
+            }
+            if let Some(max) = column.max {
+                if (*i as isize) > (max as isize) {
+                    return false;
+                }
+            }
+            true
+        }
+        Some(Value::Int64(i)) => {
+            if let Some(min) = column.min {
+                if (*i as isize) < (min as isize) {
+                    return false;
+                }
+            }
+            if let Some(max) = column.max {
+                if (*i as isize) > (max as isize) {
+                    return false;
+                }
+            }
+            true
+        }
+        Some(Value::UInt32(u)) => {
+            if let Some(min) = column.min {
+                if *u < min as u32 {
+                    return false;
+                }
+            }
+            if let Some(max) = column.max {
+                if *u > max as u32 {
+                    return false;
+                }
+            }
+            true
+        }
+        Some(Value::UInt64(u)) => {
+            if let Some(min) = column.min {
+                if *u < min as u64 {
+                    return false;
+                }
+            }
+            if let Some(max) = column.max {
+                if *u > max as u64 {
+                    return false;
+                }
+            }
+            true
+        }
+        Some(Value::Float32(f)) => {
+            let f = *f as f64;
+            if let Some(min) = column.min {
+                if f < min as f64 {
+                    return false;
+                }
+            }
+            if let Some(max) = column.max {
+                if f > max as f64 {
+                    return false;
+                }
+            }
+            true
+        }
+        Some(Value::Float64(f)) => {
+            if let Some(min) = column.min {
+                if *f < min as f64 {
+                    return false;
+                }
+            }
+            if let Some(max) = column.max {
+                if *f > max as f64 {
+                    return false;
+                }
+            }
+            true
+        }
+        _ => true,
     }
-    true
 }
 
 static EMAIL_REGEX: LazyLock<Regex> =
