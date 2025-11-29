@@ -245,7 +245,11 @@ impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
         let mut params: Vec<Value> = Vec::new();
         let sql = Self::filter_sql(sql, self.filters, &mut params);
 
-        let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
+        let mut conn = self
+            .conn
+            .acquire()
+            .await
+            .map_err(DatabaseError::ConnectionError)?;
         let mut query = sqlx::query(&sql);
         for v in params {
             query = bind_value(query, v);
@@ -254,7 +258,7 @@ impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
         query
             .execute(conn.as_mut())
             .await
-            .map_err(DatabaseError::from)?;
+            .map_err(|e| DatabaseError::ExecutionError(e.to_string()))?;
 
         Ok(())
     }

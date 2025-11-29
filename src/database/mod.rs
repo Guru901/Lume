@@ -48,6 +48,7 @@ use sqlx::MySqlPool;
 /// use lume::define_schema;
 /// use lume::schema::Schema;
 /// use lume::schema::ColumnInfo;
+/// use lume::database::error::DatabaseError;
 ///
 /// define_schema! {
 ///     User {
@@ -57,7 +58,7 @@ use sqlx::MySqlPool;
 /// }
 ///
 /// #[tokio::main]
-/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// async fn main() -> Result<(), DatabaseError> {
 ///     // Connect to database
 ///     let db = Database::connect("mysql://user:password@localhost/database").await?;
 ///     
@@ -299,8 +300,21 @@ impl Database {
     /// ```
 
     pub async fn sql<T: Schema + Debug>(&self, sql: &str) -> Result<Vec<Row<T>>, DatabaseError> {
-        let mut conn = self.connection.acquire().await?;
-        let rows = conn.fetch_all(sql).await?;
+        let conn = self.connection.acquire().await;
+
+        if let Err(e) = conn {
+            return Err(DatabaseError::ConnectionError(e));
+        }
+
+        let mut conn = conn.unwrap();
+
+        let rows = conn.fetch_all(sql).await;
+
+        if let Err(e) = rows {
+            return Err(DatabaseError::QueryError(e.to_string()));
+        }
+
+        let rows = rows.unwrap();
 
         #[cfg(feature = "mysql")]
         let rows = Row::from_mysql_row(rows, None);
@@ -332,6 +346,7 @@ impl Database {
     /// use lume::define_schema;
     /// use lume::schema::Schema;
     /// use lume::schema::ColumnInfo;
+    /// use lume::database::error::DatabaseError;
     ///
     /// define_schema! {
     ///     User {
@@ -341,7 +356,7 @@ impl Database {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// async fn main() -> Result<(), DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     db.register_table::<User>().await?;
     ///     Ok(())
@@ -354,7 +369,7 @@ impl Database {
             sqlx::query(stmt)
                 .execute(&*self.connection)
                 .await
-                .map_err(|e| DatabaseError::from(e))?;
+                .map_err(|e| DatabaseError::ExecutionError(e.to_string()))?;
         }
         Ok(())
     }
@@ -508,12 +523,12 @@ impl Database {
         #[cfg(feature = "mysql")]
         let conn = MySqlPool::connect(url)
             .await
-            .map_err(|e| DatabaseError::from(e))?;
+            .map_err(|e| DatabaseError::ConnectionError(e))?;
 
         #[cfg(feature = "postgres")]
         let conn = PgPool::connect(url)
             .await
-            .map_err(|e| DatabaseError::from(e))?;
+            .map_err(|e| DatabaseError::ConnectionError(e))?;
         Ok(Database {
             connection: Arc::new(conn),
         })

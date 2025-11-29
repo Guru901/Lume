@@ -81,6 +81,8 @@ pub struct Column<T> {
     check: Option<&'static str>,
     /// Optional generated column definition (VIRTUAL or STORED)
     generated: Option<GeneratedColumn>,
+    /// Whether this column's data should be an email
+    email: bool,
     /// Phantom data to maintain type information
     _phantom: PhantomData<T>,
 }
@@ -179,6 +181,7 @@ impl<T> Column<T> {
             invisible: false,
             check: None,
             generated: None,
+            email: false,
             _phantom: PhantomData,
         }
     }
@@ -218,6 +221,11 @@ impl<T> Column<T> {
     /// ```
     pub fn not_null(mut self) -> Self {
         self.nullable = false;
+        self
+    }
+
+    pub fn email(mut self) -> Self {
+        self.email = true;
         self
     }
 
@@ -485,6 +493,10 @@ impl<T> Column<T> {
     /// Returns the generated column definition if set.
     pub fn get_generated(&self) -> Option<GeneratedColumn> {
         self.generated
+    }
+
+    pub fn is_email(&self) -> bool {
+        self.email
     }
 }
 

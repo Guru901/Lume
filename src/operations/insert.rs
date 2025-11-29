@@ -7,7 +7,9 @@
 //! returning of inserted rows and handles value binding for various SQL types.
 
 use crate::database::error::DatabaseError;
-use crate::helpers::{StartingSql, bind_column_value, get_starting_sql, quote_identifier};
+use crate::helpers::{
+    StartingSql, bind_column_value, get_starting_sql, quote_identifier, validate_column_value,
+};
 use crate::row::Row;
 use crate::schema::{ColumnInfo, Schema, Select, Value};
 
@@ -166,7 +168,13 @@ impl<T: Schema + Debug> Insert<T> {
     /// # }
     /// ```
     pub async fn execute(self) -> Result<Option<Vec<Row<T>>>, DatabaseError> {
-        let mut conn = self.conn.acquire().await?;
+        let conn = self.conn.acquire().await;
+
+        if let Err(e) = conn {
+            return Err(DatabaseError::ConnectionError(e));
+        }
+
+        let mut conn = conn.unwrap();
 
         let values = self.data.values();
         let all_columns = T::get_all_columns();
@@ -180,7 +188,15 @@ impl<T: Schema + Debug> Insert<T> {
 
         for col in selected.iter() {
             let value = values.get(col.name);
-            query = bind_column_value(query, col, value);
+            if validate_column_value(col, value) {
+                query = bind_column_value(query, col, value);
+            } else {
+                eprintln!("Warning: Column {} is not valid for insert", col.name);
+                return Err(DatabaseError::InvalidValue(format!(
+                    "Column {} is not valid for insert",
+                    col.name
+                )));
+            }
         }
 
         // For PostgreSQL with RETURNING, we need to add RETURNING clause to the INSERT
@@ -198,12 +214,22 @@ impl<T: Schema + Debug> Insert<T> {
                 query = bind_column_value(query, col, value);
             }
 
-            let rows = query.fetch_all(&mut *conn).await?;
+            let rows = query.fetch_all(&mut *conn).await;
+            if let Err(e) = rows {
+                return Err(DatabaseError::QueryError(e.to_string()));
+            }
+            let rows = rows.unwrap();
             let rows = Row::<T>::from_postgres_row(rows, None);
             return Ok(Some(rows));
         }
 
-        let _result = query.execute(&mut *conn).await?;
+        let _result = query.execute(&mut *conn).await;
+
+        if let Err(e) = _result {
+            return Err(DatabaseError::ExecutionError(e.to_string()));
+        }
+
+        let _result = _result.unwrap();
 
         if self.returning.is_empty() {
             return Ok(None);
@@ -218,13 +244,26 @@ impl<T: Schema + Debug> Insert<T> {
             let mut select_sql = returning_sql(select_sql, &self.returning);
             select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
 
-            let mut conn = self.conn.acquire().await?;
+            let conn = self.conn.acquire().await;
+
+            if let Err(e) = conn {
+                return Err(DatabaseError::ConnectionError(e));
+            }
+
+            let mut conn = conn.unwrap();
 
             let mut query = sqlx::query(&select_sql);
 
             query = query.bind(_result.last_insert_id());
 
-            let rows = query.fetch_all(&mut *conn).await?;
+            let rows = query.fetch_all(&mut *conn).await;
+
+            if let Err(e) = rows {
+                return Err(DatabaseError::QueryError(e.to_string()));
+            }
+
+            let rows = rows.unwrap();
+
             let rows = Row::<T>::from_mysql_row(rows, None);
             Ok(Some(rows))
         }
@@ -333,7 +372,14 @@ impl<T: Schema + Debug> InsertMany<T> {
 
     /// Executes the insert operation for all records asynchronously.
     pub async fn execute(self) -> Result<Option<Vec<Row<T>>>, DatabaseError> {
-        let mut conn = self.conn.acquire().await?;
+        let conn = self.conn.acquire().await;
+
+        if let Err(e) = conn {
+            return Err(DatabaseError::ConnectionError(e));
+        }
+
+        let mut conn = conn.unwrap();
+
         let mut final_rows = Vec::new();
         let mut inserted_ids: Vec<u64> = Vec::new();
 
@@ -353,7 +399,13 @@ impl<T: Schema + Debug> InsertMany<T> {
 
             #[cfg(feature = "mysql")]
             {
-                let result = query.execute(&mut *conn).await?;
+                let result = query.execute(&mut *conn).await;
+
+                if let Err(e) = result {
+                    return Err(DatabaseError::ExecutionError(e.to_string()));
+                }
+
+                let result = result.unwrap();
 
                 // Capture id: prefer provided id, else last_insert_id
                 if let Some(id_val) = values.get("id") {
@@ -395,12 +447,19 @@ impl<T: Schema + Debug> InsertMany<T> {
                         query = bind_column_value(query, col, value);
                     }
 
-                    let rows = query.fetch_all(&mut *conn).await?;
+                    let rows = query.fetch_all(&mut *conn).await;
+                    if let Err(e) = rows {
+                        return Err(DatabaseError::QueryError(e.to_string()));
+                    }
+                    let rows = rows.unwrap();
                     let rows = Row::<T>::from_postgres_row(rows, None);
                     final_rows.extend(rows);
                 } else {
                     // Execute without returning
-                    query.execute(&mut *conn).await?;
+                    match query.execute(&mut *conn).await {
+                        Ok(_) => {}
+                        Err(e) => return Err(DatabaseError::ExecutionError(e.to_string())),
+                    }
 
                     // Capture id: prefer provided id
                     if let Some(id_val) = values.get("id") {
@@ -434,7 +493,13 @@ impl<T: Schema + Debug> InsertMany<T> {
 
             for id in inserted_ids {
                 let q = sqlx::query(&select_sql).bind(id);
-                let rows = q.fetch_all(&mut *conn).await?;
+                let rows = q.fetch_all(&mut *conn).await;
+
+                if let Err(e) = rows {
+                    return Err(DatabaseError::QueryError(e.to_string()));
+                }
+
+                let rows = rows.unwrap();
 
                 let rows = Row::<T>::from_mysql_row(rows, None);
                 final_rows.extend(rows);
@@ -458,7 +523,11 @@ impl<T: Schema + Debug> InsertMany<T> {
 
                 for id in inserted_ids {
                     let q = sqlx::query(&select_sql).bind(id as i64);
-                    let rows = q.fetch_all(&mut *conn).await?;
+                    let rows = q.fetch_all(&mut *conn).await;
+                    if let Err(e) = rows {
+                        return Err(DatabaseError::QueryError(e.to_string()));
+                    }
+                    let rows = rows.unwrap();
 
                     let rows = Row::<T>::from_postgres_row(rows, None);
                     final_rows.extend(rows);

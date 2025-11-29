@@ -22,11 +22,11 @@ mod tests {
         let db = Database::connect("mysql://root:121212@localhost/noice").await;
 
         match db {
-            Ok(db) => {
+            Ok(_db) => {
                 println!("Connected to database");
             }
             Err(e) => {
-                panic!("Failed to connect to database: {}", e);
+                panic!("Failed to connect to database: {}", e.reason());
             }
         }
     }

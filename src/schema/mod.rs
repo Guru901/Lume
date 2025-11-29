@@ -178,6 +178,8 @@ pub struct ColumnInfo {
     pub data_type: &'static str,
     /// Whether the column allows NULL values
     pub nullable: bool,
+    /// Whether the data should be an email
+    pub email: bool,
     /// Whether the column has a UNIQUE constraint
     pub unique: bool,
     /// Whether the column is a primary key
@@ -387,6 +389,7 @@ macro_rules! define_schema {
                                     invisible: col.is_invisible(),
                                     check: col.get_check(),
                                     generated: col.get_generated(),
+                                    email: col.is_email(),
                                 }
                             }
                         ),*
@@ -524,6 +527,7 @@ macro_rules! define_schema {
                                 invisible: col.is_invisible(),
                                 check: col.get_check(),
                                 generated: col.get_generated(),
+                                email: col.is_email(),
                             }
                         }
                     ),*

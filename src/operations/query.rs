@@ -712,7 +712,11 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             sql.push_str(&format!(" OFFSET {}", offset));
         }
 
-        let mut conn = self.conn.acquire().await.map_err(DatabaseError::from)?;
+        let mut conn = self
+            .conn
+            .acquire()
+            .await
+            .map_err(DatabaseError::ConnectionError)?;
         let mut query = sqlx::query(&sql);
         for v in params {
             query = bind_value(query, v);
@@ -721,7 +725,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         let data = query
             .fetch_all(&mut *conn)
             .await
-            .map_err(DatabaseError::from)?;
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
 
         #[cfg(feature = "mysql")]
         let rows = Row::from_mysql_row(data, Some(&self.joins));
