@@ -246,9 +246,6 @@ pub(crate) fn bind_value<'q>(query: SqlBindQuery<'q>, value: Value) -> SqlBindQu
         Value::UInt8(u) => query.bind(u),
 
         #[cfg(feature = "postgres")]
-        Value::UInt8(u) => query.bind(u as i16),
-
-        #[cfg(feature = "postgres")]
         Value::UInt16(u) => query.bind(u as i32),
         #[cfg(feature = "postgres")]
         Value::UInt32(u) => query.bind(u as i64),

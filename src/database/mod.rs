@@ -48,6 +48,7 @@ use sqlx::MySqlPool;
 /// use lume::define_schema;
 /// use lume::schema::Schema;
 /// use lume::schema::ColumnInfo;
+/// use lume::database::error::DatabaseError;
 ///
 /// define_schema! {
 ///     User {
@@ -57,7 +58,7 @@ use sqlx::MySqlPool;
 /// }
 ///
 /// #[tokio::main]
-/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// async fn main() -> Result<(), DatabaseError> {
 ///     // Connect to database
 ///     let db = Database::connect("mysql://user:password@localhost/database").await?;
 ///     
@@ -345,6 +346,7 @@ impl Database {
     /// use lume::define_schema;
     /// use lume::schema::Schema;
     /// use lume::schema::ColumnInfo;
+    /// use lume::database::error::DatabaseError;
     ///
     /// define_schema! {
     ///     User {
@@ -354,7 +356,7 @@ impl Database {
     /// }
     ///
     /// #[tokio::main]
-    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// async fn main() -> Result<(), DatabaseError> {
     ///     let db = Database::connect("mysql://...").await?;
     ///     db.register_table::<User>().await?;
     ///     Ok(())
@@ -526,7 +528,7 @@ impl Database {
         #[cfg(feature = "postgres")]
         let conn = PgPool::connect(url)
             .await
-            .map_err(|e| DatabaseError::from(e))?;
+            .map_err(|e| DatabaseError::ConnectionError(e))?;
         Ok(Database {
             connection: Arc::new(conn),
         })

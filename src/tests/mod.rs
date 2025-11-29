@@ -565,7 +565,10 @@ mod build_filter_expr_tests {
         };
         let mut params = vec![];
         let sql = build_filter_expr(&filter, &mut params);
+        #[cfg(feature = "mysql")]
         assert_eq!(sql, "t.a IN (?, ?)");
+        #[cfg(feature = "postgres")]
+        assert_eq!(sql, "t.a IN ($1, $2)");
         assert_eq!(params, vec![Value::Int32(1), Value::Int32(2)]);
 
         // Empty IN array
@@ -588,7 +591,10 @@ mod build_filter_expr_tests {
         };
         let mut params = vec![];
         let sql = build_filter_expr(&filter, &mut params);
+        #[cfg(feature = "mysql")]
         assert_eq!(sql, "t.a NOT IN (?)");
+        #[cfg(feature = "postgres")]
+        assert_eq!(sql, "t.a NOT IN ($1)");
         assert_eq!(params, vec![Value::Int32(3)]);
 
         // Empty NOT IN array

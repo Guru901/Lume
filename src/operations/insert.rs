@@ -214,7 +214,11 @@ impl<T: Schema + Debug> Insert<T> {
                 query = bind_column_value(query, col, value);
             }
 
-            let rows = query.fetch_all(&mut *conn).await?;
+            let rows = query.fetch_all(&mut *conn).await;
+            if let Err(e) = rows {
+                return Err(DatabaseError::QueryError(e.to_string()));
+            }
+            let rows = rows.unwrap();
             let rows = Row::<T>::from_postgres_row(rows, None);
             return Ok(Some(rows));
         }
@@ -443,12 +447,19 @@ impl<T: Schema + Debug> InsertMany<T> {
                         query = bind_column_value(query, col, value);
                     }
 
-                    let rows = query.fetch_all(&mut *conn).await?;
+                    let rows = query.fetch_all(&mut *conn).await;
+                    if let Err(e) = rows {
+                        return Err(DatabaseError::QueryError(e.to_string()));
+                    }
+                    let rows = rows.unwrap();
                     let rows = Row::<T>::from_postgres_row(rows, None);
                     final_rows.extend(rows);
                 } else {
                     // Execute without returning
-                    query.execute(&mut *conn).await?;
+                    match query.execute(&mut *conn).await {
+                        Ok(_) => {}
+                        Err(e) => return Err(DatabaseError::ExecutionError(e.to_string())),
+                    }
 
                     // Capture id: prefer provided id
                     if let Some(id_val) = values.get("id") {
@@ -512,7 +523,11 @@ impl<T: Schema + Debug> InsertMany<T> {
 
                 for id in inserted_ids {
                     let q = sqlx::query(&select_sql).bind(id as i64);
-                    let rows = q.fetch_all(&mut *conn).await?;
+                    let rows = q.fetch_all(&mut *conn).await;
+                    if let Err(e) = rows {
+                        return Err(DatabaseError::QueryError(e.to_string()));
+                    }
+                    let rows = rows.unwrap();
 
                     let rows = Row::<T>::from_postgres_row(rows, None);
                     final_rows.extend(rows);
