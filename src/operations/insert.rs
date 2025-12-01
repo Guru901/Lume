@@ -304,13 +304,14 @@ impl<T: Schema + Debug> Insert<T> {
 
             let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
             let mut select_sql = returning_sql(select_sql, &self.returning);
-            // Use rowid (or id) for returning just inserted row
-            // Best-effort generic: try id, otherwise rowid
-            let id_col = if values.contains_key("id") {
-                "id"
-            } else {
-                "rowid"
+
+            // Look for an "id" column in the table schema, not just the values
+            let has_id_column = {
+                let columns = T::get_all_columns();
+                columns.iter().any(|col| col.name == "id")
             };
+
+            let id_col = if has_id_column { "id" } else { "rowid" };
             select_sql.push_str(&format!(
                 " FROM {} WHERE {} = last_insert_rowid();",
                 T::table_name(),
