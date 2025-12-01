@@ -528,7 +528,7 @@ impl<S: Schema + Debug> Row<S> {
     }
 
     #[cfg(feature = "sqlite")]
-    /// Extracts a column value from a POSTGRES row based on column name and data type
+    /// Extracts a column value from a SQLite row based on column name and data type
     fn extract_column_value(row: &SqliteRow, column_name: &str, data_type: &str) -> Option<Value> {
         use sqlx::Row as _;
         match data_type {
