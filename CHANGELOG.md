@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.11.0] - 2025-12-1
+
+- Added sqlite support
+
 ## [0.10.1] - 2025-12-1
 
 - Remove direct import of `HashMap` from the generated code of the `define_schema!` macro. Now, `HashMap` is accessed via `std::collections::HashMap` instead of being imported within the macro's generated code. This prevents user-import conflicts and clarifies its path.
