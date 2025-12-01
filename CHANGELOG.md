@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.11.1] - 2025-12-1
+
+- Forgot to add sqlite as a feature
+
 ## [0.11.0] - 2025-12-1
 
 - Added sqlite support

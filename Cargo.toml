@@ -1,6 +1,6 @@
 [package]
 name = "lume"
-version = "0.11.0"
+version = "0.11.1"
 edition = "2024"
 license = "MIT"
 authors = ["You guru911u@gmail.com"]
@@ -23,3 +23,4 @@ test_retry = "0.1.0"
 default = ["mysql"]
 mysql = ["sqlx/mysql", "sqlx/runtime-tokio"]
 postgres = ["sqlx/postgres", "sqlx/runtime-tokio"]
+sqlite = ["sqlx/sqlite", "sqlx/runtime-tokio"]
