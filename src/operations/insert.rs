@@ -611,9 +611,6 @@ impl<T: Schema + Debug> InsertMany<T> {
                     } else {
                         #[cfg(feature = "sqlite")]
                         {
-                            use sqlx::sqlite::SqliteConnection;
-                            // result.last_insert_rowid() available only from sqlx::SqliteQueryResult
-                            // but here result is sqlx::sqlite::SqliteQueryResult
                             if let Ok(s) = result {
                                 inserted_ids.push(s.last_insert_rowid() as u64);
                             }
@@ -623,7 +620,7 @@ impl<T: Schema + Debug> InsertMany<T> {
             }
         }
 
-        #[cfg(feature = "mysql")]
+        #[cfg(any(feature = "mysql", feature = "sqlite"))]
         {
             use crate::helpers::returning_sql;
 
@@ -637,7 +634,12 @@ impl<T: Schema + Debug> InsertMany<T> {
             select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
 
             for id in inserted_ids {
+                #[cfg(feature = "mysql")]
                 let q = sqlx::query(&select_sql).bind(id);
+
+                #[cfg(feature = "sqlite")]
+                let q = sqlx::query(&select_sql).bind(id as i64);
+
                 let rows = q.fetch_all(&mut *conn).await;
 
                 if let Err(e) = rows {
@@ -646,7 +648,12 @@ impl<T: Schema + Debug> InsertMany<T> {
 
                 let rows = rows.unwrap();
 
+                #[cfg(feature = "mysql")]
                 let rows = Row::<T>::from_mysql_row(rows, None);
+
+                #[cfg(feature = "sqlite")]
+                let rows = Row::<T>::from_sqlite_row(rows, None);
+
                 final_rows.extend(rows);
             }
 
@@ -679,51 +686,6 @@ impl<T: Schema + Debug> InsertMany<T> {
                 }
 
                 Ok(Some(final_rows))
-            } else {
-                Ok(None)
-            }
-        }
-
-        #[cfg(feature = "sqlite")]
-        {
-            use crate::helpers::returning_sql;
-
-            if !self.returning.is_empty() {
-                // The rows already are in final_rows from above
-                if final_rows.is_empty() {
-                    Ok(None)
-                } else {
-                    Ok(Some(final_rows))
-                }
-            } else if !inserted_ids.is_empty() {
-                let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
-                let mut select_sql = returning_sql(select_sql, &self.returning);
-
-                // Determine if the schema has an "id" column by inspecting ColumnInfo
-                let all_columns = T::get_all_columns();
-                let has_id_col = all_columns.iter().any(|col| col.name == "id");
-
-                let id_col = if has_id_col { "id" } else { "rowid" };
-
-                select_sql.push_str(&format!(" FROM {} WHERE {} = ?;", T::table_name(), id_col));
-
-                for id in inserted_ids {
-                    let q = sqlx::query(&select_sql).bind(id as i64);
-                    let rows = q.fetch_all(&mut *conn).await;
-                    if let Err(e) = rows {
-                        return Err(DatabaseError::QueryError(e.to_string()));
-                    }
-                    let rows = rows.unwrap();
-
-                    let rows = Row::<T>::from_sqlite_row(rows, None);
-                    final_rows.extend(rows);
-                }
-
-                if final_rows.is_empty() {
-                    Ok(None)
-                } else {
-                    Ok(Some(final_rows))
-                }
             } else {
                 Ok(None)
             }

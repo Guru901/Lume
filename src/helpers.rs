@@ -48,7 +48,11 @@ pub(crate) fn quote_identifier(identifier: &str) -> String {
     }
 }
 
-#[cfg(not(feature = "mysql"))]
+// This implementation is fine for SQLite. SQLite supports the `RETURNING` clause
+// at the end of INSERT/UPDATE/DELETE statements in recent versions (since 3.35.0, released in March 2021).
+// So appending " RETURNING ..." to the SQL as is done here is appropriate.
+
+#[cfg(any(feature = "sqlite", feature = "postgres"))]
 pub(crate) fn returning_sql(mut sql: String, returning: &Vec<&'static str>) -> String {
     if returning.is_empty() {
         return sql;
@@ -70,8 +74,6 @@ pub(crate) fn returning_sql(sql: String, returning: &Vec<&'static str>) -> Strin
     if returning.is_empty() {
         return sql;
     }
-    // MySQL does not support RETURNING clause in the same way as PostgreSQL.
-    // Return SQL unchanged or implement alternative strategy (e.g., SELECT LAST_INSERT_ID()).
     sql
 }
 
