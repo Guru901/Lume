@@ -295,7 +295,6 @@ macro_rules! define_schema {
     use $crate::table::register_table;
     use $crate::schema::type_to_sql_string;
     use $crate::schema::DefaultToSql;
-    use std::collections::HashMap;
     use $crate::schema::Value;
 
         $(
@@ -358,8 +357,8 @@ macro_rules! define_schema {
                     stringify!($struct_name)
                 }
 
-                fn values(&self) -> HashMap<String, Value> {
-                    let mut map = HashMap::new();
+                fn values(&self) -> std::collections::HashMap<String, Value> {
+                    let mut map = std::collections::HashMap::new();
                     $(
                         map.insert(
                             stringify!($name).to_string(),
@@ -501,8 +500,8 @@ macro_rules! define_schema {
                 stringify!($struct_name)
             }
 
-            fn values(&self) -> HashMap<String, Value> {
-                let mut map = HashMap::new();
+            fn values(&self) -> std::collections::HashMap<String, Value> {
+                let mut map = std::collections::HashMap::new();
                 $(
                     map.insert(
                         stringify!($name).to_string(),
