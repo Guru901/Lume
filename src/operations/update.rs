@@ -13,6 +13,9 @@ use sqlx::MySqlPool;
 #[cfg(feature = "postgres")]
 use sqlx::PgPool;
 
+#[cfg(feature = "sqlite")]
+use sqlx::SqlitePool;
+
 use crate::filter::Filtered;
 use crate::helpers::{StartingSql, bind_value, build_filter_expr, get_starting_sql};
 use crate::schema::{UpdateTrait, Value};
@@ -76,8 +79,13 @@ pub struct Update<T: Schema + Debug, U: UpdateTrait + Debug> {
     /// Database connection pool.
     #[cfg(feature = "mysql")]
     conn: Arc<MySqlPool>,
+
     #[cfg(feature = "postgres")]
     conn: Arc<PgPool>,
+
+    #[cfg(feature = "sqlite")]
+    conn: Arc<SqlitePool>,
+
     /// Vector of (column name, value) pairs to be updated.
     update_data: Vec<(&'static str, Value)>,
 }
@@ -96,6 +104,17 @@ impl<T: Schema + Debug, U: UpdateTrait + Debug> Update<T, U> {
 
     #[cfg(feature = "postgres")]
     pub(crate) fn new(conn: Arc<PgPool>) -> Self {
+        Self {
+            table: PhantomData,
+            update_table: PhantomData,
+            filters: Vec::new(),
+            update_data: Vec::new(),
+            conn,
+        }
+    }
+
+    #[cfg(feature = "sqlite")]
+    pub(crate) fn new(conn: Arc<SqlitePool>) -> Self {
         Self {
             table: PhantomData,
             update_table: PhantomData,

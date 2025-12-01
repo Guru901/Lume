@@ -7,8 +7,12 @@
 //! executing database operations.
 
 use sqlx::Executor;
+#[cfg(feature = "mysql")]
+use sqlx::MySqlPool;
 #[cfg(feature = "postgres")]
 use sqlx::PgPool;
+#[cfg(feature = "sqlite")]
+use sqlx::SqlitePool;
 use std::{fmt::Debug, sync::Arc};
 
 /// Error types for database operations.
@@ -26,8 +30,6 @@ use crate::{
     schema::{ColumnInfo, Schema, Select, UpdateTrait},
     table::get_all_tables,
 };
-#[cfg(feature = "mysql")]
-use sqlx::MySqlPool;
 
 /// A database connection manager that provides type-safe access to MySQL databases.
 ///
@@ -78,6 +80,9 @@ pub struct Database {
 
     #[cfg(feature = "postgres")]
     pub(crate) connection: Arc<PgPool>,
+
+    #[cfg(feature = "sqlite")]
+    pub(crate) connection: Arc<SqlitePool>,
 }
 
 impl Database {
@@ -322,6 +327,9 @@ impl Database {
         #[cfg(feature = "postgres")]
         let rows = Row::from_postgres_row(rows, None);
 
+        #[cfg(feature = "sqlite")]
+        let rows = Row::from_sqlite_row(rows, None);
+
         Ok(rows)
     }
 
@@ -529,6 +537,12 @@ impl Database {
         let conn = PgPool::connect(url)
             .await
             .map_err(|e| DatabaseError::ConnectionError(e))?;
+
+        #[cfg(feature = "sqlite")]
+        let conn = SqlitePool::connect(url)
+            .await
+            .map_err(|e| DatabaseError::ConnectionError(e))?;
+
         Ok(Database {
             connection: Arc::new(conn),
         })

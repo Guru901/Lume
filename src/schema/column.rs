@@ -613,7 +613,7 @@ pub enum Value {
     /// 64-bit signed integer value
     Int64(i64),
     /// 8-bit unsigned integer value
-    #[cfg(feature = "mysql")]
+    #[cfg(any(feature = "mysql", feature = "sqlite"))]
     UInt8(u8),
     /// 16-bit unsigned integer value
     UInt16(u16),
@@ -646,7 +646,7 @@ impl Display for Value {
             Value::Int16(i) => write!(f, "{}", i),
             Value::Int32(i) => write!(f, "{}", i),
             Value::Int64(i) => write!(f, "{}", i),
-            #[cfg(feature = "mysql")]
+            #[cfg(any(feature = "mysql", feature = "sqlite"))]
             Value::UInt8(u) => write!(f, "{}", u),
             Value::UInt16(u) => write!(f, "{}", u),
             Value::UInt32(u) => write!(f, "{}", u),
@@ -1041,7 +1041,7 @@ pub fn convert_to_value<T: Any>(value: &T) -> Value {
     } else if let Some(i) = <dyn Any>::downcast_ref::<i64>(value) {
         Value::Int64(*i)
     } else if let Some(u) = <dyn Any>::downcast_ref::<u8>(value) {
-        #[cfg(feature = "mysql")]
+        #[cfg(any(feature = "mysql", feature = "sqlite"))]
         return Value::UInt8(*u);
 
         #[cfg(feature = "postgres")]
@@ -1079,7 +1079,7 @@ pub fn convert_to_value<T: Any>(value: &T) -> Value {
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<i64>>(value) {
         opt.map(Value::Int64).unwrap_or(Value::Null)
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<u8>>(value) {
-        #[cfg(feature = "mysql")]
+        #[cfg(any(feature = "mysql", feature = "sqlite"))]
         return opt.map(Value::UInt8).unwrap_or(Value::Null);
 
         #[cfg(feature = "postgres")]

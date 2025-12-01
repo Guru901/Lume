@@ -5,10 +5,13 @@ use crate::{
 use std::sync::LazyLock;
 
 use regex::Regex;
+
 #[cfg(feature = "mysql")]
 use sqlx::{MySql, mysql::MySqlArguments};
 #[cfg(feature = "postgres")]
 use sqlx::{Postgres, postgres::PgArguments};
+#[cfg(feature = "sqlite")]
+use sqlx::{Sqlite, sqlite::SqliteArguments};
 
 #[derive(PartialEq, Debug)]
 pub(crate) enum StartingSql {
@@ -35,6 +38,11 @@ pub(crate) fn quote_identifier(identifier: &str) -> String {
     }
 
     #[cfg(all(not(feature = "mysql"), feature = "postgres"))]
+    {
+        return format!("\"{}\"", identifier.replace('"', "\"\""));
+    }
+
+    #[cfg(all(not(feature = "mysql"), not(feature = "postgres"), feature = "sqlite"))]
     {
         return format!("\"{}\"", identifier.replace('"', "\"\""));
     }
@@ -163,6 +171,9 @@ pub(crate) type SqlBindQuery<'q> = sqlx::query::Query<'q, MySql, MySqlArguments>
 
 #[cfg(feature = "postgres")]
 pub(crate) type SqlBindQuery<'q> = sqlx::query::Query<'q, Postgres, PgArguments>;
+
+#[cfg(feature = "sqlite")]
+pub(crate) type SqlBindQuery<'q> = sqlx::query::Query<'q, Sqlite, SqliteArguments<'q>>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum ColumnBindingKind {
@@ -340,7 +351,7 @@ pub(crate) fn bind_value<'q>(query: SqlBindQuery<'q>, value: Value) -> SqlBindQu
         Value::Int32(i) => query.bind(i),
         Value::Int64(i) => query.bind(i),
 
-        #[cfg(feature = "mysql")]
+        #[cfg(any(feature = "mysql", feature = "sqlite"))]
         Value::UInt8(u) => query.bind(u),
 
         #[cfg(feature = "postgres")]
@@ -356,12 +367,14 @@ pub(crate) fn bind_value<'q>(query: SqlBindQuery<'q>, value: Value) -> SqlBindQu
             query.bind(u as i64)
         }
 
-        #[cfg(feature = "mysql")]
+        #[cfg(any(feature = "mysql", feature = "sqlite"))]
         Value::UInt16(u) => query.bind(u),
-        #[cfg(feature = "mysql")]
+        #[cfg(any(feature = "mysql", feature = "sqlite"))]
         Value::UInt32(u) => query.bind(u),
         #[cfg(feature = "mysql")]
         Value::UInt64(u) => query.bind(u),
+        #[cfg(feature = "sqlite")]
+        Value::UInt64(u) => query.bind(u as i64),
         Value::Float32(f) => query.bind(f),
         Value::Float64(f) => query.bind(f),
         Value::Bool(b) => query.bind(b),
@@ -391,6 +404,24 @@ fn bind_null<'q>(query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQue
         ColumnBindingKind::SmallIntUnsigned => query.bind(None::<u16>),
         ColumnBindingKind::IntegerUnsigned => query.bind(None::<u32>),
         ColumnBindingKind::BigIntUnsigned => query.bind(None::<u64>),
+        ColumnBindingKind::Float => query.bind(None::<f32>),
+        ColumnBindingKind::Double => query.bind(None::<f64>),
+        ColumnBindingKind::Boolean => query.bind(None::<bool>),
+    }
+}
+
+#[cfg(feature = "sqlite")]
+fn bind_null<'q>(query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQuery<'q> {
+    match kind {
+        ColumnBindingKind::Varchar | ColumnBindingKind::Text | ColumnBindingKind::Unknown => {
+            query.bind(None::<&str>)
+        }
+        ColumnBindingKind::TinyInt | ColumnBindingKind::TinyIntUnsigned => query.bind(None::<i16>),
+        ColumnBindingKind::SmallInt => query.bind(None::<i16>),
+        ColumnBindingKind::SmallIntUnsigned => query.bind(None::<i32>),
+        ColumnBindingKind::Integer => query.bind(None::<i32>),
+        ColumnBindingKind::IntegerUnsigned => query.bind(None::<i64>),
+        ColumnBindingKind::BigInt | ColumnBindingKind::BigIntUnsigned => query.bind(None::<i64>),
         ColumnBindingKind::Float => query.bind(None::<f32>),
         ColumnBindingKind::Double => query.bind(None::<f64>),
         ColumnBindingKind::Boolean => query.bind(None::<bool>),
