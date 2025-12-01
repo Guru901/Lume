@@ -6,6 +6,9 @@ mod tests {
     #[cfg(feature = "postgres")]
     use sqlx::PgPool;
 
+    #[cfg(feature = "sqlite")]
+    use sqlx::SqlitePool;
+
     use crate::{
         define_schema,
         filter::{Filter, Filtered, eq_column, eq_value},
@@ -51,6 +54,10 @@ mod tests {
 
         #[cfg(feature = "postgres")]
         let pool = Arc::new(PgPool::connect_lazy("postgres://user:pass@localhost/db").unwrap());
+
+        #[cfg(feature = "sqlite")]
+        let pool = Arc::new(SqlitePool::connect_lazy("sqlite://:memory:").unwrap());
+
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
             .limit(10)
             .offset(5)
@@ -67,6 +74,9 @@ mod tests {
         #[cfg(feature = "mysql")]
         let pool = Arc::new(MySqlPool::connect_lazy("mysql://user:pass@localhost/db").unwrap());
 
+        #[cfg(feature = "sqlite")]
+        let pool = Arc::new(SqlitePool::connect_lazy("sqlite://:memory:").unwrap());
+
         #[cfg(feature = "postgres")]
         let pool = Arc::new(PgPool::connect_lazy("postgres://user:pass@localhost/db").unwrap());
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone()).filter(DummyFilter);
@@ -82,6 +92,10 @@ mod tests {
 
         #[cfg(feature = "postgres")]
         let pool = Arc::new(PgPool::connect_lazy("postgres://user:pass@localhost/db").unwrap());
+
+        #[cfg(feature = "sqlite")]
+        let pool = Arc::new(SqlitePool::connect_lazy("sqlite://:memory:").unwrap());
+
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
             .select_distinct(SelectDummySchema::selected().all());
 
@@ -97,6 +111,10 @@ mod tests {
 
         #[cfg(feature = "postgres")]
         let pool = Arc::new(PgPool::connect_lazy("postgres://user:pass@localhost/db").unwrap());
+
+        #[cfg(feature = "sqlite")]
+        let pool = Arc::new(SqlitePool::connect_lazy("sqlite://:memory:").unwrap());
+
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
             .left_join::<DummySchema, SelectDummySchema>(
                 Filter::default(),
@@ -126,6 +144,10 @@ mod tests {
 
         #[cfg(feature = "postgres")]
         let pool = Arc::new(PgPool::connect_lazy("postgres://user:pass@localhost/db").unwrap());
+
+        #[cfg(feature = "sqlite")]
+        let pool = Arc::new(SqlitePool::connect_lazy("sqlite://:memory:").unwrap());
+
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
             .select(SelectDummySchema::selected().all())
             .left_join::<DummySchema, SelectDummySchema>(
@@ -160,6 +182,10 @@ mod tests {
 
         #[cfg(feature = "postgres")]
         let pool = Arc::new(PgPool::connect_lazy("postgres://user:pass@localhost/db").unwrap());
+
+        #[cfg(feature = "sqlite")]
+        let pool = Arc::new(SqlitePool::connect_lazy("sqlite://:memory:").unwrap());
+
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
             .filter(eq_value(DummySchema::id(), 1));
 

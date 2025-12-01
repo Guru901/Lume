@@ -4,6 +4,8 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 use sqlx::MySqlPool;
 #[cfg(feature = "postgres")]
 use sqlx::PgPool;
+#[cfg(feature = "sqlite")]
+use sqlx::SqlitePool;
 
 use crate::{
     database::error::DatabaseError,
@@ -67,6 +69,9 @@ pub struct Delete<T> {
 
     #[cfg(feature = "postgres")]
     conn: Arc<PgPool>,
+
+    #[cfg(feature = "sqlite")]
+    conn: Arc<SqlitePool>,
 }
 
 impl<T: Schema + Debug> Delete<T> {
@@ -101,6 +106,24 @@ impl<T: Schema + Debug> Delete<T> {
     /// An [`Delete`] instance ready for execution.
     #[cfg(feature = "postgres")]
     pub fn new(conn: Arc<PgPool>) -> Self {
+        Self {
+            table: PhantomData,
+            conn,
+            filters: Vec::new(),
+        }
+    }
+
+    /// Creates a new [`Delete`] operation for the given data and connection.
+    ///
+    /// # Arguments
+    ///
+    /// * `conn` - The database connection pool.
+    ///
+    /// # Returns
+    ///
+    /// An [`Delete`] instance ready for execution.
+    #[cfg(feature = "sqlite")]
+    pub fn new(conn: Arc<SqlitePool>) -> Self {
         Self {
             table: PhantomData,
             conn,

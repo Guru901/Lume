@@ -12,6 +12,8 @@ use sqlx::MySqlPool;
 
 #[cfg(feature = "postgres")]
 use sqlx::PgPool;
+#[cfg(feature = "sqlite")]
+use sqlx::SqlitePool;
 
 use crate::filter::{Filter, Filtered};
 use crate::helpers::{StartingSql, bind_value, build_filter_expr, get_starting_sql};
@@ -76,6 +78,10 @@ pub struct Query<T, S> {
     #[cfg(feature = "postgres")]
     /// Database connection pool
     pub(crate) conn: Arc<PgPool>,
+
+    #[cfg(feature = "sqlite")]
+    /// Database connection pool
+    pub(crate) conn: Arc<SqlitePool>,
 
     pub(crate) select: Option<S>,
     pub(crate) distinct: bool,
@@ -146,6 +152,29 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
     ///
     /// A new `Query<T>` instance ready for building queries
     pub(crate) fn new(conn: Arc<PgPool>) -> Self {
+        Self {
+            table: PhantomData,
+            filters: Vec::new(),
+            select: None,
+            distinct: false,
+            limit: None,
+            offset: None,
+            joins: Vec::new(),
+            conn,
+        }
+    }
+
+    #[cfg(feature = "sqlite")]
+    /// Creates a new query builder for the specified schema type.
+    ///
+    /// # Arguments
+    ///
+    /// - `conn`: The database connection pool
+    ///
+    /// # Returns
+    ///
+    /// A new `Query<T>` instance ready for building queries
+    pub(crate) fn new(conn: Arc<SqlitePool>) -> Self {
         Self {
             table: PhantomData,
             filters: Vec::new(),
@@ -732,6 +761,9 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
 
         #[cfg(feature = "postgres")]
         let rows = Row::from_postgres_row(data, Some(&self.joins));
+
+        #[cfg(feature = "sqlite")]
+        let rows = Row::from_sqlite_row(data, Some(&self.joins));
 
         Ok(rows)
     }

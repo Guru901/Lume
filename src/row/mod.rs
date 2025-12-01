@@ -13,6 +13,8 @@ use sqlx::mysql::MySqlRow;
 
 #[cfg(feature = "postgres")]
 use sqlx::postgres::PgRow;
+#[cfg(feature = "sqlite")]
+use sqlx::sqlite::SqliteRow;
 
 use crate::{
     operations::query::JoinInfo,
@@ -269,6 +271,53 @@ impl<S: Schema + Debug> Row<S> {
         rows_
     }
 
+    #[cfg(feature = "sqlite")]
+    pub(crate) fn from_sqlite_row(
+        rows: Vec<SqliteRow>,
+        joins: Option<&Vec<JoinInfo>>,
+    ) -> Vec<Self> {
+        let mut rows_: Vec<Self> = Vec::new();
+
+        for row in rows {
+            let mut map = HashMap::new();
+
+            // Extract columns from the main table
+            let main_columns = S::get_all_columns();
+            for column in main_columns {
+                let value = Self::extract_column_value(&row, &column.name, &column.data_type);
+                if let Some(value) = value {
+                    map.insert(column.name.to_string(), value);
+                }
+            }
+
+            if joins.is_some() {
+                for join in joins.unwrap() {
+                    let joined_column = &join.columns;
+
+                    for column in joined_column {
+                        let value =
+                            Self::extract_column_value(&row, &column.name, &column.data_type);
+                        if let Some(value) = value {
+                            if map.contains_key(column.name) {
+                                let fq_key = format!("{}.{}", join.table_name, column.name);
+                                map.entry(fq_key).or_insert(value);
+                            } else {
+                                map.insert(column.name.to_string(), value);
+                            }
+                        }
+                    }
+                }
+            }
+
+            rows_.push(Self {
+                data: map,
+                _phanton: PhantomData,
+            });
+        }
+
+        rows_
+    }
+
     #[cfg(feature = "mysql")]
     /// Extracts a column value from a MySQL row based on column name and data type
     fn extract_column_value(row: &MySqlRow, column_name: &str, data_type: &str) -> Option<Value> {
@@ -399,6 +448,88 @@ impl<S: Schema + Debug> Row<S> {
     #[cfg(feature = "postgres")]
     /// Extracts a column value from a POSTGRES row based on column name and data type
     fn extract_column_value(row: &PgRow, column_name: &str, data_type: &str) -> Option<Value> {
+        use sqlx::Row as _;
+        match data_type {
+            "TEXT" => {
+                // Try to get as string first
+                if let Ok(val) = row.try_get::<String, _>(column_name) {
+                    Some(Value::String(val))
+                } else if let Ok(val) = row.try_get::<Option<String>, _>(column_name) {
+                    val.map(Value::String)
+                } else {
+                    None
+                }
+            }
+            "SMALLINT" => {
+                if let Ok(val) = row.try_get::<i16, _>(column_name) {
+                    Some(Value::Int16(val))
+                } else if let Ok(val) = row.try_get::<Option<i16>, _>(column_name) {
+                    val.map(Value::Int16)
+                } else {
+                    None
+                }
+            }
+            "INTEGER" => {
+                if let Ok(val) = row.try_get::<i32, _>(column_name) {
+                    Some(Value::Int32(val))
+                } else if let Ok(val) = row.try_get::<Option<i32>, _>(column_name) {
+                    val.map(Value::Int32)
+                } else {
+                    None
+                }
+            }
+            "BIGINT" => {
+                if let Ok(val) = row.try_get::<i64, _>(column_name) {
+                    Some(Value::Int64(val))
+                } else if let Ok(val) = row.try_get::<Option<i64>, _>(column_name) {
+                    val.map(Value::Int64)
+                } else {
+                    None
+                }
+            }
+            "FLOAT" => {
+                if let Ok(val) = row.try_get::<f32, _>(column_name) {
+                    Some(Value::Float32(val))
+                } else if let Ok(val) = row.try_get::<Option<f32>, _>(column_name) {
+                    val.map(Value::Float32)
+                } else {
+                    None
+                }
+            }
+            "REAL" | "DOUBLE PRECISION" | "DOUBLE" => {
+                if let Ok(val) = row.try_get::<f64, _>(column_name) {
+                    Some(Value::Float64(val))
+                } else if let Ok(val) = row.try_get::<Option<f64>, _>(column_name) {
+                    val.map(Value::Float64)
+                } else {
+                    None
+                }
+            }
+            "BOOLEAN" => {
+                if let Ok(val) = row.try_get::<bool, _>(column_name) {
+                    Some(Value::Bool(val))
+                } else if let Ok(val) = row.try_get::<Option<bool>, _>(column_name) {
+                    val.map(Value::Bool)
+                } else {
+                    None
+                }
+            }
+            _ => {
+                // Fallback: try to get as string
+                if let Ok(val) = row.try_get::<String, _>(column_name) {
+                    Some(Value::String(val))
+                } else if let Ok(val) = row.try_get::<Option<String>, _>(column_name) {
+                    val.map(Value::String)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "sqlite")]
+    /// Extracts a column value from a SQLite row based on column name and data type
+    fn extract_column_value(row: &SqliteRow, column_name: &str, data_type: &str) -> Option<Value> {
         use sqlx::Row as _;
         match data_type {
             "TEXT" => {

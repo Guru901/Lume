@@ -3,7 +3,7 @@
 //! # Insert Operation
 //!
 //! This module provides the [`Insert`] struct for type-safe insertion of records
-//! into a MySQL database using a schema definition. It supports optional
+//! into a MySQL, PostgreSQL, or SQLite database using a schema definition. It supports optional
 //! returning of inserted rows and handles value binding for various SQL types.
 
 use crate::database::error::DatabaseError;
@@ -19,8 +19,12 @@ use sqlx::MySqlPool;
 #[cfg(feature = "postgres")]
 use sqlx::PgPool;
 
+#[cfg(feature = "sqlite")]
+use sqlx::SqlitePool;
+
 use std::collections::HashMap;
 use std::fmt::Debug;
+#[cfg(any(feature = "sqlite", feature = "mysql", feature = "postgres"))]
 use std::sync::Arc;
 
 /// Select columns that should be included in an INSERT statement based on provided values.
@@ -82,6 +86,10 @@ pub struct Insert<T> {
     /// The database connection pool.
     conn: Arc<PgPool>,
 
+    #[cfg(feature = "sqlite")]
+    /// The database connection pool.
+    conn: Arc<SqlitePool>,
+
     /// Whether to return the inserted row(s).
     returning: Vec<&'static str>,
 }
@@ -89,15 +97,6 @@ pub struct Insert<T> {
 impl<T: Schema + Debug> Insert<T> {
     #[cfg(feature = "mysql")]
     /// Creates a new [`Insert`] operation for the given data and connection.
-    ///
-    /// # Arguments
-    ///
-    /// * `data` - The record to insert.
-    /// * `conn` - The database connection pool.
-    ///
-    /// # Returns
-    ///
-    /// An [`Insert`] instance ready for execution.
     pub fn new(data: T, conn: Arc<MySqlPool>) -> Self {
         Self {
             data,
@@ -108,16 +107,17 @@ impl<T: Schema + Debug> Insert<T> {
 
     #[cfg(feature = "postgres")]
     /// Creates a new [`Insert`] operation for the given data and connection.
-    ///
-    /// # Arguments
-    ///
-    /// * `data` - The record to insert.
-    /// * `conn` - The database connection pool.
-    ///
-    /// # Returns
-    ///
-    /// An [`Insert`] instance ready for execution.
     pub fn new(data: T, conn: Arc<PgPool>) -> Self {
+        Self {
+            data,
+            conn,
+            returning: Vec::new(),
+        }
+    }
+
+    #[cfg(feature = "sqlite")]
+    /// Creates a new [`Insert`] operation for the given data and connection.
+    pub fn new(data: T, conn: Arc<SqlitePool>) -> Self {
         Self {
             data,
             conn,
@@ -223,6 +223,30 @@ impl<T: Schema + Debug> Insert<T> {
             return Ok(Some(rows));
         }
 
+        // For SQLite with "RETURNING"
+        #[cfg(feature = "sqlite")]
+        if !self.returning.is_empty() {
+            use crate::helpers::returning_sql;
+
+            let sql = get_starting_sql(StartingSql::Insert, T::table_name());
+            let sql = Self::insert_sql(sql, selected.clone());
+            let sql = returning_sql(sql, &self.returning);
+            let mut query = sqlx::query(&sql);
+
+            for col in selected.iter() {
+                let value = values.get(col.name);
+                query = bind_column_value(query, col, value);
+            }
+
+            let rows = query.fetch_all(&mut *conn).await;
+            if let Err(e) = rows {
+                return Err(DatabaseError::QueryError(e.to_string()));
+            }
+            let rows = rows.unwrap();
+            let rows = Row::<T>::from_sqlite_row(rows, None);
+            return Ok(Some(rows));
+        }
+
         let _result = query.execute(&mut *conn).await;
 
         if let Err(e) = _result {
@@ -268,6 +292,46 @@ impl<T: Schema + Debug> Insert<T> {
             Ok(Some(rows))
         }
 
+        #[cfg(feature = "sqlite")]
+        {
+            // In SQLite, if user called returning(), they already got results above.
+            // Otherwise, emulate by SELECT ... WHERE rowid = last_insert_rowid().
+            use crate::helpers::returning_sql;
+
+            if self.returning.is_empty() {
+                return Ok(None);
+            }
+
+            let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
+            let mut select_sql = returning_sql(select_sql, &self.returning);
+
+            // Look for an "id" column in the table schema, not just the values
+            let has_id_column = {
+                let columns = T::get_all_columns();
+                columns.iter().any(|col| col.name == "id")
+            };
+
+            let id_col = if has_id_column { "id" } else { "rowid" };
+            select_sql.push_str(&format!(
+                " FROM {} WHERE {} = last_insert_rowid();",
+                T::table_name(),
+                id_col
+            ));
+
+            let query = sqlx::query(&select_sql);
+
+            let rows = query.fetch_all(&mut *conn).await;
+
+            if let Err(e) = rows {
+                return Err(DatabaseError::QueryError(e.to_string()));
+            }
+
+            let rows = rows.unwrap();
+
+            let rows = Row::<T>::from_sqlite_row(rows, None);
+            Ok(Some(rows))
+        }
+
         #[cfg(feature = "postgres")]
         {
             // This should not be reached as we handle RETURNING above
@@ -275,7 +339,7 @@ impl<T: Schema + Debug> Insert<T> {
         }
     }
 
-    /// Builds a parameterized INSERT SQL statement, with identifier quoting for MySQL/Postgres and parameter style for both backends.
+    /// Builds a parameterized INSERT SQL statement, with identifier quoting for MySQL/Postgres/SQLite and parameter style for all backends.
     pub(crate) fn insert_sql(mut sql: String, columns: Vec<ColumnInfo>) -> String {
         // Quote identifiers for portability (uses quote_identifier from lib.rs)
         for (i, col) in columns.iter().enumerate() {
@@ -296,9 +360,9 @@ impl<T: Schema + Debug> Insert<T> {
                 sql.push_str(&format!("${}", i + 1));
             }
         }
-        #[cfg(feature = "mysql")]
+        #[cfg(any(feature = "mysql", feature = "sqlite"))]
         {
-            // Use ? for MySQL
+            // Use ? for MySQL and SQLite
             for (i, _col) in columns.iter().enumerate() {
                 if i > 0 {
                     sql.push_str(", ");
@@ -307,7 +371,11 @@ impl<T: Schema + Debug> Insert<T> {
             }
         }
         // fallback (support at least something for no features)
-        #[cfg(all(not(feature = "postgres"), not(feature = "mysql")))]
+        #[cfg(all(
+            not(feature = "postgres"),
+            not(feature = "mysql"),
+            not(feature = "sqlite")
+        ))]
         {
             for (i, _col) in columns.iter().enumerate() {
                 if i > 0 {
@@ -339,6 +407,10 @@ pub struct InsertMany<T: Schema + Debug> {
     /// The database connection pool.
     conn: Arc<PgPool>,
 
+    #[cfg(feature = "sqlite")]
+    /// The database connection pool.
+    conn: Arc<SqlitePool>,
+
     /// Whether to return the inserted rows.
     returning: Vec<&'static str>,
 }
@@ -357,6 +429,16 @@ impl<T: Schema + Debug> InsertMany<T> {
     #[cfg(feature = "postgres")]
     /// Creates a new [`InsertMany`] operation for the given records and connection.
     pub fn new(data: Vec<T>, conn: Arc<PgPool>) -> Self {
+        Self {
+            data,
+            conn,
+            returning: Vec::new(),
+        }
+    }
+
+    #[cfg(feature = "sqlite")]
+    /// Creates a new [`InsertMany`] operation for the given records and connection.
+    pub fn new(data: Vec<T>, conn: Arc<SqlitePool>) -> Self {
         Self {
             data,
             conn,
@@ -476,9 +558,70 @@ impl<T: Schema + Debug> InsertMany<T> {
                     }
                 }
             }
+
+            #[cfg(feature = "sqlite")]
+            {
+                // For SQLite, if returning is requested, we use RETURNING clause
+                if !self.returning.is_empty() {
+                    use crate::helpers::returning_sql;
+
+                    let sql = get_starting_sql(StartingSql::Insert, T::table_name());
+                    let sql = Insert::<T>::insert_sql(sql, selected.clone());
+                    let sql = returning_sql(sql, &self.returning);
+                    let mut query = sqlx::query(&sql);
+
+                    for col in selected.iter() {
+                        let value = values.get(col.name);
+                        query = bind_column_value(query, col, value);
+                    }
+
+                    let rows = query.fetch_all(&mut *conn).await;
+                    if let Err(e) = rows {
+                        return Err(DatabaseError::QueryError(e.to_string()));
+                    }
+                    let rows = rows.unwrap();
+                    let rows = Row::<T>::from_sqlite_row(rows, None);
+                    final_rows.extend(rows);
+                } else {
+                    // Execute without returning
+                    let result = query.execute(&mut *conn).await;
+                    if let Err(e) = result {
+                        return Err(DatabaseError::ExecutionError(e.to_string()));
+                    }
+                    // Try to store last inserted rowid or id if available
+                    // For SQLite, last_insert_rowid is u64
+                    let id_val = values.get("id");
+                    if let Some(id_val) = id_val {
+                        match id_val {
+                            Value::Int64(v) => inserted_ids.push(*v as u64),
+                            Value::Int32(v) => inserted_ids.push(*v as u64),
+                            Value::Int16(v) => inserted_ids.push(*v as u64),
+                            Value::Int8(v) => inserted_ids.push(*v as u64),
+                            Value::UInt64(v) => inserted_ids.push(*v),
+                            Value::UInt32(v) => inserted_ids.push(*v as u64),
+                            Value::UInt16(v) => inserted_ids.push(*v as u64),
+                            Value::UInt8(v) => inserted_ids.push(*v as u64),
+                            Value::String(_)
+                            | Value::Float32(_)
+                            | Value::Float64(_)
+                            | Value::Bool(_)
+                            | Value::Between(_, _)
+                            | Value::Array(_)
+                            | Value::Null => {}
+                        }
+                    } else {
+                        #[cfg(feature = "sqlite")]
+                        {
+                            if let Ok(s) = result {
+                                inserted_ids.push(s.last_insert_rowid() as u64);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
-        #[cfg(feature = "mysql")]
+        #[cfg(any(feature = "mysql", feature = "sqlite"))]
         {
             use crate::helpers::returning_sql;
 
@@ -492,7 +635,12 @@ impl<T: Schema + Debug> InsertMany<T> {
             select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
 
             for id in inserted_ids {
+                #[cfg(feature = "mysql")]
                 let q = sqlx::query(&select_sql).bind(id);
+
+                #[cfg(feature = "sqlite")]
+                let q = sqlx::query(&select_sql).bind(id as i64);
+
                 let rows = q.fetch_all(&mut *conn).await;
 
                 if let Err(e) = rows {
@@ -501,7 +649,12 @@ impl<T: Schema + Debug> InsertMany<T> {
 
                 let rows = rows.unwrap();
 
+                #[cfg(feature = "mysql")]
                 let rows = Row::<T>::from_mysql_row(rows, None);
+
+                #[cfg(feature = "sqlite")]
+                let rows = Row::<T>::from_sqlite_row(rows, None);
+
                 final_rows.extend(rows);
             }
 
