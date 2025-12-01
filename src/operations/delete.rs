@@ -117,7 +117,6 @@ impl<T: Schema + Debug> Delete<T> {
     ///
     /// # Arguments
     ///
-    /// * `data` - The record to delete.
     /// * `conn` - The database connection pool.
     ///
     /// # Returns
