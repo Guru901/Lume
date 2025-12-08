@@ -817,6 +817,7 @@ impl DefaultToSql for Column<i32> {
     }
 }
 
+#[cfg(feature = "postgres")]
 impl DefaultToSql for Column<Vec<String>> {
     fn default_to_sql(&self) -> Option<String> {
         self.get_default().map(|v| {
@@ -829,6 +830,7 @@ impl DefaultToSql for Column<Vec<String>> {
     }
 }
 
+#[cfg(feature = "postgres")]
 impl DefaultToSql for Column<Vec<u64>> {
     fn default_to_sql(&self) -> Option<String> {
         self.get_default().map(|v| {
