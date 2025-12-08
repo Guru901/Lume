@@ -427,7 +427,7 @@ impl Database {
             ("INTEGER UNSIGNED", "BIGINT"),
             ("BIGINT UNSIGNED", "BIGINT"),
             ("DOUBLE", "DOUBLE PRECISION"),
-            ("DEFAULT (UUID())", "gen_random_uuid()"),
+            ("DEFAULT (UUID())", "DEFAULT gen_random_uuid()"),
         ];
 
         let mut converted = sql;

@@ -13,7 +13,7 @@ description = "A simple and intuitive Query Builder inspired by Drizzle"
 [dependencies]
 paste = "1.0.15"
 regex = "1.12.2"
-sqlx = { version = "0.8.6", features = ["tls-native-tls"], default-features = false, optional = false }
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "tls-native-tls"], default-features = false, optional = false }
 tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
