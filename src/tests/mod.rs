@@ -109,6 +109,7 @@ mod tests {
                 min: None,
                 max: None,
                 link: false,
+                default_random: false,
             },
             42,
         );
@@ -116,6 +117,7 @@ mod tests {
         row._insert(
             ColumnInfo {
                 name: "username",
+                default_random: false,
                 data_type: "VARCHAR(255)",
                 nullable: false,
                 unique: false,
@@ -165,6 +167,7 @@ mod tests {
                 min: None,
                 max: None,
                 link: false,
+                default_random: false,
             },
             "test@example.com".to_string(),
         );
@@ -172,6 +175,7 @@ mod tests {
         row._insert(
             ColumnInfo {
                 name: "age",
+                default_random: false,
                 data_type: "INTEGER",
                 nullable: true,
                 unique: false,
@@ -221,6 +225,7 @@ mod tests {
                 min: None,
                 max: None,
                 link: false,
+                default_random: false,
             },
             true,
         );
