@@ -744,6 +744,26 @@ impl From<bool> for Value {
     }
 }
 
+impl TryFrom<Value> for Vec<String> {
+    type Error = ();
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::Array(arr) => {
+                let mut out = Vec::with_capacity(arr.len());
+                for v in arr {
+                    match v {
+                        Value::String(s) => out.push(s),
+                        _ => return Err(()),
+                    }
+                }
+                Ok(out)
+            }
+            _ => Err(()),
+        }
+    }
+}
+
 // Implement TryFrom for extraction
 impl TryFrom<Value> for String {
     type Error = ();

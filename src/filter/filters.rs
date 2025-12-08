@@ -502,7 +502,7 @@ pub fn not(filter: impl Filtered + 'static) -> NotFilter {
 /// ```
 pub fn in_array<T: Debug>(
     column: &'static Column<T>,
-    values: &'static [Value],
+    values: Vec<Value>,
 ) -> impl Filtered + 'static {
     ArrayFilter {
         column: Some((column.table_name().to_string(), column.name().to_string())),
@@ -543,10 +543,7 @@ pub fn in_array<T: Debug>(
 /// let IDS = &[Value::Int8(1), Value::Int8(2), Value::Int8(3)];
 /// let filter = not_in_array(User::id(), IDS);
 /// ```
-pub fn not_in_array<T: Debug>(
-    column: &'static Column<T>,
-    values: &'static [Value],
-) -> impl Filtered + 'static {
+pub fn not_in_array<'a, T: Debug>(column: &'a Column<T>, values: Vec<Value>) -> impl Filtered {
     ArrayFilter {
         column: Some((column.table_name().to_string(), column.name().to_string())),
         values: values,

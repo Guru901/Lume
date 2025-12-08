@@ -817,6 +817,27 @@ impl DefaultToSql for Column<i32> {
     }
 }
 
+impl DefaultToSql for Column<Vec<String>> {
+    fn default_to_sql(&self) -> Option<String> {
+        self.get_default().map(|v| {
+            let escaped = v
+                .iter()
+                .map(|s| format!("'{}'", s.replace('\'', "''")))
+                .collect::<Vec<_>>();
+            format!("ARRAY[{}]", escaped.join(", "))
+        })
+    }
+}
+
+impl DefaultToSql for Column<Vec<u64>> {
+    fn default_to_sql(&self) -> Option<String> {
+        self.get_default().map(|v| {
+            let items = v.iter().map(u64::to_string).collect::<Vec<_>>();
+            format!("ARRAY[{}]", items.join(", "))
+        })
+    }
+}
+
 impl DefaultToSql for Column<i64> {
     fn default_to_sql(&self) -> Option<String> {
         self.get_default().map(|v| v.to_string())

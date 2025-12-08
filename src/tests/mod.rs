@@ -482,8 +482,8 @@ mod build_filter_expr_tests {
         fn is_in_array(&self) -> Option<bool> {
             self.in_array
         }
-        fn array_values(&self) -> Option<&[Value]> {
-            self.array_values.as_ref().map(|v| v.as_slice())
+        fn array_values(&self) -> Option<Vec<Value>> {
+            self.array_values.clone()
         }
     }
 

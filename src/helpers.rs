@@ -78,6 +78,7 @@ pub(crate) fn returning_sql(sql: String, returning: &Vec<&'static str>) -> Strin
 }
 
 pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) -> String {
+    // Handle logical combinators (AND/OR)
     if filter.is_or_filter() || filter.is_and_filter() {
         let op = if filter.is_or_filter() { "OR" } else { "AND" };
         let Some(f1) = filter.filter1() else {
@@ -93,6 +94,7 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
         return format!("({} {} {})", left, op, right);
     }
 
+    // Handle NOT
     if filter.is_not().unwrap_or(false) {
         let Some(f) = filter.filter1() else {
             eprintln!("Warning: Not filter missing filter1, using tautology");
@@ -101,13 +103,15 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
         return format!("NOT ({})", build_filter_expr(f, params));
     }
 
+    // Handle actual column filters
     let Some(col1) = filter.column_one() else {
         eprintln!("Warning: Simple filter missing column_one, using tautology");
         return "1=1".to_string();
     };
+
     // Handle IN / NOT IN array filters
     if let Some(in_array) = filter.is_in_array() {
-        let values = filter.array_values().unwrap_or(&[]);
+        let values = filter.array_values().unwrap_or(Vec::new());
         if values.is_empty() {
             return if in_array {
                 "1=0".to_string()
@@ -120,19 +124,36 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
         let mut placeholders: Vec<String> = Vec::with_capacity(values.len());
         for (i, v) in values.iter().cloned().enumerate() {
             params.push(v);
-            #[cfg(feature = "mysql")]
-            placeholders.push("?".to_string());
-            #[cfg(feature = "postgres")]
-            placeholders.push(format!("${}", start_idx + i + 1));
-        }
 
+            // Choose placeholder style by feature:
+            // - MySQL: ?, SQLite: ?, Postgres: $idx
+
+            #[cfg(any(feature = "mysql", feature = "sqlite"))]
+            {
+                placeholders.push("?".to_string());
+            }
+            #[cfg(all(not(feature = "mysql"), not(feature = "sqlite"), feature = "postgres"))]
+            {
+                placeholders.push(format!("${}", start_idx + i + 1));
+            }
+            // For a "no-backend" fallback: use ?
+            #[cfg(all(
+                not(feature = "mysql"),
+                not(feature = "sqlite"),
+                not(feature = "postgres")
+            ))]
+            {
+                placeholders.push("?".to_string());
+            }
+        }
         let op = if in_array { "IN" } else { "NOT IN" };
         return format!("{}.{} {} ({})", col1.0, col1.1, op, placeholders.join(", "));
     }
+
+    // Handle value-based filters
     if let Some(value) = filter.value() {
         match value {
             Value::Null => {
-                // Special handling for NULL comparisons
                 let op = filter.filter_type();
                 let null_sql = match op {
                     crate::filter::FilterType::Eq => "IS NULL",
@@ -147,14 +168,56 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
             Value::Between(min, max) => {
                 params.push((**min).clone());
                 params.push((**max).clone());
-                format!("{}.{} BETWEEN ? AND ?", col1.0, col1.1)
+
+                // BETWEEN always uses two placeholders: MySQL: ?,?  Pg: $N AND $N+1  SQLite: ?,?
+                #[cfg(any(feature = "mysql", feature = "sqlite"))]
+                {
+                    format!("{}.{} BETWEEN ? AND ?", col1.0, col1.1)
+                }
+                #[cfg(all(not(feature = "mysql"), not(feature = "sqlite"), feature = "postgres"))]
+                {
+                    let base = params.len() - 1; // These two were just pushed
+                    format!("{}.{} BETWEEN ${} AND ${}", col1.0, col1.1, base, base + 1)
+                }
+                #[cfg(all(
+                    not(feature = "mysql"),
+                    not(feature = "sqlite"),
+                    not(feature = "postgres")
+                ))]
+                {
+                    format!("{}.{} BETWEEN ? AND ?", col1.0, col1.1)
+                }
             }
             _ => {
                 params.push(value.clone());
-                format!("{}.{} {} ?", col1.0, col1.1, filter.filter_type().to_sql())
+                #[cfg(any(feature = "mysql", feature = "sqlite"))]
+                {
+                    format!("{}.{} {} ?", col1.0, col1.1, filter.filter_type().to_sql())
+                }
+                #[cfg(all(not(feature = "mysql"), not(feature = "sqlite"), feature = "postgres"))]
+                {
+                    let idx = params.len();
+                    format!(
+                        "{}.{} {} ${}",
+                        col1.0,
+                        col1.1,
+                        filter.filter_type().to_sql(),
+                        idx
+                    )
+                }
+                #[cfg(all(
+                    not(feature = "mysql"),
+                    not(feature = "sqlite"),
+                    not(feature = "postgres")
+                ))]
+                {
+                    format!("{}.{} {} ?", col1.0, col1.1, filter.filter_type().to_sql())
+                }
             }
         }
-    } else if let Some(col2) = filter.column_two() {
+    }
+    // Handle column-to-column comparisons
+    else if let Some(col2) = filter.column_two() {
         format!(
             "{}.{} {} {}.{}",
             col1.0,
@@ -164,7 +227,8 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
             col2.1
         )
     } else {
-        return "1=1".to_string();
+        // Fallback
+        "1=1".to_string()
     }
 }
 
