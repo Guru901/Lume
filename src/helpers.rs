@@ -120,9 +120,10 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
             };
         }
 
+        #[allow(unused)]
         let start_idx = params.len();
         let mut placeholders: Vec<String> = Vec::with_capacity(values.len());
-        for (i, v) in values.iter().cloned().enumerate() {
+        for (_i, v) in values.iter().cloned().enumerate() {
             params.push(v);
 
             // Choose placeholder style by feature:
@@ -134,7 +135,7 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
             }
             #[cfg(all(not(feature = "mysql"), not(feature = "sqlite"), feature = "postgres"))]
             {
-                placeholders.push(format!("${}", start_idx + i + 1));
+                placeholders.push(format!("${}", start_idx + _i + 1));
             }
             // For a "no-backend" fallback: use ?
             #[cfg(all(
@@ -147,7 +148,13 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
             }
         }
         let op = if in_array { "IN" } else { "NOT IN" };
-        return format!("{}.{} {} ({})", col1.0, col1.1, op, placeholders.join(", "));
+        return format!(
+            "{}.{} {} ({})",
+            quote_identifier(&col1.0),
+            quote_identifier(&col1.1),
+            op,
+            placeholders.join(", ")
+        );
     }
 
     // Handle value-based filters

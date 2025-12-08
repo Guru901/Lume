@@ -987,6 +987,7 @@ impl TryFrom<Value> for bool {
 }
 
 // Better approach: Use a trait for type-safe conversion
+#[allow(unused)]
 pub trait IntoValue {
     fn into_db_value(self) -> Value;
 }

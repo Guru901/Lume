@@ -307,6 +307,7 @@ macro_rules! define_schema {
 
         paste::paste! {
             #[derive(Debug)]
+            #[allow(unused)]
             pub struct [<Update $struct_name>] {
                 $(
                     pub $name: Option<$type>,
@@ -438,6 +439,7 @@ macro_rules! define_schema {
                     }
                 }
 
+                #[allow(unused)]
                 fn all(mut self) -> Self {
                     $(
                         self.$name = true;

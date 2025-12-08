@@ -5,6 +5,7 @@ pub mod query;
 #[allow(dead_code)]
 mod tests {
     use crate::define_schema;
+    #[allow(unused)]
     use crate::helpers::get_starting_sql;
     use crate::row::Row;
     use crate::schema::{ColumnInfo, Schema};
@@ -589,6 +590,7 @@ mod build_filter_expr_tests {
             ..DummyFilter::new()
         };
         let mut params = vec![];
+        #[allow(unused)]
         let sql = build_filter_expr(&filter, &mut params);
         #[cfg(feature = "mysql")]
         assert_eq!(sql, "t.a IN (?, ?)");
@@ -615,6 +617,7 @@ mod build_filter_expr_tests {
             ..DummyFilter::new()
         };
         let mut params = vec![];
+        #[allow(unused)]
         let sql = build_filter_expr(&filter, &mut params);
         #[cfg(feature = "mysql")]
         assert_eq!(sql, "t.a NOT IN (?)");

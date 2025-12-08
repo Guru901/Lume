@@ -393,6 +393,7 @@ impl Database {
     pub(crate) fn generate_migration_sql() -> String {
         let tables = get_all_tables();
 
+        #[allow(unused_mut)]
         let mut statements: Vec<String> =
             tables.iter().map(|table| table.to_create_sql()).collect();
 

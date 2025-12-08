@@ -20,7 +20,7 @@ mod tests {
 
     define_schema! {
         DummySchema {
-            id: u32,
+            _id: u32,
         }
     }
 
@@ -151,7 +151,7 @@ mod tests {
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
             .select(SelectDummySchema::selected().all())
             .left_join::<DummySchema, SelectDummySchema>(
-                eq_column(DummySchema::id(), DummySchema::id()),
+                eq_column(DummySchema::_id(), DummySchema::_id()),
                 SelectDummySchema::selected().all(),
             );
 
@@ -162,7 +162,7 @@ mod tests {
             &query.joins,
         );
 
-        assert!(sql.contains("DummySchema.id"));
+        assert!(sql.contains("DummySchema._id"));
         assert!(sql.contains(" FROM DummySchema"));
 
         println!("SQL: {sql}");
@@ -187,7 +187,7 @@ mod tests {
         let pool = Arc::new(SqlitePool::connect_lazy("sqlite://:memory:").unwrap());
 
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
-            .filter(eq_value(DummySchema::id(), 1));
+            .filter(eq_value(DummySchema::_id(), 1));
 
         let mut params = vec![];
         let sql = Query::<DummySchema, SelectDummySchema>::filter_sql(
