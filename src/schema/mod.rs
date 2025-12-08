@@ -216,6 +216,8 @@ pub struct ColumnInfo {
     pub check: Option<&'static str>,
     /// Optional generated column definition (VIRTUAL or STORED)
     pub generated: Option<GeneratedColumn>,
+
+    pub default_random: bool,
 }
 
 /// Defines a database schema with type-safe columns and constraints.
@@ -405,6 +407,7 @@ macro_rules! define_schema {
                                     min_len: col.min_len,
                                     max_len: col.max_len,
                                     link: col.is_link(),
+                                    default_random: col.get_default_random(),
                                 }
                             }
                         ),*
@@ -549,6 +552,7 @@ macro_rules! define_schema {
                                 min_len: col.min_len,
                                 max_len: col.max_len,
                                 link: col.is_link(),
+                                default_random: col.get_default_random(),
                             }
                         }
                     ),*
@@ -678,6 +682,10 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
 
                 if col.primary_key {
                     def.push_str(" PRIMARY KEY");
+                }
+
+                if col.default_random {
+                    def.push_str(" DEFAULT (UUID())");
                 }
 
                 if !col.nullable && !col.primary_key {

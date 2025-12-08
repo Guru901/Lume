@@ -94,6 +94,8 @@ pub struct Column<T> {
     /// Maximum value of the column
     pub max: Option<usize>,
 
+    default_random_: bool,
+
     /// Phantom data to maintain type information
     _phantom: PhantomData<T>,
 }
@@ -199,6 +201,7 @@ impl<T> Column<T> {
             max: None,
             _phantom: PhantomData,
             link: false,
+            default_random_: false,
         }
     }
 
@@ -238,6 +241,15 @@ impl<T> Column<T> {
     pub fn not_null(mut self) -> Self {
         self.nullable = false;
         self
+    }
+
+    pub fn default_random(mut self) -> Self {
+        self.default_random_ = true;
+        self
+    }
+
+    pub fn get_default_random(&self) -> bool {
+        self.default_random_
     }
 
     /// Marks this column as requiring a valid email address.
