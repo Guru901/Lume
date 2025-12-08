@@ -511,7 +511,12 @@ mod build_filter_expr_tests {
         };
         let mut params = vec![];
         let sql = build_filter_expr(&and_filter, &mut params);
-        assert_eq!(sql, "(t.a = ? AND t.b = ?)");
+        {
+            #[cfg(feature = "mysql")]
+            assert_eq!(sql, "(t.a = ? AND t.b = ?)");
+            #[cfg(feature = "postgres")]
+            assert_eq!(sql, "(t.a = $1 AND t.b = $2)");
+        }
         assert_eq!(params, vec![Value::Int32(1), Value::Int32(2)]);
 
         // (a = 1) OR (b = 2)
@@ -523,7 +528,10 @@ mod build_filter_expr_tests {
         };
         let mut params = vec![];
         let sql = build_filter_expr(&or_filter, &mut params);
+        #[cfg(feature = "mysql")]
         assert_eq!(sql, "(t.a = ? OR t.b = ?)");
+        #[cfg(feature = "postgres")]
+        assert_eq!(sql, "(t.a = $1 OR t.b = $2)");
         assert_eq!(params, vec![Value::Int32(1), Value::Int32(2)]);
     }
 
@@ -543,7 +551,12 @@ mod build_filter_expr_tests {
         };
         let mut params = vec![];
         let sql = build_filter_expr(&not_filter, &mut params);
-        assert_eq!(sql, "NOT (t.a = ?)");
+        {
+            #[cfg(feature = "mysql")]
+            assert_eq!(sql, "NOT (t.a = ?)");
+            #[cfg(feature = "postgres")]
+            assert_eq!(sql, "NOT (t.a = $1)");
+        }
         assert_eq!(params, vec![Value::Int32(1)]);
     }
 
@@ -593,9 +606,9 @@ mod build_filter_expr_tests {
         #[allow(unused)]
         let sql = build_filter_expr(&filter, &mut params);
         #[cfg(feature = "mysql")]
-        assert_eq!(sql, "t.a IN (?, ?)");
+        assert_eq!(sql, "`t`.`a` IN (?, ?)");
         #[cfg(feature = "postgres")]
-        assert_eq!(sql, "t.a IN ($1, $2)");
+        assert_eq!(sql, "\"t\".\"a\" IN ($1, $2)");
         assert_eq!(params, vec![Value::Int32(1), Value::Int32(2)]);
 
         // Empty IN array
@@ -620,9 +633,9 @@ mod build_filter_expr_tests {
         #[allow(unused)]
         let sql = build_filter_expr(&filter, &mut params);
         #[cfg(feature = "mysql")]
-        assert_eq!(sql, "t.a NOT IN (?)");
+        assert_eq!(sql, "`t`.`a` NOT IN (?)");
         #[cfg(feature = "postgres")]
-        assert_eq!(sql, "t.a NOT IN ($1)");
+        assert_eq!(sql, "\"t\".\"a\" NOT IN ($1)");
         assert_eq!(params, vec![Value::Int32(3)]);
 
         // Empty NOT IN array
@@ -688,7 +701,12 @@ mod build_filter_expr_tests {
         };
         let mut params = vec![];
         let sql = build_filter_expr(&filter, &mut params);
-        assert_eq!(sql, "t.a BETWEEN ? AND ?");
+        {
+            #[cfg(feature = "mysql")]
+            assert_eq!(sql, "t.a BETWEEN ? AND ?");
+            #[cfg(feature = "postgres")]
+            assert_eq!(sql, "t.a BETWEEN $1 AND $2");
+        }
         assert_eq!(params, vec![Value::Int32(1), Value::Int32(5)]);
     }
 
@@ -702,7 +720,12 @@ mod build_filter_expr_tests {
         };
         let mut params = vec![];
         let sql = build_filter_expr(&filter, &mut params);
-        assert_eq!(sql, "t.a > ?");
+        {
+            #[cfg(feature = "mysql")]
+            assert_eq!(sql, "t.a > ?");
+            #[cfg(feature = "postgres")]
+            assert_eq!(sql, "t.a > $1");
+        }
         assert_eq!(params, vec![Value::Int32(10)]);
     }
 

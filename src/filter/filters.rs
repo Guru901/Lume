@@ -497,7 +497,7 @@ pub fn not(filter: impl Filtered + 'static) -> NotFilter {
 ///     }
 /// }
 ///
-/// let IDS = &[Value::Int8(1), Value::Int8(2), Value::Int8(3)];
+/// let IDS = vec![Value::Int8(1), Value::Int8(2), Value::Int8(3)];
 /// let filter = in_array(User::id(), IDS);
 /// ```
 pub fn in_array<T: Debug>(
@@ -540,7 +540,7 @@ pub fn in_array<T: Debug>(
 ///     }
 /// }
 ///
-/// let IDS = &[Value::Int8(1), Value::Int8(2), Value::Int8(3)];
+/// let IDS = vec![Value::Int8(1), Value::Int8(2), Value::Int8(3)];
 /// let filter = not_in_array(User::id(), IDS);
 /// ```
 pub fn not_in_array<'a, T: Debug>(column: &'a Column<T>, values: Vec<Value>) -> impl Filtered {
