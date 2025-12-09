@@ -756,7 +756,7 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
                 }
 
                 if col.default_now {
-                    def.push_str(" CURRENT_TIMESTAMP");
+                    def.push_str(" DEFAULT CURRENT_TIMESTAMP");
                 }
 
                 def
