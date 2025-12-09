@@ -11,6 +11,40 @@ Use `define_schema!` to declare tables and columns with types and constraints.
 - bool → BOOLEAN
 - Others → TEXT
 
+## Enums
+
+You can declare struct fields using custom enums. By default, enums should implement `ToString` and the `CustomSqlType` marker trait. Enums are represented as SQL text columns (e.g., VARCHAR or TEXT depending on the backend), and values will be stored as their string representations.
+
+```rust
+use lume::schema::CustomSqlType;
+
+#[derive(Debug)]
+enum Status {
+    Active,
+    Inactive,
+}
+
+impl ToString for Status {
+    fn to_string(&self) -> String {
+        match self {
+            Status::Active => "Active".to_string(),
+            Status::Inactive => "Inactive".to_string(),
+        }
+    }
+}
+
+impl CustomSqlType for Status {}
+
+define_schema! {
+    UserAccount {
+        id: u64 [primary_key().auto_increment()],
+        status: Status [not_null()],
+    }
+}
+```
+
+> **Note:** Enums can be written/read as strings. Add and derive your own conversions as needed to map to and from your application logic.
+
 ## Constraints
 
 - primary_key(), not_null(), unique(), indexed()

@@ -813,7 +813,37 @@ pub trait DefaultToSql {
     fn default_to_sql(&self) -> Option<String>;
 }
 
-// Implement for each column type
+// Marker trait for user-defined types that should use generic DefaultToSql
+// Users can implement this for their enums/types
+pub trait CustomSqlType {}
+
+// Macro to implement DefaultToSql for numeric types and their Vec variants
+macro_rules! impl_default_to_sql_numeric {
+    ($($t:ty),*) => {
+        $(
+            impl DefaultToSql for Column<$t> {
+                fn default_to_sql(&self) -> Option<String> {
+                    self.get_default().map(|v| v.to_string())
+                }
+            }
+
+            #[cfg(feature = "postgres")]
+            impl DefaultToSql for Column<Vec<$t>> {
+                fn default_to_sql(&self) -> Option<String> {
+                    self.get_default().map(|v| {
+                        let items = v.iter().map(|item| item.to_string()).collect::<Vec<_>>();
+                        format!("ARRAY[{}]", items.join(", "))
+                    })
+                }
+            }
+        )*
+    };
+}
+
+// Implement for all numeric types
+impl_default_to_sql_numeric!(i8, i16, i32, i64, u8, u16, u32, u64, f32, f64);
+
+// Implement for String (needs special escaping)
 impl DefaultToSql for Column<String> {
     fn default_to_sql(&self) -> Option<String> {
         self.get_default()
@@ -821,12 +851,7 @@ impl DefaultToSql for Column<String> {
     }
 }
 
-impl DefaultToSql for Column<i32> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
+// Implement for Vec<String> (needs special escaping)
 #[cfg(feature = "postgres")]
 impl DefaultToSql for Column<Vec<String>> {
     fn default_to_sql(&self) -> Option<String> {
@@ -840,34 +865,7 @@ impl DefaultToSql for Column<Vec<String>> {
     }
 }
 
-#[cfg(feature = "postgres")]
-impl DefaultToSql for Column<Vec<u64>> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| {
-            let items = v.iter().map(u64::to_string).collect::<Vec<_>>();
-            format!("ARRAY[{}]", items.join(", "))
-        })
-    }
-}
-
-impl DefaultToSql for Column<i64> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<f32> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<f64> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
+// Implement for bool (needs TRUE/FALSE)
 impl DefaultToSql for Column<bool> {
     fn default_to_sql(&self) -> Option<String> {
         self.get_default().map(|v| {
@@ -880,39 +878,43 @@ impl DefaultToSql for Column<bool> {
     }
 }
 
-// Implement DefaultToSql for all integer types
-impl DefaultToSql for Column<i8> {
+// Implement for Vec<bool>
+#[cfg(feature = "postgres")]
+impl DefaultToSql for Column<Vec<bool>> {
     fn default_to_sql(&self) -> Option<String> {
+        self.get_default().map(|v| {
+            let items = v
+                .iter()
+                .map(|b| if *b { "TRUE" } else { "FALSE" })
+                .collect::<Vec<_>>();
+            format!("ARRAY[{}]", items.join(", "))
+        })
+    }
+}
+
+// Generic implementation for user-defined types (enums, etc.)
+// Users must implement CustomSqlType for their types to use this
+impl<T> DefaultToSql for Column<T>
+where
+    T: ToString + CustomSqlType,
+{
+    fn default_to_sql(&self) -> Option<String> {
+        // For user-defined types (enums), just use ToString
         self.get_default().map(|v| v.to_string())
     }
 }
 
-impl DefaultToSql for Column<i16> {
+// Generic implementation for Vec<T> where T is a user-defined type
+#[cfg(feature = "postgres")]
+impl<T> DefaultToSql for Column<Vec<T>>
+where
+    T: ToString + CustomSqlType,
+{
     fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<u8> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<u16> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<u32> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<u64> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
+        // For user-defined types (enums), convert each to string
+        self.get_default().map(|v| {
+            let items = v.iter().map(|item| item.to_string()).collect::<Vec<_>>();
+            format!("ARRAY[{}]", items.join(", "))
+        })
     }
 }

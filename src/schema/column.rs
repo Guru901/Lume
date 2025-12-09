@@ -1062,7 +1062,7 @@ impl<T: IntoValue> IntoValue for Option<T> {
 /// let none_val: Option<i32> = None;
 /// assert_eq!(convert_to_value(&none_val), Value::Null);
 /// ```
-pub fn convert_to_value<T: Any>(value: &T) -> Value {
+pub fn convert_to_value<T: Any + Debug>(value: &T) -> Value {
     if let Some(s) = <dyn Any>::downcast_ref::<String>(value) {
         Value::String(s.clone())
     } else if let Some(s) = <dyn Any>::downcast_ref::<&str>(value) {
@@ -1131,12 +1131,14 @@ pub fn convert_to_value<T: Any>(value: &T) -> Value {
         opt.map(Value::Float64).unwrap_or(Value::Null)
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<bool>>(value) {
         opt.map(Value::Bool).unwrap_or(Value::Null)
+    } else if let Some(display) =
+        (value as &dyn std::any::Any).downcast_ref::<&dyn std::fmt::Display>()
+    {
+        Value::String(display.to_string())
     } else {
-        debug_assert!(
-            false,
-            "Unsupported type in convert_to_value: {}",
-            std::any::type_name::<T>()
-        );
-        Value::Null
+        // Fallback to Debug
+        let dbg = value as &dyn std::fmt::Debug;
+        let s = format!("{:?}", dbg);
+        Value::String(s)
     }
 }
