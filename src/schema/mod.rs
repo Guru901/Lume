@@ -742,7 +742,16 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
 
                 if col.has_default {
                     if let Some(ref default) = col.default_sql {
-                        def.push_str(&format!(" DEFAULT {}", default));
+                        // Add quotes for string default values if not already quoted
+                        let needs_quotes = col.data_type == "TEXT"
+                            || col.data_type == "VARCHAR"
+                            || col.data_type == "CHAR"
+                            || col.data_type == "STRING";
+                        if needs_quotes && !(default.starts_with('\'') && default.ends_with('\'')) {
+                            def.push_str(&format!(" DEFAULT '{}'", default.replace('\'', "''")));
+                        } else {
+                            def.push_str(&format!(" DEFAULT {}", default));
+                        }
                     }
                 }
 

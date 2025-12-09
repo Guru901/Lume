@@ -1173,6 +1173,10 @@ pub fn convert_to_value<T: Any + Debug>(value: &T) -> Value {
         // Fallback to Debug
         let dbg = value as &dyn std::fmt::Debug;
         let s = format!("{:?}", dbg);
-        Value::String(s)
+        if s == "None" {
+            Value::Null
+        } else {
+            Value::String(s)
+        }
     }
 }

@@ -28,21 +28,27 @@ tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 ### Basic Usage
 
 ```rust
-use lume::{
-    database::Database,
-    define_schema,
-    filter::eq_value,
-    schema::{ColumnInfo, Schema},
-};
+use lume::{database::Database, define_schema, filter::eq_value, schema::CustomSqlType};
 
-// Define your database schema
+// Use an enum for one of your fields!
+#[derive(Clone, Debug, PartialEq)]
+pub enum UserStatus {
+    Active,
+    Inactive,
+    Banned,
+}
+
+// If you want to support direct mapping to the database, you might want to
+// implement TryFrom<String> and ToString (or use serde), but for this example let's use it as-is.
+
+// Define your database schema, with an enum field
 define_schema! {
     Users {
         id: i32 [primary_key().not_null()],
         username: String [not_null()],
+        status: UserStatus [default_value(UserStatus::Active)],
         email: String,
         age: i32,
-        is_active: bool [default_value(true)],
         created_at: i64 [not_null()],
     }
 
@@ -54,10 +60,38 @@ define_schema! {
     }
 }
 
+impl ToString for UserStatus {
+    fn to_string(&self) -> String {
+        match self {
+            UserStatus::Active => String::from("active"),
+            UserStatus::Inactive => String::from("inactive"),
+            UserStatus::Banned => String::from("banned"),
+        }
+    }
+}
+
+impl CustomSqlType for UserStatus {}
+
+impl TryFrom<Value> for UserStatus {
+    type Error = ();
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::String(s) => match s.as_str() {
+                "active" => Ok(UserStatus::Active),
+                "inactive" => Ok(UserStatus::Inactive),
+                "banned" => Ok(UserStatus::Banned),
+                _ => Err(()),
+            },
+            _ => Err(()),
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Connect to your MySQL database
-    let db = Database::connect("mysql://user:password@localhost/database").await?;
+    let db = Database::connect("sqlite://file.db").await?;
 
     // Create tables (if they don't exist)
     db.register_table::<Users>().await?;
@@ -66,18 +100,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Type-safe queries
     let users = db
         .query::<Users, SelectUsers>()
-        .select(SelectUsers::selected().age().username())
-        .filter(eq_value(Users::username(), "john_doe"))
+        .select(SelectUsers::selected().age().username().status())
+        .filter(eq_value(Users::status(), UserStatus::Active.to_string()))
         .execute()
         .await?;
 
     for user in users {
         let username: Option<String> = user.get(Users::username());
         let age: Option<i32> = user.get(Users::age());
+        let status = user.get(Users::status());
         println!(
-            "User: {} (age: {})",
+            "User: {} (age: {}, status: {:?})",
             username.unwrap_or_default(),
-            age.unwrap_or(0)
+            age.unwrap_or(0),
+            status.unwrap_or(UserStatus::Inactive),
         );
     }
 
@@ -85,8 +121,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         id: 0,
         age: 25,
         username: "john_doe".to_string(),
+        status: None,
         email: "john.doe@example.com".to_string(),
-        is_active: true,
         created_at: 1677721600,
     })
     .execute()
@@ -101,7 +137,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for user in adult_users {
         let username: Option<String> = user.get(Users::username());
-        println!("Adult user: {}", username.unwrap_or_default());
+        let status: Option<UserStatus> = user.get(Users::status());
+        println!(
+            "Adult user: {}, status: {:?}",
+            username.unwrap_or_default(),
+            status.unwrap_or(UserStatus::Inactive)
+        );
     }
 
     Ok(())
