@@ -216,7 +216,8 @@ pub struct ColumnInfo {
     pub check: Option<&'static str>,
     /// Optional generated column definition (VIRTUAL or STORED)
     pub generated: Option<GeneratedColumn>,
-
+    /// Whether this column uses a backend-generated random default value
+    /// (e.g., `UUID()` on MySQL, `gen_random_uuid()` on PostgreSQL).
     pub default_random: bool,
 }
 
