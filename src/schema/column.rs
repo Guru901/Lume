@@ -1131,10 +1131,6 @@ pub fn convert_to_value<T: Any + Debug>(value: &T) -> Value {
         opt.map(Value::Float64).unwrap_or(Value::Null)
     } else if let Some(opt) = <dyn Any>::downcast_ref::<Option<bool>>(value) {
         opt.map(Value::Bool).unwrap_or(Value::Null)
-    } else if let Some(display) =
-        (value as &dyn std::any::Any).downcast_ref::<&dyn std::fmt::Display>()
-    {
-        Value::String(display.to_string())
     } else {
         // Fallback to Debug
         let dbg = value as &dyn std::fmt::Debug;
