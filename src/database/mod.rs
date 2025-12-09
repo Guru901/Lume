@@ -457,7 +457,7 @@ impl Database {
     #[cfg(feature = "sqlite")]
     fn adapt_sql_for_sqlite(sql: String) -> String {
         // Basic textual normalization to keep shared schema metadata working
-        // with PostgreSQL-specific syntax expectations.
+        // with SQLite-specific syntax expectations.
         const REPLACEMENTS: &[(&str, &str)] =
             &[("DEFAULT (UUID())", "DEFAULT (lower(hex(randomblob(16))))")];
 
