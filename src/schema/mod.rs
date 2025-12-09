@@ -835,11 +835,14 @@ macro_rules! impl_default_to_sql_numeric {
             impl DefaultToSql for Column<Vec<$t>> {
                 fn default_to_sql(&self) -> Option<String> {
                     self.get_default().map(|v| {
-                        let items = v.iter().map(|item| item.to_string()).collect::<Vec<_>>();
+                        let items = v.iter()
+                            .map(|item| format!("'{}'", item.to_string().replace('\'', "''")))
+                            .collect::<Vec<_>>();
                         format!("ARRAY[{}]", items.join(", "))
                     })
                 }
             }
+
         )*
     };
 }
