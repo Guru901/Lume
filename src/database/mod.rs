@@ -373,7 +373,10 @@ impl Database {
     pub async fn register_table<T: Schema>(&self) -> Result<(), DatabaseError> {
         T::ensure_registered();
         let sql = Database::generate_migration_sql();
-        println!("{}", sql);
+        pub async fn register_table<T: Schema>(&self) -> Result<(), DatabaseError> {
+            T::ensure_registered();
+            let sql = Database::generate_migration_sql();
+            for stmt in sql.split(';').map(str::trim).filter(|s| !s.is_empty()) {
         for stmt in sql.split(';').map(str::trim).filter(|s| !s.is_empty()) {
             sqlx::query(stmt)
                 .execute(&*self.connection)
