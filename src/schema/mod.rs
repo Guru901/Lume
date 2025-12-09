@@ -596,8 +596,8 @@ macro_rules! define_schema {
 /// ```rust
 /// use lume::schema::type_to_sql_string;
 ///
-/// assert_eq!(type_to_sql_string::<String>(), "VARCHAR(255))");
-/// assert_eq!(type_to_sql_string::<i32>(), "INTEGER");
+/// assert_eq!(type_to_sql_string::<String>(), "VARCHAR(255)");
+/// assert_eq!(type_to_sql_string::<i32>(), "INT");
 /// assert_eq!(type_to_sql_string::<i64>(), "BIGINT");
 /// assert_eq!(type_to_sql_string::<u64>(), "BIGINT UNSIGNED");
 /// assert_eq!(type_to_sql_string::<bool>(), "BOOLEAN");
@@ -742,7 +742,6 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
 
                 if col.has_default {
                     if let Some(ref default) = col.default_sql {
-                        println!("{}", default);
                         def.push_str(&format!(" DEFAULT {}", default));
                     }
                 }

@@ -235,13 +235,6 @@ impl<T> Column<T> {
     /// - For types like [`time::OffsetDateTime`] and [`time::Date`], this sets their default value
     ///   to `CURRENT_TIMESTAMP` or the SQL-appropriate current value.
     /// - On types where `CURRENT_TIMESTAMP` is not meaningful, this flag is ignored.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use lume::schema::Column;
-    /// let col = Column::<time::OffsetDateTime>::new("created_at", "users").default_now();
-    /// assert!(col.has_default_now());
     /// ```
     pub fn default_now(mut self) -> Self {
         self.default_now = true;

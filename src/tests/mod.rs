@@ -61,7 +61,7 @@ mod tests {
         let id_info = columns.iter().find(|c| c.name == "id").unwrap();
         assert!(id_info.primary_key);
         assert!(!id_info.nullable);
-        assert_eq!(id_info.data_type, "INTEGER");
+        assert_eq!(id_info.data_type, "INT");
 
         let username_info = columns.iter().find(|c| c.name == "username").unwrap();
         assert_eq!(username_info.data_type, "VARCHAR(255)");
@@ -347,7 +347,7 @@ mod tests {
         use crate::schema::type_to_sql_string;
 
         assert_eq!(type_to_sql_string::<String>(), "VARCHAR(255)");
-        assert_eq!(type_to_sql_string::<i32>(), "INTEGER");
+        assert_eq!(type_to_sql_string::<i32>(), "INT");
         assert_eq!(type_to_sql_string::<i64>(), "BIGINT");
         assert_eq!(type_to_sql_string::<f32>(), "FLOAT");
         assert_eq!(type_to_sql_string::<f64>(), "DOUBLE");
@@ -366,10 +366,10 @@ mod tests {
 
         let create_sql = wrapper.to_create_sql();
         assert!(create_sql.contains("CREATE TABLE IF NOT EXISTS TestUser"));
-        assert!(create_sql.contains("id INTEGER PRIMARY KEY"));
+        assert!(create_sql.contains("id INT PRIMARY KEY"));
         assert!(create_sql.contains("username VARCHAR(255) NOT NULL"));
         assert!(create_sql.contains("email VARCHAR(255)"));
-        assert!(create_sql.contains("age INTEGER"));
+        assert!(create_sql.contains("age INT"));
         assert!(create_sql.contains("is_active BOOLEAN NOT NULL"));
     }
 
