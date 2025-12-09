@@ -813,8 +813,11 @@ pub trait DefaultToSql {
     fn default_to_sql(&self) -> Option<String>;
 }
 
-// Marker trait for user-defined types that should use generic DefaultToSql
-// Users can implement this for their enums/types
+/// Marker trait for user-defined types that should use generic `DefaultToSql`.
+///
+/// Users can implement this trait for their custom enums or types to enable
+/// default value support in schema definitions. Types implementing this trait
+/// must also implement `ToString` to provide SQL string representation.
 pub trait CustomSqlType {}
 
 // Macro to implement DefaultToSql for numeric types and their Vec variants
