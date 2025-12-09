@@ -900,8 +900,7 @@ impl DefaultToSql for Column<time::OffsetDateTime> {
                     "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]"
                 );
                 let mysql_datetime = datetime.format(&format).unwrap();
-
-                Some(mysql_datetime)
+                Some(format!("'{}'", mysql_datetime))
             }
         }
     }
