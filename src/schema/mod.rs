@@ -39,6 +39,7 @@ pub use column::Column;
 pub use column::Value;
 pub use column::convert_to_value;
 use std::fmt::Debug;
+use time::macros::format_description;
 
 /// Helper macro: decides field type as `Option<T>` if `default_value(...)` or
 /// `auto_increment()` is present in the column args; otherwise keeps it as `T`.
@@ -219,6 +220,9 @@ pub struct ColumnInfo {
     /// Whether this column uses a backend-generated random default value
     /// (e.g., `UUID()` on MySQL, `gen_random_uuid()` on PostgreSQL).
     pub default_random: bool,
+
+    /// Whether this column uses a backend-generated "current timestamp" as its default value.
+    pub default_now: bool,
 }
 
 /// Defines a database schema with type-safe columns and constraints.
@@ -409,6 +413,7 @@ macro_rules! define_schema {
                                     max_len: col.max_len,
                                     link: col.is_link(),
                                     default_random: col.get_default_random(),
+                                    default_now: col.get_default_now(),
                                 }
                             }
                         ),*
@@ -554,6 +559,7 @@ macro_rules! define_schema {
                                 max_len: col.max_len,
                                 link: col.is_link(),
                                 default_random: col.get_default_random(),
+                                default_now: col.get_default_now(),
                             }
                         }
                     ),*
@@ -590,7 +596,7 @@ macro_rules! define_schema {
 /// ```rust
 /// use lume::schema::type_to_sql_string;
 ///
-/// assert_eq!(type_to_sql_string::<String>(), "VARCHAR(255)");
+/// assert_eq!(type_to_sql_string::<String>(), "VARCHAR(255))");
 /// assert_eq!(type_to_sql_string::<i32>(), "INTEGER");
 /// assert_eq!(type_to_sql_string::<i64>(), "BIGINT");
 /// assert_eq!(type_to_sql_string::<u64>(), "BIGINT UNSIGNED");
@@ -608,7 +614,7 @@ pub fn type_to_sql_string<T: 'static>() -> &'static str {
     } else if type_id == TypeId::of::<i16>() {
         "SMALLINT"
     } else if type_id == TypeId::of::<i32>() {
-        "INTEGER"
+        "INT"
     } else if type_id == TypeId::of::<i64>() {
         "BIGINT"
     } else if type_id == TypeId::of::<u8>() {
@@ -616,7 +622,7 @@ pub fn type_to_sql_string<T: 'static>() -> &'static str {
     } else if type_id == TypeId::of::<u16>() {
         "SMALLINT UNSIGNED"
     } else if type_id == TypeId::of::<u32>() {
-        "INTEGER UNSIGNED"
+        "INT UNSIGNED"
     } else if type_id == TypeId::of::<u64>() {
         "BIGINT UNSIGNED"
     } else if type_id == TypeId::of::<f32>() {
@@ -625,6 +631,10 @@ pub fn type_to_sql_string<T: 'static>() -> &'static str {
         "DOUBLE"
     } else if type_id == TypeId::of::<bool>() {
         "BOOLEAN"
+    } else if type_id == TypeId::of::<time::Date>() {
+        "DATE"
+    } else if type_id == TypeId::of::<time::OffsetDateTime>() {
+        "DATETIME"
     } else {
         "TEXT" // fallback
     }
@@ -730,8 +740,15 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
                     def.push_str(&format!(" GENERATED {}", col.generated.unwrap()));
                 }
 
-                if let Some(ref default) = col.default_sql {
-                    def.push_str(&format!(" DEFAULT {}", default));
+                if col.has_default {
+                    if let Some(ref default) = col.default_sql {
+                        println!("{}", default);
+                        def.push_str(&format!(" DEFAULT {}", default));
+                    }
+                }
+
+                if col.default_now {
+                    def.push_str(" CURRENT_TIMESTAMP");
                 }
 
                 def
@@ -855,6 +872,30 @@ impl DefaultToSql for Column<String> {
     fn default_to_sql(&self) -> Option<String> {
         self.get_default()
             .map(|v| format!("'{}'", v.replace('\'', "''")))
+    }
+}
+
+impl DefaultToSql for Column<time::Date> {
+    fn default_to_sql(&self) -> Option<String> {
+        None
+    }
+}
+
+impl DefaultToSql for Column<time::OffsetDateTime> {
+    fn default_to_sql(&self) -> Option<String> {
+        let datetime = self.get_default();
+
+        match datetime {
+            None => None,
+            Some(datetime) => {
+                let format = format_description!(
+                    "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]"
+                );
+                let mysql_datetime = datetime.format(&format).unwrap();
+
+                Some(mysql_datetime)
+            }
+        }
     }
 }
 

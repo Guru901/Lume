@@ -96,6 +96,8 @@ pub struct Column<T> {
 
     default_random_: bool,
 
+    default_now: bool,
+
     /// Phantom data to maintain type information
     _phantom: PhantomData<T>,
 }
@@ -202,6 +204,7 @@ impl<T> Column<T> {
             _phantom: PhantomData,
             link: false,
             default_random_: false,
+            default_now: false,
         }
     }
 
@@ -226,6 +229,25 @@ impl<T> Column<T> {
         self
     }
 
+    /// Sets this column's default value to the current date/time.
+    ///
+    ///
+    /// - For types like [`time::OffsetDateTime`] and [`time::Date`], this sets their default value
+    ///   to `CURRENT_TIMESTAMP` or the SQL-appropriate current value.
+    /// - On types where `CURRENT_TIMESTAMP` is not meaningful, this flag is ignored.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use lume::schema::Column;
+    /// let col = Column::<time::OffsetDateTime>::new("created_at", "users").default_now();
+    /// assert!(col.has_default_now());
+    /// ```
+    pub fn default_now(mut self) -> Self {
+        self.default_now = true;
+        self
+    }
+
     /// Makes this column NOT NULL.
     ///
     /// # Example
@@ -243,11 +265,29 @@ impl<T> Column<T> {
         self
     }
 
+    /// Sets this column's default value to a random value (where supported).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lume::schema::Column;
+    ///
+    /// let col = Column::<String>::new("id", "users").default_random();
+    /// assert!(col.get_default_random());
+    /// ```
+    ///
+    /// What counts as "random" depends on the column type and the backend.
+    /// - For string columns, this means a randomly generated string (such as UUID).
+    /// - For integer columns, it may be a random or auto-incrementing value.
+    ///
+    /// Not all databases support truly random default values for all types.
+    /// This flag is intended as a hint for builder and migration tools.
     pub fn default_random(mut self) -> Self {
         self.default_random_ = true;
         self
     }
 
+    #[doc(hidden)]
     pub fn get_default_random(&self) -> bool {
         self.default_random_
     }
@@ -488,6 +528,11 @@ impl<T> Column<T> {
     #[doc(hidden)]
     pub fn get_default(&self) -> Option<&T> {
         self.default_value.as_ref()
+    }
+
+    #[doc(hidden)]
+    pub fn get_default_now(&self) -> bool {
+        self.default_now
     }
 
     #[doc(hidden)]

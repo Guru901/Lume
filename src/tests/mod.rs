@@ -110,6 +110,7 @@ mod tests {
                 max: None,
                 link: false,
                 default_random: false,
+                default_now: false,
             },
             42,
         );
@@ -139,6 +140,7 @@ mod tests {
                 min: None,
                 max: None,
                 link: false,
+                default_now: false,
             },
             "testuser".to_string(),
         );
@@ -146,6 +148,7 @@ mod tests {
         row._insert(
             ColumnInfo {
                 name: "email",
+                default_now: false,
                 data_type: "VARCHAR(255)",
                 nullable: true,
                 unique: false,
@@ -197,6 +200,7 @@ mod tests {
                 min: None,
                 max: None,
                 link: false,
+                default_now: false,
             },
             25,
         );
@@ -226,6 +230,7 @@ mod tests {
                 max: None,
                 link: false,
                 default_random: false,
+                default_now: false,
             },
             true,
         );
@@ -515,6 +520,7 @@ mod build_filter_expr_tests {
             ..DummyFilter::new()
         };
         let mut params = vec![];
+        #[allow(unused)]
         let sql = build_filter_expr(&and_filter, &mut params);
         {
             #[cfg(feature = "mysql")]
@@ -532,6 +538,7 @@ mod build_filter_expr_tests {
             ..DummyFilter::new()
         };
         let mut params = vec![];
+        #[allow(unused)]
         let sql = build_filter_expr(&or_filter, &mut params);
         #[cfg(feature = "mysql")]
         assert_eq!(sql, "(t.a = ? OR t.b = ?)");
@@ -555,6 +562,7 @@ mod build_filter_expr_tests {
             ..DummyFilter::new()
         };
         let mut params = vec![];
+        #[allow(unused)]
         let sql = build_filter_expr(&not_filter, &mut params);
         {
             #[cfg(feature = "mysql")]
@@ -705,6 +713,7 @@ mod build_filter_expr_tests {
             ..DummyFilter::new()
         };
         let mut params = vec![];
+        #[allow(unused)]
         let sql = build_filter_expr(&filter, &mut params);
         {
             #[cfg(feature = "mysql")]
@@ -724,6 +733,7 @@ mod build_filter_expr_tests {
             ..DummyFilter::new()
         };
         let mut params = vec![];
+        #[allow(unused)]
         let sql = build_filter_expr(&filter, &mut params);
         {
             #[cfg(feature = "mysql")]

@@ -373,6 +373,7 @@ impl Database {
     pub async fn register_table<T: Schema>(&self) -> Result<(), DatabaseError> {
         T::ensure_registered();
         let sql = Database::generate_migration_sql();
+        println!("{}", sql);
         for stmt in sql.split(';').map(str::trim).filter(|s| !s.is_empty()) {
             sqlx::query(stmt)
                 .execute(&*self.connection)
@@ -428,6 +429,8 @@ impl Database {
             ("BIGINT UNSIGNED", "BIGINT"),
             ("DOUBLE", "DOUBLE PRECISION"),
             ("DEFAULT (UUID())", "DEFAULT gen_random_uuid()"),
+            ("DATETIME", "TIMESTAMPTZ"),
+            ("CURRENT_TIMESTAMP", "now()"),
         ];
 
         let mut converted = sql;
@@ -458,8 +461,11 @@ impl Database {
     fn adapt_sql_for_sqlite(sql: String) -> String {
         // Basic textual normalization to keep shared schema metadata working
         // with SQLite-specific syntax expectations.
-        const REPLACEMENTS: &[(&str, &str)] =
-            &[("DEFAULT (UUID())", "DEFAULT (lower(hex(randomblob(16))))")];
+        const REPLACEMENTS: &[(&str, &str)] = &[
+            ("DEFAULT (UUID())", "DEFAULT (lower(hex(randomblob(16))))"),
+            ("DATETIME", "TEXT"),
+            ("CURRENT_TIMESTAMP", "(datetime('now'))"),
+        ];
 
         let mut converted = sql;
 
