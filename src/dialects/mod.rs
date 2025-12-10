@@ -73,6 +73,8 @@ pub trait SqlDialect {
     /// Intended to replace `Insert::insert_sql` so that the insert operation
     /// no longer needs any `#[cfg(feature = "...")]` logic for SQL construction.
     fn insert_sql(&self, sql: String, columns: &Vec<ColumnInfo>) -> String;
+
+    // fn returning() -> String;
 }
 
 /// Get the appropriate dialect for the current backend.

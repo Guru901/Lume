@@ -9,7 +9,6 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 #[cfg(feature = "mysql")]
 use sqlx::MySqlPool;
-
 #[cfg(feature = "postgres")]
 use sqlx::PgPool;
 #[cfg(feature = "sqlite")]
@@ -495,6 +494,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         self
     }
 
+    #[cfg(not(feature = "sqlite"))]
     /// Adds a right join to the query.
     ///
     /// This method joins the specified schema table to the current query using a RIGHT JOIN.
@@ -557,7 +557,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         self
     }
 
-    #[cfg(not(feature = "mysql"))]
+    #[cfg(feature = "postgres")]
     /// Adds a full outer join to the query.
     ///
     /// This method joins the specified schema table to the current query using a FULL OUTER JOIN.
