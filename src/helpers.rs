@@ -1,6 +1,6 @@
 use crate::{
     filter::Filtered,
-    schema::{ColumnInfo, Value},
+    schema::{ColumnInfo, Validators, Value},
 };
 use std::sync::LazyLock;
 
@@ -303,104 +303,159 @@ pub(crate) fn bind_column_value<'q>(
 }
 
 pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) -> bool {
+    use crate::schema::Validators;
+
     match value {
         Some(Value::String(s)) => {
-            if column.email && !EMAIL_REGEX.is_match(s) {
-                return false;
-            }
-
-            if column.link && !LINK_REGEX.is_match(s) {
-                return false;
-            }
-
-            if let Some(min) = column.min_len {
-                if s.len() < min as usize {
-                    return false;
+            for validator in &column.validators {
+                match *validator {
+                    Validators::Email => {
+                        if !EMAIL_REGEX.is_match(s) {
+                            return false;
+                        }
+                    }
+                    Validators::Url => {
+                        if !LINK_REGEX.is_match(s) {
+                            return false;
+                        }
+                    }
+                    Validators::MinLen(min) => {
+                        if s.len() < min {
+                            return false;
+                        }
+                    }
+                    Validators::MaxLen(max) => {
+                        if s.len() > max {
+                            return false;
+                        }
+                    }
+                    Validators::Min(min) => {
+                        // For backward compatibility, treat as MinLen for string
+                        if s.len() < min {
+                            return false;
+                        }
+                    }
+                    Validators::Max(max) => {
+                        // For backward compatibility, treat as MaxLen for string
+                        if s.len() > max {
+                            return false;
+                        }
+                    }
+                    Validators::Pattern(pattern) => {
+                        let regex = Regex::new(pattern).unwrap();
+                        if !regex.is_match(s) {
+                            return false;
+                        }
+                    }
                 }
             }
-            if let Some(max) = column.max_len {
-                if s.len() > max as usize {
-                    return false;
-                }
-            }
-
             true
         }
         Some(Value::Int32(i)) => {
-            if let Some(min) = column.min {
-                if (*i as isize) < (min as isize) {
-                    return false;
-                }
-            }
-            if let Some(max) = column.max {
-                if (*i as isize) > (max as isize) {
-                    return false;
+            for validator in &column.validators {
+                match *validator {
+                    Validators::Min(min) => {
+                        if *i < min as i32 {
+                            return false;
+                        }
+                    }
+                    Validators::Max(max) => {
+                        if *i > max as i32 {
+                            return false;
+                        }
+                    }
+                    _ => {}
                 }
             }
             true
         }
         Some(Value::Int64(i)) => {
-            if let Some(min) = column.min {
-                if (*i as isize) < (min as isize) {
-                    return false;
-                }
-            }
-            if let Some(max) = column.max {
-                if (*i as isize) > (max as isize) {
-                    return false;
+            for validator in &column.validators {
+                match *validator {
+                    Validators::Min(min) => {
+                        if *i < min as i64 {
+                            return false;
+                        }
+                    }
+                    Validators::Max(max) => {
+                        if *i > max as i64 {
+                            return false;
+                        }
+                    }
+                    _ => {}
                 }
             }
             true
         }
         Some(Value::UInt32(u)) => {
-            if let Some(min) = column.min {
-                if *u < min as u32 {
-                    return false;
-                }
-            }
-            if let Some(max) = column.max {
-                if *u > max as u32 {
-                    return false;
+            for validator in &column.validators {
+                match *validator {
+                    Validators::Min(min) => {
+                        if *u < min as u32 {
+                            return false;
+                        }
+                    }
+                    Validators::Max(max) => {
+                        if *u > max as u32 {
+                            return false;
+                        }
+                    }
+                    _ => {}
                 }
             }
             true
         }
         Some(Value::UInt64(u)) => {
-            if let Some(min) = column.min {
-                if *u < min as u64 {
-                    return false;
-                }
-            }
-            if let Some(max) = column.max {
-                if *u > max as u64 {
-                    return false;
+            for validator in &column.validators {
+                match *validator {
+                    Validators::Min(min) => {
+                        if *u < min as u64 {
+                            return false;
+                        }
+                    }
+                    Validators::Max(max) => {
+                        if *u > max as u64 {
+                            return false;
+                        }
+                    }
+                    _ => {}
                 }
             }
             true
         }
         Some(Value::Float32(f)) => {
             let f = *f as f64;
-            if let Some(min) = column.min {
-                if f < min as f64 {
-                    return false;
-                }
-            }
-            if let Some(max) = column.max {
-                if f > max as f64 {
-                    return false;
+            for validator in &column.validators {
+                match *validator {
+                    Validators::Min(min) => {
+                        if f < min as f64 {
+                            return false;
+                        }
+                    }
+                    Validators::Max(max) => {
+                        if f > max as f64 {
+                            return false;
+                        }
+                    }
+                    _ => {}
                 }
             }
             true
         }
         Some(Value::Float64(f)) => {
-            if let Some(min) = column.min {
-                if *f < min as f64 {
-                    return false;
-                }
-            }
-            if let Some(max) = column.max {
-                if *f > max as f64 {
-                    return false;
+            for validator in &column.validators {
+                match *validator {
+                    Validators::Min(min) => {
+                        if *f < min as f64 {
+                            return false;
+                        }
+                    }
+                    Validators::Max(max) => {
+                        if *f > max as f64 {
+                            return false;
+                        }
+                    }
+                    _ => {}
                 }
             }
             true

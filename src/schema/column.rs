@@ -81,18 +81,8 @@ pub struct Column<T> {
     check: Option<&'static str>,
     /// Optional generated column definition (VIRTUAL or STORED)
     generated: Option<GeneratedColumn>,
-    /// Whether this column's data should be an email
-    email: bool,
-    /// Whether this column is a link
-    link: bool,
-    /// Minimum length of the column
-    pub min_len: Option<i32>,
-    /// Maximum length of the column
-    pub max_len: Option<i32>,
-    /// Minimum value of the column
-    pub min: Option<usize>,
-    /// Maximum value of the column
-    pub max: Option<usize>,
+
+    validators: Vec<Validators>,
 
     /// Phantom data to maintain type information
     _phantom: PhantomData<T>,
@@ -192,13 +182,8 @@ impl<T> Column<T> {
             invisible: false,
             check: None,
             generated: None,
-            email: false,
-            max_len: None,
-            min_len: None,
-            min: None,
-            max: None,
+            validators: Vec::new(),
             _phantom: PhantomData,
-            link: false,
         }
     }
 
@@ -287,7 +272,7 @@ impl<T> Column<T> {
     /// assert!(col.is_email());
     /// ```
     pub fn email(mut self) -> Self {
-        self.email = true;
+        self.validators.push(Validators::Email);
         self
     }
 
@@ -304,7 +289,7 @@ impl<T> Column<T> {
     /// assert!(col.is_link());
     /// ```
     pub fn link(mut self) -> Self {
-        self.link = true;
+        self.validators.push(Validators::Url);
         self
     }
 
@@ -324,7 +309,7 @@ impl<T> Column<T> {
     /// assert_eq!(col.min_len, Some(3));
     /// ```
     pub fn min_len(mut self, min: i32) -> Self {
-        self.min_len = Some(min);
+        self.validators.push(Validators::MinLen(min as usize));
         self
     }
 
@@ -344,7 +329,7 @@ impl<T> Column<T> {
     /// assert_eq!(col.max_len, Some(10));
     /// ```
     pub fn max_len(mut self, max: i32) -> Self {
-        self.max_len = Some(max);
+        self.validators.push(Validators::MaxLen(max as usize));
         self
     }
 
@@ -364,7 +349,7 @@ impl<T> Column<T> {
     /// assert_eq!(col.min, Some(18));
     /// ```
     pub fn min(mut self, min: usize) -> Self {
-        self.min = Some(min);
+        self.validators.push(Validators::Min(min));
         self
     }
 
@@ -384,7 +369,7 @@ impl<T> Column<T> {
     /// assert_eq!(col.max, Some(100));
     /// ```
     pub fn max(mut self, max: usize) -> Self {
-        self.max = Some(max);
+        self.validators.push(Validators::Max(max));
         self
     }
 
@@ -533,6 +518,11 @@ impl<T> Column<T> {
     }
 
     #[doc(hidden)]
+    pub fn get_validators(&self) -> Vec<Validators> {
+        return self.validators.clone();
+    }
+
+    #[doc(hidden)]
     pub fn is_auto_increment(&self) -> bool {
         self.auto_increment
     }
@@ -571,19 +561,7 @@ impl<T> Column<T> {
     pub fn get_generated(&self) -> Option<GeneratedColumn> {
         self.generated
     }
-
-    #[doc(hidden)]
-    pub fn is_email(&self) -> bool {
-        self.email
-    }
-
-    #[doc(hidden)]
-    pub fn is_link(&self) -> bool {
-        self.link
-    }
 }
-
-impl<T: Copy> Copy for Column<T> where T: Copy {}
 
 /// A type-erased value that can represent any database column value.
 ///
@@ -1170,4 +1148,15 @@ pub enum DefaultValueEnum<T> {
     CurrentTimestamp,
     Random,
     Value(T),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Validators {
+    Email,
+    Url,
+    MinLen(usize),
+    MaxLen(usize),
+    Min(usize),
+    Max(usize),
+    Pattern(&'static str),
 }

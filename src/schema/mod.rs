@@ -35,6 +35,7 @@ use std::marker::PhantomData;
 
 pub use crate::schema::column::DefaultValueEnum;
 use crate::schema::column::GeneratedColumn;
+pub use crate::schema::column::Validators;
 use crate::table::TableDefinition;
 pub use column::Column;
 pub use column::Value;
@@ -180,18 +181,6 @@ pub struct ColumnInfo {
     pub data_type: &'static str,
     /// Whether the column allows NULL values
     pub nullable: bool,
-    /// Whether the data should be an email
-    pub email: bool,
-    /// Whether the column is a link
-    pub link: bool,
-    /// Minimum length of the column
-    pub min_len: Option<i32>,
-    /// Maximum length of the column
-    pub max_len: Option<i32>,
-    /// Minimum value of the column
-    pub min: Option<usize>,
-    /// Maximum value of the column
-    pub max: Option<usize>,
     /// Whether the column has a UNIQUE constraint
     pub unique: bool,
     /// Whether the column is a primary key
@@ -218,6 +207,8 @@ pub struct ColumnInfo {
     pub check: Option<&'static str>,
     /// Optional generated column definition (VIRTUAL or STORED)
     pub generated: Option<GeneratedColumn>,
+
+    pub validators: Vec<Validators>,
 }
 
 /// Defines a database schema with type-safe columns and constraints.
@@ -401,12 +392,7 @@ macro_rules! define_schema {
                                     invisible: col.is_invisible(),
                                     check: col.get_check(),
                                     generated: col.get_generated(),
-                                    email: col.is_email(),
-                                    min: col.min,
-                                    max: col.max,
-                                    min_len: col.min_len,
-                                    max_len: col.max_len,
-                                    link: col.is_link(),
+                                    validators: col.get_validators(),
                                 }
                             }
                         ),*
@@ -545,12 +531,7 @@ macro_rules! define_schema {
                                 invisible: col.is_invisible(),
                                 check: col.get_check(),
                                 generated: col.get_generated(),
-                                email: col.is_email(),
-                                min: col.min,
-                                max: col.max,
-                                min_len: col.min_len,
-                                max_len: col.max_len,
-                                link: col.is_link(),
+                                validators: col.get_validators(),
                             }
                         }
                     ),*
