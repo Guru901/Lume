@@ -241,7 +241,7 @@ pub struct ArrayFilter {
     /// The column to filter on, as (table, column) or None.
     pub(crate) column: Option<(String, String)>,
     /// The array of values to compare against.
-    pub(crate) values: &'static [Value],
+    pub(crate) values: Vec<Value>,
     /// Whether this is an `IN` (true) or `NOT IN` (false) filter.
     pub(crate) in_array: bool,
 }
@@ -310,7 +310,7 @@ pub trait Filtered: Debug + Send + Sync {
     /// For filters that operate on an array of values (such as SQL `IN` or `NOT IN` clauses),
     /// this returns `Some(&[Value])` containing the values being compared.
     /// For other filter types, this returns `None`.
-    fn array_values(&self) -> Option<&[Value]> {
+    fn array_values(&self) -> Option<&Vec<Value>> {
         None
     }
 
@@ -407,8 +407,8 @@ impl Filtered for ArrayFilter {
         None
     }
 
-    fn array_values(&self) -> Option<&[Value]> {
-        Some(self.values)
+    fn array_values(&self) -> Option<&Vec<Value>> {
+        Some(self.values.as_ref())
     }
 
     fn is_in_array(&self) -> Option<bool> {

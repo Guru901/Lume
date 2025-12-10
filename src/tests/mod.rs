@@ -5,8 +5,10 @@ pub mod query;
 #[allow(dead_code)]
 mod tests {
     use crate::define_schema;
+    #[allow(unused)]
     use crate::helpers::get_starting_sql;
     use crate::row::Row;
+    use crate::schema::{ColumnConstraint, DefaultValueEnum};
     use crate::schema::{ColumnInfo, Schema};
     use crate::table::TableDefinition;
 
@@ -35,18 +37,38 @@ mod tests {
         let age_col = TestUser::age();
         let is_active_col = TestUser::is_active();
 
-        assert_eq!(id_col.name(), "id");
-        assert_eq!(username_col.name(), "username");
-        assert_eq!(email_col.name(), "email");
-        assert_eq!(age_col.name(), "age");
-        assert_eq!(is_active_col.name(), "is_active");
+        assert_eq!(id_col.__internal_name(), "id");
+        assert_eq!(username_col.__internal_name(), "username");
+        assert_eq!(email_col.__internal_name(), "email");
+        assert_eq!(age_col.__internal_name(), "age");
+        assert_eq!(is_active_col.__internal_name(), "is_active");
 
         // Test column properties
-        assert!(id_col.is_primary_key());
-        assert!(!id_col.is_nullable());
-        assert!(!username_col.is_nullable()); // username has not_null()
-        assert!(!username_col.is_primary_key());
-        assert!(!is_active_col.is_nullable()); // is_active has not_null()
+        assert!(
+            id_col
+                .__internal_get_constraints()
+                .contains(&ColumnConstraint::PrimaryKey)
+        );
+        assert!(
+            id_col
+                .__internal_get_constraints()
+                .contains(&ColumnConstraint::NonNullable)
+        );
+        assert!(
+            username_col
+                .__internal_get_constraints()
+                .contains(&ColumnConstraint::NonNullable)
+        ); // username has not_null()
+        assert!(
+            !username_col
+                .__internal_get_constraints()
+                .contains(&ColumnConstraint::PrimaryKey)
+        );
+        assert!(
+            is_active_col
+                .__internal_get_constraints()
+                .contains(&ColumnConstraint::NonNullable)
+        ); // is_active has not_null()
     }
 
     #[test]
@@ -58,19 +80,35 @@ mod tests {
 
         // Check column info
         let id_info = columns.iter().find(|c| c.name == "id").unwrap();
-        assert!(id_info.primary_key);
-        assert!(!id_info.nullable);
-        assert_eq!(id_info.data_type, "INTEGER");
+        assert!(id_info.constraints.contains(&ColumnConstraint::PrimaryKey));
+        assert!(id_info.constraints.contains(&ColumnConstraint::NonNullable));
+        assert_eq!(id_info.data_type, "INT");
 
         let username_info = columns.iter().find(|c| c.name == "username").unwrap();
         assert_eq!(username_info.data_type, "VARCHAR(255)");
-        assert!(!username_info.primary_key);
-        assert!(!username_info.nullable); // username has not_null()
+        assert!(
+            !username_info
+                .constraints
+                .contains(&ColumnConstraint::PrimaryKey)
+        );
+        assert!(
+            username_info
+                .constraints
+                .contains(&ColumnConstraint::NonNullable)
+        ); // username has not_null()
 
         let is_active_info = columns.iter().find(|c| c.name == "is_active").unwrap();
         assert_eq!(is_active_info.data_type, "BOOLEAN");
-        assert!(!is_active_info.primary_key);
-        assert!(!is_active_info.nullable); // is_active has not_null()
+        assert!(
+            !is_active_info
+                .constraints
+                .contains(&ColumnConstraint::PrimaryKey)
+        );
+        assert!(
+            is_active_info
+                .constraints
+                .contains(&ColumnConstraint::NonNullable)
+        );
     }
 
     #[test]
@@ -88,26 +126,13 @@ mod tests {
             ColumnInfo {
                 name: "id",
                 data_type: "INTEGER",
-                nullable: false,
-                unique: false,
-                primary_key: true,
-                indexed: false,
                 has_default: false,
                 default_sql: None,
-                auto_increment: false,
-                on_update_current_timestamp: false,
-                invisible: false,
-                check: None,
-                generated: None,
                 comment: None,
                 charset: None,
                 collate: None,
-                email: false,
-                min_len: None,
-                max_len: None,
-                min: None,
-                max: None,
-                link: false,
+                validators: &Vec::new(),
+                constraints: &Vec::new(),
             },
             42,
         );
@@ -116,26 +141,13 @@ mod tests {
             ColumnInfo {
                 name: "username",
                 data_type: "VARCHAR(255)",
-                nullable: false,
-                unique: false,
-                primary_key: false,
-                indexed: false,
                 has_default: false,
                 default_sql: None,
-                auto_increment: false,
-                on_update_current_timestamp: false,
-                invisible: false,
-                check: None,
-                generated: None,
                 comment: None,
                 charset: None,
                 collate: None,
-                email: false,
-                min_len: None,
-                max_len: None,
-                min: None,
-                max: None,
-                link: false,
+                validators: &Vec::new(),
+                constraints: &Vec::new(),
             },
             "testuser".to_string(),
         );
@@ -144,26 +156,13 @@ mod tests {
             ColumnInfo {
                 name: "email",
                 data_type: "VARCHAR(255)",
-                nullable: true,
-                unique: false,
-                primary_key: false,
-                indexed: false,
                 has_default: false,
                 default_sql: None,
-                auto_increment: false,
-                on_update_current_timestamp: false,
-                invisible: false,
-                check: None,
-                generated: None,
                 comment: None,
                 charset: None,
                 collate: None,
-                email: false,
-                min_len: None,
-                max_len: None,
-                min: None,
-                max: None,
-                link: false,
+                validators: &Vec::new(),
+                constraints: &Vec::new(),
             },
             "test@example.com".to_string(),
         );
@@ -172,26 +171,13 @@ mod tests {
             ColumnInfo {
                 name: "age",
                 data_type: "INTEGER",
-                nullable: true,
-                unique: false,
-                primary_key: false,
-                indexed: false,
                 has_default: false,
                 default_sql: None,
-                auto_increment: false,
-                on_update_current_timestamp: false,
-                invisible: false,
-                check: None,
-                generated: None,
                 comment: None,
                 charset: None,
                 collate: None,
-                email: false,
-                min_len: None,
-                max_len: None,
-                min: None,
-                max: None,
-                link: false,
+                validators: &Vec::new(),
+                constraints: &Vec::new(),
             },
             25,
         );
@@ -200,26 +186,13 @@ mod tests {
             ColumnInfo {
                 name: "is_active",
                 data_type: "BOOLEAN",
-                nullable: false,
-                unique: false,
-                primary_key: false,
-                indexed: false,
                 has_default: false,
                 default_sql: None,
-                auto_increment: false,
-                on_update_current_timestamp: false,
-                invisible: false,
-                check: None,
-                generated: None,
                 comment: None,
                 charset: None,
                 collate: None,
-                email: false,
-                min_len: None,
-                max_len: None,
-                min: None,
-                max: None,
-                link: false,
+                validators: &Vec::new(),
+                constraints: &Vec::new(),
             },
             true,
         );
@@ -303,8 +276,11 @@ mod tests {
         let score_col = TestDefaults::score();
         let active_col = TestDefaults::active();
 
-        assert_eq!(score_col.get_default(), Some(&100));
-        assert_eq!(active_col.get_default(), Some(&true));
+        let default_score = score_col.__internal_get_default().unwrap();
+        let default_active = active_col.__internal_get_default().unwrap();
+
+        assert_eq!(default_score, &DefaultValueEnum::Value(100));
+        assert_eq!(default_active, &DefaultValueEnum::Value(true));
 
         let columns = TestDefaults::get_all_columns();
         let score_info = columns.iter().find(|c| c.name == "score").unwrap();
@@ -312,8 +288,14 @@ mod tests {
 
         assert!(score_info.has_default);
         assert!(active_info.has_default);
-        assert_eq!(score_info.default_sql, Some("100".to_string()));
-        assert_eq!(active_info.default_sql, Some("TRUE".to_string()));
+        assert_eq!(
+            score_info.default_sql,
+            Some(DefaultValueEnum::Value("100".to_string()))
+        );
+        assert_eq!(
+            active_info.default_sql,
+            Some(DefaultValueEnum::Value("TRUE".to_string()))
+        );
     }
 
     #[test]
@@ -336,7 +318,7 @@ mod tests {
         use crate::schema::type_to_sql_string;
 
         assert_eq!(type_to_sql_string::<String>(), "VARCHAR(255)");
-        assert_eq!(type_to_sql_string::<i32>(), "INTEGER");
+        assert_eq!(type_to_sql_string::<i32>(), "INT");
         assert_eq!(type_to_sql_string::<i64>(), "BIGINT");
         assert_eq!(type_to_sql_string::<f32>(), "FLOAT");
         assert_eq!(type_to_sql_string::<f64>(), "DOUBLE");
@@ -355,10 +337,10 @@ mod tests {
 
         let create_sql = wrapper.to_create_sql();
         assert!(create_sql.contains("CREATE TABLE IF NOT EXISTS TestUser"));
-        assert!(create_sql.contains("id INTEGER PRIMARY KEY"));
+        assert!(create_sql.contains("id INT PRIMARY KEY"));
         assert!(create_sql.contains("username VARCHAR(255) NOT NULL"));
         assert!(create_sql.contains("email VARCHAR(255)"));
-        assert!(create_sql.contains("age INTEGER"));
+        assert!(create_sql.contains("age INT"));
         assert!(create_sql.contains("is_active BOOLEAN NOT NULL"));
     }
 
@@ -482,8 +464,8 @@ mod build_filter_expr_tests {
         fn is_in_array(&self) -> Option<bool> {
             self.in_array
         }
-        fn array_values(&self) -> Option<&[Value]> {
-            self.array_values.as_ref().map(|v| v.as_slice())
+        fn array_values(&self) -> Option<&Vec<Value>> {
+            self.array_values.as_ref()
         }
     }
 
@@ -509,8 +491,14 @@ mod build_filter_expr_tests {
             ..DummyFilter::new()
         };
         let mut params = vec![];
+        #[allow(unused)]
         let sql = build_filter_expr(&and_filter, &mut params);
-        assert_eq!(sql, "(t.a = ? AND t.b = ?)");
+        {
+            #[cfg(feature = "mysql")]
+            assert_eq!(sql, "(t.a = ? AND t.b = ?)");
+            #[cfg(feature = "postgres")]
+            assert_eq!(sql, "(t.a = $1 AND t.b = $2)");
+        }
         assert_eq!(params, vec![Value::Int32(1), Value::Int32(2)]);
 
         // (a = 1) OR (b = 2)
@@ -521,8 +509,12 @@ mod build_filter_expr_tests {
             ..DummyFilter::new()
         };
         let mut params = vec![];
+        #[allow(unused)]
         let sql = build_filter_expr(&or_filter, &mut params);
+        #[cfg(feature = "mysql")]
         assert_eq!(sql, "(t.a = ? OR t.b = ?)");
+        #[cfg(feature = "postgres")]
+        assert_eq!(sql, "(t.a = $1 OR t.b = $2)");
         assert_eq!(params, vec![Value::Int32(1), Value::Int32(2)]);
     }
 
@@ -541,8 +533,14 @@ mod build_filter_expr_tests {
             ..DummyFilter::new()
         };
         let mut params = vec![];
+        #[allow(unused)]
         let sql = build_filter_expr(&not_filter, &mut params);
-        assert_eq!(sql, "NOT (t.a = ?)");
+        {
+            #[cfg(feature = "mysql")]
+            assert_eq!(sql, "NOT (t.a = ?)");
+            #[cfg(feature = "postgres")]
+            assert_eq!(sql, "NOT (t.a = $1)");
+        }
         assert_eq!(params, vec![Value::Int32(1)]);
     }
 
@@ -589,11 +587,12 @@ mod build_filter_expr_tests {
             ..DummyFilter::new()
         };
         let mut params = vec![];
+        #[allow(unused)]
         let sql = build_filter_expr(&filter, &mut params);
         #[cfg(feature = "mysql")]
-        assert_eq!(sql, "t.a IN (?, ?)");
+        assert_eq!(sql, "`t`.`a` IN (?, ?)");
         #[cfg(feature = "postgres")]
-        assert_eq!(sql, "t.a IN ($1, $2)");
+        assert_eq!(sql, "\"t\".\"a\" IN ($1, $2)");
         assert_eq!(params, vec![Value::Int32(1), Value::Int32(2)]);
 
         // Empty IN array
@@ -615,11 +614,12 @@ mod build_filter_expr_tests {
             ..DummyFilter::new()
         };
         let mut params = vec![];
+        #[allow(unused)]
         let sql = build_filter_expr(&filter, &mut params);
         #[cfg(feature = "mysql")]
-        assert_eq!(sql, "t.a NOT IN (?)");
+        assert_eq!(sql, "`t`.`a` NOT IN (?)");
         #[cfg(feature = "postgres")]
-        assert_eq!(sql, "t.a NOT IN ($1)");
+        assert_eq!(sql, "\"t\".\"a\" NOT IN ($1)");
         assert_eq!(params, vec![Value::Int32(3)]);
 
         // Empty NOT IN array
@@ -684,8 +684,14 @@ mod build_filter_expr_tests {
             ..DummyFilter::new()
         };
         let mut params = vec![];
+        #[allow(unused)]
         let sql = build_filter_expr(&filter, &mut params);
-        assert_eq!(sql, "t.a BETWEEN ? AND ?");
+        {
+            #[cfg(feature = "mysql")]
+            assert_eq!(sql, "`t`.`a` BETWEEN ? AND ?");
+            #[cfg(feature = "postgres")]
+            assert_eq!(sql, "\"t\".\"a\" BETWEEN $1 AND $2");
+        }
         assert_eq!(params, vec![Value::Int32(1), Value::Int32(5)]);
     }
 
@@ -698,8 +704,14 @@ mod build_filter_expr_tests {
             ..DummyFilter::new()
         };
         let mut params = vec![];
+        #[allow(unused)]
         let sql = build_filter_expr(&filter, &mut params);
-        assert_eq!(sql, "t.a > ?");
+        {
+            #[cfg(feature = "mysql")]
+            assert_eq!(sql, "t.a > ?");
+            #[cfg(feature = "postgres")]
+            assert_eq!(sql, "t.a > $1");
+        }
         assert_eq!(params, vec![Value::Int32(10)]);
     }
 
@@ -713,7 +725,12 @@ mod build_filter_expr_tests {
         };
         let mut params = vec![];
         let sql = build_filter_expr(&filter, &mut params);
-        assert_eq!(sql, "t.a = t.b");
+        #[cfg(feature = "mysql")]
+        assert_eq!(sql, "`t`.`a` = `t`.`b`");
+        #[cfg(feature = "postgres")]
+        assert_eq!(sql, "\"t\".\"a\" = \"t\".\"b\"");
+        #[cfg(feature = "sqlite")]
+        assert_eq!(sql, "\"t\".\"a\" = \"t\".\"b\"");
         assert!(params.is_empty());
     }
 }

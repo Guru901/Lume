@@ -7,38 +7,42 @@
 //! returning of inserted rows and handles value binding for various SQL types.
 
 use crate::database::error::DatabaseError;
-use crate::helpers::{
-    StartingSql, bind_column_value, get_starting_sql, quote_identifier, validate_column_value,
-};
+use crate::dialects::get_dialect;
+use crate::helpers::{StartingSql, bind_column_value, get_starting_sql, validate_column_value};
 use crate::row::Row;
-use crate::schema::{ColumnInfo, Schema, Select, Value};
+use crate::schema::{ColumnConstraint, ColumnInfo, Schema, Select, Value};
 
 #[cfg(feature = "mysql")]
-use sqlx::MySqlPool;
+use sqlx::{MySql, MySqlPool};
 
 #[cfg(feature = "postgres")]
-use sqlx::PgPool;
+use sqlx::{Executor, PgPool, Postgres};
 
 #[cfg(feature = "sqlite")]
-use sqlx::SqlitePool;
+use sqlx::{Sqlite, SqlitePool};
+
+use sqlx::pool::PoolConnection;
 
 use std::collections::HashMap;
 use std::fmt::Debug;
-#[cfg(any(feature = "sqlite", feature = "mysql", feature = "postgres"))]
 use std::sync::Arc;
 
 /// Select columns that should be included in an INSERT statement based on provided values.
 ///
 /// Omits columns that have defaults or are auto-incremented when their value is absent or Null.
-fn select_insertable_columns(
-    all_columns: Vec<ColumnInfo>,
+fn select_insertable_columns<'a>(
+    all_columns: Vec<ColumnInfo<'a>>,
     values: &HashMap<String, Value>,
-) -> Vec<ColumnInfo> {
+) -> Vec<ColumnInfo<'a>> {
     all_columns
         .into_iter()
         .filter(|col| match values.get(col.name) {
-            None => !(col.has_default || col.auto_increment),
-            Some(Value::Null) => !(col.has_default || col.auto_increment),
+            None => {
+                !(col.has_default || col.constraints.contains(&ColumnConstraint::AutoIncrement))
+            }
+            Some(Value::Null) => {
+                !(col.has_default || col.constraints.contains(&ColumnConstraint::AutoIncrement))
+            }
             _ => true,
         })
         .collect()
@@ -183,7 +187,7 @@ impl<T: Schema + Debug> Insert<T> {
         let selected: Vec<ColumnInfo> = select_insertable_columns(all_columns, &values);
 
         let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-        let sql = Self::insert_sql(sql, selected.clone());
+        let sql = get_dialect().insert_sql(sql, &selected);
         let mut query = sqlx::query(&sql);
 
         for col in selected.iter() {
@@ -202,11 +206,9 @@ impl<T: Schema + Debug> Insert<T> {
         // For PostgreSQL with RETURNING, we need to add RETURNING clause to the INSERT
         #[cfg(feature = "postgres")]
         if !self.returning.is_empty() {
-            use crate::helpers::returning_sql;
-
             let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-            let sql = Self::insert_sql(sql, selected.clone());
-            let sql = returning_sql(sql, &self.returning);
+            let sql = get_dialect().insert_sql(sql, &selected);
+            let sql = get_dialect().returning_sql(sql, &self.returning);
             let mut query = sqlx::query(&sql);
 
             for col in selected.iter() {
@@ -226,11 +228,9 @@ impl<T: Schema + Debug> Insert<T> {
         // For SQLite with "RETURNING"
         #[cfg(feature = "sqlite")]
         if !self.returning.is_empty() {
-            use crate::helpers::returning_sql;
-
             let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-            let sql = Self::insert_sql(sql, selected.clone());
-            let sql = returning_sql(sql, &self.returning);
+            let sql = get_dialect().insert_sql(sql, &selected);
+            let sql = get_dialect().returning_sql(sql, &self.returning);
             let mut query = sqlx::query(&sql);
 
             for col in selected.iter() {
@@ -262,10 +262,8 @@ impl<T: Schema + Debug> Insert<T> {
         // For MySQL, build SELECT ... WHERE id = ? using either provided id or last_insert_id
         #[cfg(feature = "mysql")]
         {
-            use crate::helpers::returning_sql;
-
             let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
-            let mut select_sql = returning_sql(select_sql, &self.returning);
+            let mut select_sql = get_dialect().returning_sql(select_sql, &self.returning);
             select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
 
             let conn = self.conn.acquire().await;
@@ -296,14 +294,13 @@ impl<T: Schema + Debug> Insert<T> {
         {
             // In SQLite, if user called returning(), they already got results above.
             // Otherwise, emulate by SELECT ... WHERE rowid = last_insert_rowid().
-            use crate::helpers::returning_sql;
 
             if self.returning.is_empty() {
                 return Ok(None);
             }
 
             let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
-            let mut select_sql = returning_sql(select_sql, &self.returning);
+            let mut select_sql = get_dialect().returning_sql(select_sql, &self.returning);
 
             // Look for an "id" column in the table schema, not just the values
             let has_id_column = {
@@ -337,57 +334,6 @@ impl<T: Schema + Debug> Insert<T> {
             // This should not be reached as we handle RETURNING above
             Ok(None)
         }
-    }
-
-    /// Builds a parameterized INSERT SQL statement, with identifier quoting for MySQL/Postgres/SQLite and parameter style for all backends.
-    pub(crate) fn insert_sql(mut sql: String, columns: Vec<ColumnInfo>) -> String {
-        // Quote identifiers for portability (uses quote_identifier from lib.rs)
-        for (i, col) in columns.iter().enumerate() {
-            if i > 0 {
-                sql.push_str(", ");
-            }
-            sql.push_str(&quote_identifier(&col.name));
-        }
-        sql.push_str(") VALUES (");
-
-        #[cfg(feature = "postgres")]
-        {
-            // Use $1, $2, $3... for Postgres
-            for (i, _col) in columns.iter().enumerate() {
-                if i > 0 {
-                    sql.push_str(", ");
-                }
-                sql.push_str(&format!("${}", i + 1));
-            }
-        }
-        #[cfg(any(feature = "mysql", feature = "sqlite"))]
-        {
-            // Use ? for MySQL and SQLite
-            for (i, _col) in columns.iter().enumerate() {
-                if i > 0 {
-                    sql.push_str(", ");
-                }
-                sql.push_str("?");
-            }
-        }
-        // fallback (support at least something for no features)
-        #[cfg(all(
-            not(feature = "postgres"),
-            not(feature = "mysql"),
-            not(feature = "sqlite")
-        ))]
-        {
-            for (i, _col) in columns.iter().enumerate() {
-                if i > 0 {
-                    sql.push_str(", ");
-                }
-                sql.push_str("?");
-            }
-        }
-
-        sql.push_str(")");
-
-        sql
     }
 }
 
@@ -471,7 +417,7 @@ impl<T: Schema + Debug> InsertMany<T> {
             let selected: Vec<ColumnInfo> = select_insertable_columns(all_columns, &values);
 
             let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-            let sql = Insert::<T>::insert_sql(sql, selected.clone());
+            let sql = get_dialect().insert_sql(sql, &selected);
             let mut query = sqlx::query(&sql);
 
             for col in selected.iter() {
@@ -480,216 +426,316 @@ impl<T: Schema + Debug> InsertMany<T> {
             }
 
             #[cfg(feature = "mysql")]
-            {
-                let result = query.execute(&mut *conn).await;
-
-                if let Err(e) = result {
-                    return Err(DatabaseError::ExecutionError(e.to_string()));
-                }
-
-                let result = result.unwrap();
-
-                // Capture id: prefer provided id, else last_insert_id
-                if let Some(id_val) = values.get("id") {
-                    match id_val {
-                        Value::Array(_) => inserted_ids.push(result.last_insert_id()),
-                        Value::Int64(v) => inserted_ids.push(*v as u64),
-                        Value::Int32(v) => inserted_ids.push(*v as u64),
-                        Value::Int16(v) => inserted_ids.push(*v as u64),
-                        Value::Int8(v) => inserted_ids.push(*v as u64),
-                        Value::UInt64(v) => inserted_ids.push(*v),
-                        Value::UInt32(v) => inserted_ids.push(*v as u64),
-                        Value::UInt16(v) => inserted_ids.push(*v as u64),
-                        Value::UInt8(v) => inserted_ids.push(*v as u64),
-                        Value::String(_)
-                        | Value::Float32(_)
-                        | Value::Float64(_)
-                        | Value::Bool(_)
-                        | Value::Between(_, _)
-                        | Value::Null => inserted_ids.push(result.last_insert_id()),
-                    }
-                } else {
-                    inserted_ids.push(result.last_insert_id());
-                }
-            }
+            self.insert_mysql_row_and_capture_id_or_returning(
+                &mut conn,
+                query,
+                &mut inserted_ids,
+                &values,
+            )
+            .await
+            .unwrap();
 
             #[cfg(feature = "postgres")]
-            {
-                // For PostgreSQL, if returning is requested, we need to use RETURNING clause
-                if !self.returning.is_empty() {
-                    use crate::helpers::returning_sql;
-
-                    let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-                    let sql = Insert::<T>::insert_sql(sql, selected.clone());
-                    let sql = returning_sql(sql, &self.returning);
-                    let mut query = sqlx::query(&sql);
-
-                    for col in selected.iter() {
-                        let value = values.get(col.name);
-                        query = bind_column_value(query, col, value);
-                    }
-
-                    let rows = query.fetch_all(&mut *conn).await;
-                    if let Err(e) = rows {
-                        return Err(DatabaseError::QueryError(e.to_string()));
-                    }
-                    let rows = rows.unwrap();
-                    let rows = Row::<T>::from_postgres_row(rows, None);
-                    final_rows.extend(rows);
-                } else {
-                    // Execute without returning
-                    match query.execute(&mut *conn).await {
-                        Ok(_) => {}
-                        Err(e) => return Err(DatabaseError::ExecutionError(e.to_string())),
-                    }
-
-                    // Capture id: prefer provided id
-                    if let Some(id_val) = values.get("id") {
-                        match id_val {
-                            Value::Int64(v) => inserted_ids.push(*v as u64),
-                            Value::Int32(v) => inserted_ids.push(*v as u64),
-                            Value::Int16(v) => inserted_ids.push(*v as u64),
-                            Value::Int8(v) => inserted_ids.push(*v as u64),
-                            _ => {
-                                // For PostgreSQL without RETURNING, we can't get the id
-                                // This is a limitation - user should use returning() to get ids
-                            }
-                        }
-                    }
-                }
-            }
+            self.insert_postgres_row_and_capture_id_or_returning(
+                &mut conn,
+                query,
+                &mut inserted_ids,
+                &values,
+                &selected,
+                &mut final_rows,
+            )
+            .await
+            .unwrap();
 
             #[cfg(feature = "sqlite")]
-            {
-                // For SQLite, if returning is requested, we use RETURNING clause
-                if !self.returning.is_empty() {
-                    use crate::helpers::returning_sql;
-
-                    let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-                    let sql = Insert::<T>::insert_sql(sql, selected.clone());
-                    let sql = returning_sql(sql, &self.returning);
-                    let mut query = sqlx::query(&sql);
-
-                    for col in selected.iter() {
-                        let value = values.get(col.name);
-                        query = bind_column_value(query, col, value);
-                    }
-
-                    let rows = query.fetch_all(&mut *conn).await;
-                    if let Err(e) = rows {
-                        return Err(DatabaseError::QueryError(e.to_string()));
-                    }
-                    let rows = rows.unwrap();
-                    let rows = Row::<T>::from_sqlite_row(rows, None);
-                    final_rows.extend(rows);
-                } else {
-                    // Execute without returning
-                    let result = query.execute(&mut *conn).await;
-                    if let Err(e) = result {
-                        return Err(DatabaseError::ExecutionError(e.to_string()));
-                    }
-                    // Try to store last inserted rowid or id if available
-                    // For SQLite, last_insert_rowid is u64
-                    let id_val = values.get("id");
-                    if let Some(id_val) = id_val {
-                        match id_val {
-                            Value::Int64(v) => inserted_ids.push(*v as u64),
-                            Value::Int32(v) => inserted_ids.push(*v as u64),
-                            Value::Int16(v) => inserted_ids.push(*v as u64),
-                            Value::Int8(v) => inserted_ids.push(*v as u64),
-                            Value::UInt64(v) => inserted_ids.push(*v),
-                            Value::UInt32(v) => inserted_ids.push(*v as u64),
-                            Value::UInt16(v) => inserted_ids.push(*v as u64),
-                            Value::UInt8(v) => inserted_ids.push(*v as u64),
-                            Value::String(_)
-                            | Value::Float32(_)
-                            | Value::Float64(_)
-                            | Value::Bool(_)
-                            | Value::Between(_, _)
-                            | Value::Array(_)
-                            | Value::Null => {}
-                        }
-                    } else {
-                        #[cfg(feature = "sqlite")]
-                        {
-                            if let Ok(s) = result {
-                                inserted_ids.push(s.last_insert_rowid() as u64);
-                            }
-                        }
-                    }
-                }
-            }
+            self.insert_sqlite_row_and_capture_id_or_returning(&mut conn, selected, &values)
+                .await;
         }
 
-        #[cfg(any(feature = "mysql", feature = "sqlite"))]
-        {
-            use crate::helpers::returning_sql;
+        #[cfg(feature = "sqlite")]
+        return self
+            .fetch_sqlite_returning_rows(final_rows, inserted_ids, conn)
+            .await;
 
-            if self.returning.is_empty() {
-                return Ok(None);
-            }
+        #[cfg(feature = "mysql")]
+        return self
+            .fetch_mysql_returning_rows(final_rows, inserted_ids, conn)
+            .await;
 
-            // Fetch selected columns for all inserted ids
+        #[cfg(feature = "postgres")]
+        return self
+            .fetch_postgres_returning_rows(final_rows, inserted_ids, conn)
+            .await;
+    }
+
+    #[cfg(feature = "postgres")]
+    async fn fetch_postgres_returning_rows(
+        &self,
+        mut final_rows: Vec<Row<T>>,
+        inserted_ids: Vec<u64>,
+        mut conn: PoolConnection<Postgres>,
+    ) -> Result<Option<Vec<Row<T>>>, DatabaseError> {
+        if !self.returning.is_empty() {
+            Ok(Some(final_rows))
+        } else if !inserted_ids.is_empty() {
             let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
-            let mut select_sql = returning_sql(select_sql, &self.returning);
-            select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
+            let mut select_sql = get_dialect().returning_sql(select_sql, &self.returning);
+            select_sql.push_str(format!(" FROM {} WHERE id = $1;", T::table_name()).as_str());
 
             for id in inserted_ids {
-                #[cfg(feature = "mysql")]
-                let q = sqlx::query(&select_sql).bind(id);
-
-                #[cfg(feature = "sqlite")]
                 let q = sqlx::query(&select_sql).bind(id as i64);
-
                 let rows = q.fetch_all(&mut *conn).await;
-
                 if let Err(e) = rows {
                     return Err(DatabaseError::QueryError(e.to_string()));
                 }
-
                 let rows = rows.unwrap();
 
-                #[cfg(feature = "mysql")]
-                let rows = Row::<T>::from_mysql_row(rows, None);
-
-                #[cfg(feature = "sqlite")]
-                let rows = Row::<T>::from_sqlite_row(rows, None);
-
+                let rows = Row::<T>::from_postgres_row(rows, None);
                 final_rows.extend(rows);
             }
 
             Ok(Some(final_rows))
+        } else {
+            Ok(None)
+            // Fetch selected columns for all inserted ids
+        }
+    }
+
+    #[cfg(feature = "mysql")]
+    async fn fetch_mysql_returning_rows(
+        &self,
+        mut final_rows: Vec<Row<T>>,
+        inserted_ids: Vec<u64>,
+        mut conn: PoolConnection<MySql>,
+    ) -> Result<Option<Vec<Row<T>>>, DatabaseError> {
+        if self.returning.is_empty() {
+            return Ok(None);
         }
 
-        #[cfg(feature = "postgres")]
-        {
-            // For PostgreSQL, if returning was used, rows are already in final_rows
-            if !self.returning.is_empty() {
-                Ok(Some(final_rows))
-            } else if !inserted_ids.is_empty() {
-                // Fetch selected columns for all inserted ids
+        // Fetch selected columns for all inserted ids
+        let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
+        let mut select_sql = get_dialect().returning_sql(select_sql, &self.returning);
+        select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
 
-                use crate::helpers::returning_sql;
-                let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
-                let mut select_sql = returning_sql(select_sql, &self.returning);
-                select_sql.push_str(format!(" FROM {} WHERE id = $1;", T::table_name()).as_str());
+        for id in inserted_ids {
+            let q = sqlx::query(&select_sql).bind(id);
 
-                for id in inserted_ids {
-                    let q = sqlx::query(&select_sql).bind(id as i64);
-                    let rows = q.fetch_all(&mut *conn).await;
-                    if let Err(e) = rows {
-                        return Err(DatabaseError::QueryError(e.to_string()));
-                    }
-                    let rows = rows.unwrap();
+            let rows = q.fetch_all(&mut *conn).await;
 
-                    let rows = Row::<T>::from_postgres_row(rows, None);
-                    final_rows.extend(rows);
+            if let Err(e) = rows {
+                return Err(DatabaseError::QueryError(e.to_string()));
+            }
+
+            let rows = rows.unwrap();
+
+            let rows = Row::<T>::from_mysql_row(rows, None);
+
+            final_rows.extend(rows);
+        }
+
+        Ok(Some(final_rows))
+    }
+
+    #[cfg(feature = "sqlite")]
+    async fn fetch_sqlite_returning_rows(
+        &self,
+        mut final_rows: Vec<Row<T>>,
+        inserted_ids: Vec<u64>,
+        mut conn: PoolConnection<Sqlite>,
+    ) -> Result<Option<Vec<Row<T>>>, DatabaseError> {
+        if self.returning.is_empty() {
+            return Ok(None);
+        }
+
+        // Fetch selected columns for all inserted ids
+        let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
+        let mut select_sql = get_dialect().returning_sql(select_sql, &self.returning);
+        select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
+
+        for id in inserted_ids {
+            let q = sqlx::query(&select_sql).bind(id as i64);
+
+            let rows = q.fetch_all(&mut *conn).await;
+
+            if let Err(e) = rows {
+                return Err(DatabaseError::QueryError(e.to_string()));
+            }
+
+            let rows = rows.unwrap();
+            let rows = Row::<T>::from_sqlite_row(rows, None);
+
+            final_rows.extend(rows);
+        }
+
+        Ok(Some(final_rows))
+    }
+
+    #[cfg(feature = "sqlite")]
+    async fn insert_sqlite_row_and_capture_id_or_returning(
+        &self,
+        conn: &mut PoolConnection<Sqlite>,
+        selected: Vec<ColumnInfo<'_>>,
+        values: &HashMap<String, Value>,
+    ) -> Result<Result<Vec<Row<T>>, u64>, DatabaseError> {
+        // If RETURNING is requested, return the resulting row(s)
+        if !self.returning.is_empty() {
+            let sql = get_starting_sql(StartingSql::Insert, T::table_name());
+            let sql = get_dialect().insert_sql(sql, &selected);
+            let sql = get_dialect().returning_sql(sql, &self.returning);
+            let mut query = sqlx::query(&sql);
+
+            for col in selected.iter() {
+                let value = values.get(col.name);
+                query = bind_column_value(query, col, value);
+            }
+
+            let rows = query.fetch_all(&mut **conn).await;
+            if let Err(e) = rows {
+                return Err(DatabaseError::QueryError(e.to_string()));
+            }
+            let rows = rows.unwrap();
+            let out_rows = Row::<T>::from_sqlite_row(rows, None);
+            return Ok(Ok(out_rows));
+        } else {
+            // Otherwise, execute and return the inserted id (rowid)
+            let sql = get_starting_sql(StartingSql::Insert, T::table_name());
+            let sql = get_dialect().insert_sql(sql, &selected);
+            let mut query = sqlx::query(&sql);
+
+            for col in selected.iter() {
+                let value = values.get(col.name);
+                query = bind_column_value(query, col, value);
+            }
+
+            let result = query.execute(&mut **conn).await;
+            if let Err(e) = result {
+                return Err(DatabaseError::ExecutionError(e.to_string()));
+            }
+            let result = result.unwrap();
+
+            // Try to get id from input values if present, else use last_insert_rowid
+            let id_val = values.get("id");
+            let id: u64 = if let Some(id_val) = id_val {
+                match id_val {
+                    Value::Int64(v) => *v as u64,
+                    Value::Int32(v) => *v as u64,
+                    Value::Int16(v) => *v as u64,
+                    Value::Int8(v) => *v as u64,
+                    Value::UInt64(v) => *v,
+                    Value::UInt32(v) => *v as u64,
+                    Value::UInt16(v) => *v as u64,
+                    Value::UInt8(v) => *v as u64,
+                    Value::String(_)
+                    | Value::Float32(_)
+                    | Value::Float64(_)
+                    | Value::Bool(_)
+                    | Value::Between(_, _)
+                    | Value::Array(_)
+                    | Value::Null => result.last_insert_rowid() as u64,
                 }
-
-                Ok(Some(final_rows))
             } else {
-                Ok(None)
+                result.last_insert_rowid() as u64
+            };
+
+            return Ok(Err(id));
+        }
+    }
+
+    #[cfg(feature = "mysql")]
+    async fn insert_mysql_row_and_capture_id_or_returning(
+        &self,
+        conn: &mut PoolConnection<MySql>,
+        query: sqlx::query::Query<'_, MySql, sqlx::mysql::MySqlArguments>,
+        inserted_ids: &mut Vec<u64>,
+        values: &HashMap<String, Value>,
+    ) -> Result<(), DatabaseError> {
+        let result: Result<sqlx::mysql::MySqlQueryResult, sqlx::Error> =
+            query.execute(&mut **conn).await;
+
+        if let Err(e) = result {
+            return Err(DatabaseError::ExecutionError(e.to_string()));
+        }
+
+        let result = result.unwrap();
+
+        // Capture id: prefer provided id, else last_insert_id
+        if let Some(id_val) = values.get("id") {
+            match id_val {
+                Value::Array(_) => inserted_ids.push(result.last_insert_id()),
+                Value::Int64(v) => inserted_ids.push(*v as u64),
+                Value::Int32(v) => inserted_ids.push(*v as u64),
+                Value::Int16(v) => inserted_ids.push(*v as u64),
+                Value::Int8(v) => inserted_ids.push(*v as u64),
+                Value::UInt64(v) => inserted_ids.push(*v),
+                Value::UInt32(v) => inserted_ids.push(*v as u64),
+                Value::UInt16(v) => inserted_ids.push(*v as u64),
+                Value::UInt8(v) => inserted_ids.push(*v as u64),
+                Value::String(_)
+                | Value::Float32(_)
+                | Value::Float64(_)
+                | Value::Bool(_)
+                | Value::Between(_, _)
+                | Value::Null => inserted_ids.push(result.last_insert_id()),
+            }
+
+            Ok(())
+        } else {
+            inserted_ids.push(result.last_insert_id());
+
+            Ok(())
+        }
+    }
+
+    #[cfg(feature = "postgres")]
+    async fn insert_postgres_row_and_capture_id_or_returning(
+        &self,
+        conn: &mut PoolConnection<Postgres>,
+        query: sqlx::query::Query<'_, Postgres, sqlx::postgres::PgArguments>,
+        inserted_ids: &mut Vec<u64>,
+        values: &HashMap<String, Value>,
+        selected: &Vec<ColumnInfo<'_>>,
+        final_rows: &mut Vec<Row<T>>,
+    ) -> Result<(), DatabaseError> {
+        // For PostgreSQL, if returning is requested, we need to use RETURNING clause
+        if !self.returning.is_empty() {
+            let sql = get_starting_sql(StartingSql::Insert, T::table_name());
+            let sql = get_dialect().insert_sql(sql, &selected);
+            let sql = get_dialect().returning_sql(sql, &self.returning);
+            let mut query = sqlx::query(&sql);
+
+            for col in selected.iter() {
+                let value = values.get(col.name);
+                query = bind_column_value(query, col, value);
+            }
+
+            let rows = query.fetch_all(&mut **conn).await;
+            if let Err(e) = rows {
+                return Err(DatabaseError::QueryError(e.to_string()));
+            }
+            let rows = rows.unwrap();
+            let rows = Row::<T>::from_postgres_row(rows, None);
+            final_rows.extend(rows);
+        } else {
+            // Execute without returning
+            match query.execute(&mut **conn).await {
+                Ok(_) => {}
+                Err(e) => return Err(DatabaseError::ExecutionError(e.to_string())),
+            }
+
+            // Capture id: prefer provided id
+            if let Some(id_val) = values.get("id") {
+                match id_val {
+                    Value::Int64(v) => inserted_ids.push(*v as u64),
+                    Value::Int32(v) => inserted_ids.push(*v as u64),
+                    Value::Int16(v) => inserted_ids.push(*v as u64),
+                    Value::Int8(v) => inserted_ids.push(*v as u64),
+                    _ => {
+                        // For PostgreSQL without RETURNING, we can't get the id
+                        // This is a limitation - user should use returning() to get ids
+                    }
+                }
             }
         }
+        Ok(())
     }
 }

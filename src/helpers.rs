@@ -1,4 +1,5 @@
 use crate::{
+    dialects::get_dialect,
     filter::Filtered,
     schema::{ColumnInfo, Value},
 };
@@ -22,7 +23,7 @@ pub(crate) enum StartingSql {
 }
 
 pub(crate) fn get_starting_sql(starting_sql: StartingSql, table_name: &str) -> String {
-    let table_ident = quote_identifier(table_name);
+    let table_ident = get_dialect().quote_identifier(table_name);
     match starting_sql {
         StartingSql::Select => "SELECT ".to_string(),
         StartingSql::Insert => format!("INSERT INTO {} (", table_ident),
@@ -31,53 +32,8 @@ pub(crate) fn get_starting_sql(starting_sql: StartingSql, table_name: &str) -> S
     }
 }
 
-pub(crate) fn quote_identifier(identifier: &str) -> String {
-    #[cfg(feature = "mysql")]
-    {
-        return format!("`{}`", identifier.replace('`', "``"));
-    }
-
-    #[cfg(all(not(feature = "mysql"), feature = "postgres"))]
-    {
-        return format!("\"{}\"", identifier.replace('"', "\"\""));
-    }
-
-    #[cfg(all(not(feature = "mysql"), not(feature = "postgres"), feature = "sqlite"))]
-    {
-        return format!("\"{}\"", identifier.replace('"', "\"\""));
-    }
-}
-
-// This implementation is fine for SQLite. SQLite supports the `RETURNING` clause
-// at the end of INSERT/UPDATE/DELETE statements in recent versions (since 3.35.0, released in March 2021).
-// So appending " RETURNING ..." to the SQL as is done here is appropriate.
-
-#[cfg(any(feature = "sqlite", feature = "postgres"))]
-pub(crate) fn returning_sql(mut sql: String, returning: &Vec<&'static str>) -> String {
-    if returning.is_empty() {
-        return sql;
-    }
-
-    sql.push_str(" RETURNING ");
-    for (i, col) in returning.iter().enumerate() {
-        if i > 0 {
-            sql.push_str(", ");
-        }
-        sql.push_str(col);
-    }
-    sql.push_str(";");
-    sql
-}
-
-#[cfg(feature = "mysql")]
-pub(crate) fn returning_sql(sql: String, returning: &Vec<&'static str>) -> String {
-    if returning.is_empty() {
-        return sql;
-    }
-    sql
-}
-
 pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) -> String {
+    // Handle logical combinators (AND/OR)
     if filter.is_or_filter() || filter.is_and_filter() {
         let op = if filter.is_or_filter() { "OR" } else { "AND" };
         let Some(f1) = filter.filter1() else {
@@ -93,6 +49,7 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
         return format!("({} {} {})", left, op, right);
     }
 
+    // Handle NOT
     if filter.is_not().unwrap_or(false) {
         let Some(f) = filter.filter1() else {
             eprintln!("Warning: Not filter missing filter1, using tautology");
@@ -101,13 +58,22 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
         return format!("NOT ({})", build_filter_expr(f, params));
     }
 
+    // Handle actual column filters
     let Some(col1) = filter.column_one() else {
         eprintln!("Warning: Simple filter missing column_one, using tautology");
         return "1=1".to_string();
     };
+
     // Handle IN / NOT IN array filters
     if let Some(in_array) = filter.is_in_array() {
-        let values = filter.array_values().unwrap_or(&[]);
+        let Some(values) = filter.array_values() else {
+            eprintln!("Warning: IN/NOT IN filter missing array_values, using tautology");
+            return if in_array {
+                "1=0".to_string()
+            } else {
+                "1=1".to_string()
+            };
+        };
         if values.is_empty() {
             return if in_array {
                 "1=0".to_string()
@@ -116,23 +82,30 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
             };
         }
 
+        #[allow(unused)]
         let start_idx = params.len();
         let mut placeholders: Vec<String> = Vec::with_capacity(values.len());
-        for (i, v) in values.iter().cloned().enumerate() {
+
+        for (_i, v) in values.iter().cloned().enumerate() {
             params.push(v);
-            #[cfg(feature = "mysql")]
-            placeholders.push("?".to_string());
-            #[cfg(feature = "postgres")]
-            placeholders.push(format!("${}", start_idx + i + 1));
+            placeholders.push(get_dialect().placeholder(start_idx + _i));
         }
 
         let op = if in_array { "IN" } else { "NOT IN" };
-        return format!("{}.{} {} ({})", col1.0, col1.1, op, placeholders.join(", "));
+
+        return format!(
+            "{}.{} {} ({})",
+            get_dialect().quote_identifier(&col1.0),
+            get_dialect().quote_identifier(&col1.1),
+            op,
+            placeholders.join(", ")
+        );
     }
+
+    // Handle value-based filters
     if let Some(value) = filter.value() {
         match value {
             Value::Null => {
-                // Special handling for NULL comparisons
                 let op = filter.filter_type();
                 let null_sql = match op {
                     crate::filter::FilterType::Eq => "IS NULL",
@@ -147,24 +120,40 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
             Value::Between(min, max) => {
                 params.push((**min).clone());
                 params.push((**max).clone());
-                format!("{}.{} BETWEEN ? AND ?", col1.0, col1.1)
+
+                let dialect = get_dialect();
+                let base = params.len() - 2;
+                format!(
+                    "{}.{} BETWEEN {} AND {}",
+                    dialect.quote_identifier(&col1.0),
+                    dialect.quote_identifier(&col1.1),
+                    dialect.placeholder(base),
+                    dialect.placeholder(base + 1)
+                )
             }
             _ => {
                 params.push(value.clone());
-                format!("{}.{} {} ?", col1.0, col1.1, filter.filter_type().to_sql())
+                let filter_type = filter.filter_type();
+                let sql =
+                    get_dialect().build_filter_expr_fallback(col1, &filter_type, params.len());
+                return sql;
             }
         }
-    } else if let Some(col2) = filter.column_two() {
-        format!(
+    }
+    // Handle column-to-column comparisons
+    else if let Some(col2) = filter.column_two() {
+        let dialect = get_dialect();
+        return format!(
             "{}.{} {} {}.{}",
-            col1.0,
-            col1.1,
+            dialect.quote_identifier(&col1.0),
+            dialect.quote_identifier(&col1.1),
             filter.filter_type().to_sql(),
-            col2.0,
-            col2.1
-        )
+            dialect.quote_identifier(&col2.0),
+            dialect.quote_identifier(&col2.1)
+        );
     } else {
-        return "1=1".to_string();
+        // Fallback
+        "1=1".to_string()
     }
 }
 
@@ -178,7 +167,7 @@ pub(crate) type SqlBindQuery<'q> = sqlx::query::Query<'q, Postgres, PgArguments>
 pub(crate) type SqlBindQuery<'q> = sqlx::query::Query<'q, Sqlite, SqliteArguments<'q>>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum ColumnBindingKind {
+pub(crate) enum ColumnBindingKind {
     Varchar,
     Text,
     TinyInt,
@@ -224,112 +213,167 @@ pub(crate) fn bind_column_value<'q>(
 ) -> SqlBindQuery<'q> {
     let kind = ColumnBindingKind::from_column(column);
     match value {
-        None => bind_null(query, kind),
-        Some(Value::Null) => bind_null(query, kind),
-        Some(Value::Array(_)) => bind_null(query, kind),
+        None => get_dialect().bind_null(query, kind),
+        Some(Value::Null) => get_dialect().bind_null(query, kind),
+        Some(Value::Array(_)) => get_dialect().bind_null(query, kind),
         Some(other) => bind_value(query, other.clone()),
     }
 }
 
 pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) -> bool {
+    use crate::schema::ColumnValidators;
+
     match value {
         Some(Value::String(s)) => {
-            if column.email && !EMAIL_REGEX.is_match(s) {
-                return false;
-            }
-
-            if column.link && !LINK_REGEX.is_match(s) {
-                return false;
-            }
-
-            if let Some(min) = column.min_len {
-                if s.len() < min as usize {
-                    return false;
+            for validator in column.validators {
+                match *validator {
+                    ColumnValidators::Email => {
+                        if !EMAIL_REGEX.is_match(s) {
+                            return false;
+                        }
+                    }
+                    ColumnValidators::Url => {
+                        if !LINK_REGEX.is_match(s) {
+                            return false;
+                        }
+                    }
+                    ColumnValidators::MinLen(min) => {
+                        if s.len() < min {
+                            return false;
+                        }
+                    }
+                    ColumnValidators::MaxLen(max) => {
+                        if s.len() > max {
+                            return false;
+                        }
+                    }
+                    ColumnValidators::Min(min) => {
+                        // For backward compatibility, treat as MinLen for string
+                        if s.len() < min {
+                            return false;
+                        }
+                    }
+                    ColumnValidators::Max(max) => {
+                        // For backward compatibility, treat as MaxLen for string
+                        if s.len() > max {
+                            return false;
+                        }
+                    }
+                    ColumnValidators::Pattern(pattern) => {
+                        let regex = Regex::new(pattern).unwrap();
+                        if !regex.is_match(s) {
+                            return false;
+                        }
+                    }
                 }
             }
-            if let Some(max) = column.max_len {
-                if s.len() > max as usize {
-                    return false;
-                }
-            }
-
             true
         }
         Some(Value::Int32(i)) => {
-            if let Some(min) = column.min {
-                if (*i as isize) < (min as isize) {
-                    return false;
-                }
-            }
-            if let Some(max) = column.max {
-                if (*i as isize) > (max as isize) {
-                    return false;
+            for validator in column.validators {
+                match *validator {
+                    ColumnValidators::Min(min) => {
+                        if *i < min as i32 {
+                            return false;
+                        }
+                    }
+                    ColumnValidators::Max(max) => {
+                        if *i > max as i32 {
+                            return false;
+                        }
+                    }
+                    _ => {}
                 }
             }
             true
         }
         Some(Value::Int64(i)) => {
-            if let Some(min) = column.min {
-                if (*i as isize) < (min as isize) {
-                    return false;
-                }
-            }
-            if let Some(max) = column.max {
-                if (*i as isize) > (max as isize) {
-                    return false;
+            for validator in column.validators {
+                match *validator {
+                    ColumnValidators::Min(min) => {
+                        if *i < min as i64 {
+                            return false;
+                        }
+                    }
+                    ColumnValidators::Max(max) => {
+                        if *i > max as i64 {
+                            return false;
+                        }
+                    }
+                    _ => {}
                 }
             }
             true
         }
         Some(Value::UInt32(u)) => {
-            if let Some(min) = column.min {
-                if *u < min as u32 {
-                    return false;
-                }
-            }
-            if let Some(max) = column.max {
-                if *u > max as u32 {
-                    return false;
+            for validator in column.validators {
+                match *validator {
+                    ColumnValidators::Min(min) => {
+                        if *u < min as u32 {
+                            return false;
+                        }
+                    }
+                    ColumnValidators::Max(max) => {
+                        if *u > max as u32 {
+                            return false;
+                        }
+                    }
+                    _ => {}
                 }
             }
             true
         }
         Some(Value::UInt64(u)) => {
-            if let Some(min) = column.min {
-                if *u < min as u64 {
-                    return false;
-                }
-            }
-            if let Some(max) = column.max {
-                if *u > max as u64 {
-                    return false;
+            for validator in column.validators {
+                match *validator {
+                    ColumnValidators::Min(min) => {
+                        if *u < min as u64 {
+                            return false;
+                        }
+                    }
+                    ColumnValidators::Max(max) => {
+                        if *u > max as u64 {
+                            return false;
+                        }
+                    }
+                    _ => {}
                 }
             }
             true
         }
         Some(Value::Float32(f)) => {
             let f = *f as f64;
-            if let Some(min) = column.min {
-                if f < min as f64 {
-                    return false;
-                }
-            }
-            if let Some(max) = column.max {
-                if f > max as f64 {
-                    return false;
+            for validator in column.validators {
+                match *validator {
+                    ColumnValidators::Min(min) => {
+                        if f < min as f64 {
+                            return false;
+                        }
+                    }
+                    ColumnValidators::Max(max) => {
+                        if f > max as f64 {
+                            return false;
+                        }
+                    }
+                    _ => {}
                 }
             }
             true
         }
         Some(Value::Float64(f)) => {
-            if let Some(min) = column.min {
-                if *f < min as f64 {
-                    return false;
-                }
-            }
-            if let Some(max) = column.max {
-                if *f > max as f64 {
-                    return false;
+            for validator in column.validators {
+                match *validator {
+                    ColumnValidators::Min(min) => {
+                        if *f < min as f64 {
+                            return false;
+                        }
+                    }
+                    ColumnValidators::Max(max) => {
+                        if *f > max as f64 {
+                            return false;
+                        }
+                    }
+                    _ => {}
                 }
             }
             true
@@ -389,61 +433,5 @@ pub(crate) fn bind_value<'q>(query: SqlBindQuery<'q>, value: Value) -> SqlBindQu
             query
         }
         Value::Null => query,
-    }
-}
-
-#[cfg(feature = "mysql")]
-fn bind_null<'q>(query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQuery<'q> {
-    match kind {
-        ColumnBindingKind::Varchar | ColumnBindingKind::Text | ColumnBindingKind::Unknown => {
-            query.bind(None::<&str>)
-        }
-        ColumnBindingKind::TinyInt => query.bind(None::<i8>),
-        ColumnBindingKind::SmallInt => query.bind(None::<i16>),
-        ColumnBindingKind::Integer => query.bind(None::<i32>),
-        ColumnBindingKind::BigInt => query.bind(None::<i64>),
-        ColumnBindingKind::TinyIntUnsigned => query.bind(None::<u8>),
-        ColumnBindingKind::SmallIntUnsigned => query.bind(None::<u16>),
-        ColumnBindingKind::IntegerUnsigned => query.bind(None::<u32>),
-        ColumnBindingKind::BigIntUnsigned => query.bind(None::<u64>),
-        ColumnBindingKind::Float => query.bind(None::<f32>),
-        ColumnBindingKind::Double => query.bind(None::<f64>),
-        ColumnBindingKind::Boolean => query.bind(None::<bool>),
-    }
-}
-
-#[cfg(feature = "sqlite")]
-fn bind_null<'q>(query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQuery<'q> {
-    match kind {
-        ColumnBindingKind::Varchar | ColumnBindingKind::Text | ColumnBindingKind::Unknown => {
-            query.bind(None::<&str>)
-        }
-        ColumnBindingKind::TinyInt | ColumnBindingKind::TinyIntUnsigned => query.bind(None::<i16>),
-        ColumnBindingKind::SmallInt => query.bind(None::<i16>),
-        ColumnBindingKind::SmallIntUnsigned => query.bind(None::<i32>),
-        ColumnBindingKind::Integer => query.bind(None::<i32>),
-        ColumnBindingKind::IntegerUnsigned => query.bind(None::<i64>),
-        ColumnBindingKind::BigInt | ColumnBindingKind::BigIntUnsigned => query.bind(None::<i64>),
-        ColumnBindingKind::Float => query.bind(None::<f32>),
-        ColumnBindingKind::Double => query.bind(None::<f64>),
-        ColumnBindingKind::Boolean => query.bind(None::<bool>),
-    }
-}
-
-#[cfg(feature = "postgres")]
-fn bind_null<'q>(query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQuery<'q> {
-    match kind {
-        ColumnBindingKind::Varchar | ColumnBindingKind::Text | ColumnBindingKind::Unknown => {
-            query.bind(None::<&str>)
-        }
-        ColumnBindingKind::TinyInt | ColumnBindingKind::TinyIntUnsigned => query.bind(None::<i16>),
-        ColumnBindingKind::SmallInt => query.bind(None::<i16>),
-        ColumnBindingKind::SmallIntUnsigned => query.bind(None::<i32>),
-        ColumnBindingKind::Integer => query.bind(None::<i32>),
-        ColumnBindingKind::IntegerUnsigned => query.bind(None::<i64>),
-        ColumnBindingKind::BigInt | ColumnBindingKind::BigIntUnsigned => query.bind(None::<i64>),
-        ColumnBindingKind::Float => query.bind(None::<f32>),
-        ColumnBindingKind::Double => query.bind(None::<f64>),
-        ColumnBindingKind::Boolean => query.bind(None::<bool>),
     }
 }

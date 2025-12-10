@@ -33,7 +33,7 @@ pub(crate) trait TableDefinition: Send + Sync + Debug {
     fn table_name(&self) -> &'static str;
 
     /// Returns metadata for all columns in this table.
-    fn get_columns(&self) -> Vec<ColumnInfo>;
+    fn get_columns(&self) -> Vec<ColumnInfo<'static>>;
 
     /// Generates the CREATE TABLE SQL statement for this table.
     ///

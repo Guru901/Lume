@@ -13,6 +13,7 @@ use sqlx::mysql::MySqlRow;
 
 #[cfg(feature = "postgres")]
 use sqlx::postgres::PgRow;
+
 #[cfg(feature = "sqlite")]
 use sqlx::sqlite::SqliteRow;
 

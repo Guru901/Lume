@@ -29,30 +29,25 @@
 //! ```
 
 mod column;
+mod constraints;
+mod default;
+mod macros;
+mod validators;
+mod value;
 
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-use crate::schema::column::GeneratedColumn;
+pub use crate::schema::constraints::ColumnConstraint;
+pub use crate::schema::constraints::GeneratedColumn;
+pub use crate::schema::default::DefaultToSql;
+pub use crate::schema::default::DefaultValueEnum;
+pub use crate::schema::validators::ColumnValidators;
 use crate::table::TableDefinition;
 pub use column::Column;
-pub use column::Value;
-pub use column::convert_to_value;
 use std::fmt::Debug;
-
-/// Helper macro: decides field type as `Option<T>` if `default_value(...)` or
-/// `auto_increment()` is present in the column args; otherwise keeps it as `T`.
-#[macro_export]
-macro_rules! __lume_option_type {
-    ($ty:ty) => { $ty };
-    ($ty:ty, []) => { $ty };
-    // If args contain default_value(...), make it Option
-    ($ty:ty, [ default_value ( $($inner:tt)* ) $($tail:tt)* ]) => { Option<$ty> };
-    // If args contain auto_increment(), make it Option
-    ($ty:ty, [ auto_increment ( ) $($tail:tt)* ]) => { Option<$ty> };
-    // Recurse through any other tokens
-    ($ty:ty, [ $head:tt $($tail:tt)* ]) => { $crate::__lume_option_type!($ty, [ $($tail)* ]) };
-}
+pub use value::Value;
+pub use value::convert_to_value;
 
 /// Core trait that all database schemas must implement.
 ///
@@ -86,7 +81,7 @@ pub trait Schema {
     ///
     /// This includes column names, types, constraints, and other metadata
     /// needed for SQL generation and type checking.
-    fn get_all_columns() -> Vec<ColumnInfo>;
+    fn get_all_columns() -> Vec<ColumnInfo<'static>>;
 
     /// Ensures the schema is registered in the table registry.
     ///
@@ -171,390 +166,25 @@ pub trait Select {
 /// - `has_default`: Whether the column has a default value
 /// - `default_sql`: The SQL representation of the default value
 #[derive(Debug, Clone)]
-pub struct ColumnInfo {
+pub struct ColumnInfo<'a> {
     /// The column name in the database
     pub name: &'static str,
     /// The SQL data type (e.g., "INTEGER", "VARCHAR(255)")
     pub data_type: &'static str,
     /// Whether the column allows NULL values
-    pub nullable: bool,
-    /// Whether the data should be an email
-    pub email: bool,
-    /// Whether the column is a link
-    pub link: bool,
-    /// Minimum length of the column
-    pub min_len: Option<i32>,
-    /// Maximum length of the column
-    pub max_len: Option<i32>,
-    /// Minimum value of the column
-    pub min: Option<usize>,
-    /// Maximum value of the column
-    pub max: Option<usize>,
-    /// Whether the column has a UNIQUE constraint
-    pub unique: bool,
-    /// Whether the column is a primary key
-    pub primary_key: bool,
-    /// Whether the column has an index
-    pub indexed: bool,
-    /// Whether the column has a default value
     pub has_default: bool,
     /// The SQL representation of the default value
-    pub default_sql: Option<String>,
-    /// Whether this column auto-increments (MySQL AUTO_INCREMENT)
-    pub auto_increment: bool,
+    pub default_sql: Option<DefaultValueEnum<String>>,
     /// Optional column comment (MySQL COMMENT)
     pub comment: Option<&'static str>,
     /// Optional character set (MySQL CHARACTER SET)
     pub charset: Option<&'static str>,
     /// Optional collation (MySQL COLLATE)
     pub collate: Option<&'static str>,
-    /// Whether column has ON UPDATE CURRENT_TIMESTAMP behavior (MySQL)
-    pub on_update_current_timestamp: bool,
-    /// Whether this column is invisible (MySQL 8: INVISIBLE)
-    pub invisible: bool,
-    /// Optional CHECK constraint expression (MySQL 8)
-    pub check: Option<&'static str>,
-    /// Optional generated column definition (VIRTUAL or STORED)
-    pub generated: Option<GeneratedColumn>,
-}
-
-/// Defines a database schema with type-safe columns and constraints.
-///
-/// This macro creates a schema struct that implements the [`Schema`] trait
-/// and provides type-safe access to column definitions.
-///
-/// # Syntax
-///
-/// ```rust
-/// use lume::define_schema;
-/// use lume::schema::{Schema, ColumnInfo};
-///
-/// define_schema! {
-///     TableName {
-///         column_name: i32 [primary_key()],
-///         another_column: String [not_null()],
-///     }
-/// }
-/// ```
-///
-/// # Column Constraints
-///
-/// - `primary_key()` - Sets the column as primary key
-/// - `not_null()` - Makes the column NOT NULL
-/// - `unique()` - Adds a UNIQUE constraint
-/// - `indexed()` - Creates an index on the column
-/// - `default_value(value)` - Sets a default value
-///
-/// # Example
-///
-/// ```rust
-/// use lume::define_schema;
-/// use lume::schema::{Schema, ColumnInfo};
-///
-/// define_schema! {
-///     User {
-///         id: i32 [primary_key().not_null()],
-///         username: String [not_null().unique()],
-///         email: String [not_null()],
-///         age: i32,
-///         is_active: bool [default_value(true)],
-///         created_at: i64 [not_null()],
-///     }
-/// }
-///
-/// // Access columns type-safely
-/// let id_col = User::id();
-/// let username_col = User::username();
-///
-/// // Get schema information
-/// assert_eq!(User::table_name(), "User");
-/// let columns = User::get_all_columns();
-/// ```
-///
-/// # Generated Code
-///
-/// This macro generates:
-/// - A struct with the given name
-/// - Column accessor methods that return `&'static Column<T>`
-/// - Implementation of the [`Schema`] trait
-/// - Automatic table registration
-#[macro_export]
-macro_rules! define_schema {
-    (
-        $(
-            $struct_name:ident {
-            $(
-                $name:ident: $type:ty $([ $($args:tt)* ])?
-            ),* $(,)?
-        }
-    )*
-    ) => {
-    // Auto-register the table when the struct is defined
-    #[allow(non_upper_case_globals)]
-    static _REGISTER: std::sync::Once = std::sync::Once::new();
-    use $crate::table::register_table;
-    use $crate::schema::type_to_sql_string;
-    use $crate::schema::DefaultToSql;
-    use $crate::schema::Value;
-
-        $(
-        #[derive(Debug)]
-        pub struct $struct_name {
-            $(
-                pub $name: $crate::__lume_option_type!($type $(, [ $($args)* ])? ),
-            )*
-        }
-
-        paste::paste! {
-            #[derive(Debug)]
-            pub struct [<Update $struct_name>] {
-                $(
-                    pub $name: Option<$type>,
-                )*
-            }
-
-            impl Default for [<Update $struct_name>] {
-                fn default() -> Self {
-                    Self {
-                        $(
-                            $name: None,
-                        )*
-                    }
-                }
-            }
-
-            impl [<Update $struct_name>] {
-                $(
-                    pub fn $name() -> &'static $crate::schema::Column<$type> {
-                        static COL: std::sync::OnceLock<$crate::schema::Column<$type>> = std::sync::OnceLock::new();
-                        COL.get_or_init(|| {
-                            $crate::schema::Column::<$type>::new(stringify!($name), stringify!($struct_name))
-                                $(.$($args)*)?
-                        })
-                    }
-                )*
-
-            }
-            impl $crate::schema::UpdateTrait for [<Update $struct_name>] {
-
-                fn get_updated(self) -> Vec<(&'static str, Value)> {
-                    let mut vec = Vec::new();
-
-                    $(
-                        if self.$name.is_some() {
-                            vec.push((stringify!($struct_name.$name), $crate::schema::convert_to_value(&self.$name)));
-                        }
-                    )*
-
-                    vec
-                }
-            }
-
-
-
-            impl $crate::schema::Schema for [<Update $struct_name>] {
-                fn table_name() -> &'static str {
-                    stringify!($struct_name)
-                }
-
-                fn values(&self) -> std::collections::HashMap<String, Value> {
-                    let mut map = std::collections::HashMap::new();
-                    $(
-                        map.insert(
-                            stringify!($name).to_string(),
-                            $crate::schema::convert_to_value(&self.$name)
-                        );
-                    )*
-                    map
-                }
-                fn ensure_registered() {
-                    // Function-local static to avoid name collisions across macro expansions
-                    static REGISTER: std::sync::Once = std::sync::Once::new();
-                    REGISTER.call_once(|| {
-                        register_table::<$struct_name>();
-                    });
-                }
-
-                fn get_all_columns() -> Vec<$crate::schema::ColumnInfo> {
-                    vec![
-                        $(
-                            {
-                                let col = Self::$name();
-
-                                $crate::schema::ColumnInfo {
-                                    name: col.name(),
-                                    data_type: type_to_sql_string::<$type>(),
-                                    nullable: col.is_nullable(),
-                                    unique: col.is_unique(),
-                                    primary_key: col.is_primary_key(),
-                                    indexed: col.is_indexed(),
-                                    has_default: col.get_default().is_some(),
-                                    default_sql: col.default_to_sql(),
-                                    auto_increment: col.is_auto_increment(),
-                                    comment: col.get_comment(),
-                                    charset: col.get_charset(),
-                                    collate: col.get_collate(),
-                                    on_update_current_timestamp: col.has_on_update_current_timestamp(),
-                                    invisible: col.is_invisible(),
-                                    check: col.get_check(),
-                                    generated: col.get_generated(),
-                                    email: col.is_email(),
-                                    min: col.min,
-                                    max: col.max,
-                                    min_len: col.min_len,
-                                    max_len: col.max_len,
-                                    link: col.is_link(),
-                                }
-                            }
-                        ),*
-                    ]
-                }
-            }
-        }
-
-        paste::paste! {
-            #[derive(Debug)]
-            pub struct [<Select $struct_name>] {
-                $(
-                    pub $name: bool,
-                )*
-            }
-
-            impl [<Select $struct_name>] {
-
-                $(
-                    fn $name(mut self) -> Self {
-                        self.$name = true;
-                        self
-                    }
-                )*
-
-                #[allow(dead_code)]
-                fn selected() -> Self {
-                    Self {
-                        $(
-                            $name: false,
-                        )*
-                    }
-                }
-
-                fn all(mut self) -> Self {
-                    $(
-                        self.$name = true;
-                    )*
-
-                    self
-                }
-            }
-
-            impl Default for [<Select $struct_name>] {
-                fn default() -> Self {
-                    Self {
-                        $(
-                            $name: false,
-                        )*
-                    }
-                }
-            }
-
-            impl $crate::schema::Select for [<Select $struct_name>] {
-                fn default() -> Self {
-                    Self {
-                        $(
-                            $name: true,
-                        )*
-                    }
-                }
-
-
-                fn get_selected(self) -> Vec<&'static str> {
-                    let mut vec = Vec::new();
-
-                    $(
-                        if self.$name {
-                            vec.push(stringify!($struct_name.$name))
-                        }
-                    )*
-
-                    vec
-                }
-            }
-        }
-
-
-        impl $struct_name {
-            $(
-                pub fn $name() -> &'static $crate::schema::Column<$type> {
-                    static COL: std::sync::OnceLock<$crate::schema::Column<$type>> = std::sync::OnceLock::new();
-                    COL.get_or_init(|| {
-                        $crate::schema::Column::<$type>::new(stringify!($name), stringify!($struct_name))
-                            $(.$($args)*)?
-                    })
-                }
-            )*
-        }
-
-
-        impl $crate::schema::Schema for $struct_name {
-            fn table_name() -> &'static str {
-                stringify!($struct_name)
-            }
-
-            fn values(&self) -> std::collections::HashMap<String, Value> {
-                let mut map = std::collections::HashMap::new();
-                $(
-                    map.insert(
-                        stringify!($name).to_string(),
-                        $crate::schema::convert_to_value(&self.$name)
-                    );
-                )*
-                map
-            }
-            fn ensure_registered() {
-                // Function-local static to avoid name collisions across macro expansions
-                static REGISTER: std::sync::Once = std::sync::Once::new();
-                REGISTER.call_once(|| {
-                    register_table::<$struct_name>();
-                });
-            }
-
-            fn get_all_columns() -> Vec<$crate::schema::ColumnInfo> {
-                vec![
-                    $(
-                        {
-                            let col = Self::$name();
-
-                            $crate::schema::ColumnInfo {
-                                name: col.name(),
-                                data_type: type_to_sql_string::<$type>(),
-                                nullable: col.is_nullable(),
-                                unique: col.is_unique(),
-                                primary_key: col.is_primary_key(),
-                                indexed: col.is_indexed(),
-                                has_default: col.get_default().is_some(),
-                                default_sql: col.default_to_sql(),
-                                auto_increment: col.is_auto_increment(),
-                                comment: col.get_comment(),
-                                charset: col.get_charset(),
-                                collate: col.get_collate(),
-                                on_update_current_timestamp: col.has_on_update_current_timestamp(),
-                                invisible: col.is_invisible(),
-                                check: col.get_check(),
-                                generated: col.get_generated(),
-                                email: col.is_email(),
-                                min: col.min,
-                                max: col.max,
-                                min_len: col.min_len,
-                                max_len: col.max_len,
-                                link: col.is_link(),
-                            }
-                        }
-                    ),*
-                ]
-            }
-        }
-        )*
-    };
+    /// Validators applied to this column's values at runtime.
+    pub validators: &'a Vec<ColumnValidators>,
+    /// Constraints applied to this column (e.g., NOT NULL, UNIQUE, PRIMARY KEY).
+    pub constraints: &'a Vec<ColumnConstraint>,
 }
 
 /// Converts a Rust type to its corresponding SQL type string.
@@ -584,7 +214,7 @@ macro_rules! define_schema {
 /// use lume::schema::type_to_sql_string;
 ///
 /// assert_eq!(type_to_sql_string::<String>(), "VARCHAR(255)");
-/// assert_eq!(type_to_sql_string::<i32>(), "INTEGER");
+/// assert_eq!(type_to_sql_string::<i32>(), "INT");
 /// assert_eq!(type_to_sql_string::<i64>(), "BIGINT");
 /// assert_eq!(type_to_sql_string::<u64>(), "BIGINT UNSIGNED");
 /// assert_eq!(type_to_sql_string::<bool>(), "BOOLEAN");
@@ -601,7 +231,7 @@ pub fn type_to_sql_string<T: 'static>() -> &'static str {
     } else if type_id == TypeId::of::<i16>() {
         "SMALLINT"
     } else if type_id == TypeId::of::<i32>() {
-        "INTEGER"
+        "INT"
     } else if type_id == TypeId::of::<i64>() {
         "BIGINT"
     } else if type_id == TypeId::of::<u8>() {
@@ -609,7 +239,7 @@ pub fn type_to_sql_string<T: 'static>() -> &'static str {
     } else if type_id == TypeId::of::<u16>() {
         "SMALLINT UNSIGNED"
     } else if type_id == TypeId::of::<u32>() {
-        "INTEGER UNSIGNED"
+        "INT UNSIGNED"
     } else if type_id == TypeId::of::<u64>() {
         "BIGINT UNSIGNED"
     } else if type_id == TypeId::of::<f32>() {
@@ -618,8 +248,12 @@ pub fn type_to_sql_string<T: 'static>() -> &'static str {
         "DOUBLE"
     } else if type_id == TypeId::of::<bool>() {
         "BOOLEAN"
+    } else if type_id == TypeId::of::<time::Date>() {
+        "DATE"
+    } else if type_id == TypeId::of::<time::OffsetDateTime>() {
+        "DATETIME"
     } else {
-        "TEXT" // fallback
+        "VARCHAR(255)" // fallback
     }
 }
 
@@ -659,7 +293,7 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
         T::table_name()
     }
 
-    fn get_columns(&self) -> Vec<ColumnInfo> {
+    fn get_columns(&self) -> Vec<ColumnInfo<'static>> {
         T::get_all_columns()
     }
 
@@ -673,25 +307,38 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
             .iter()
             .map(|col| {
                 let mut def = format!("    {} {}", col.name, col.data_type);
+                let constraints = col.constraints;
 
-                if col.primary_key {
-                    def.push_str(" PRIMARY KEY");
-                }
-
-                if !col.nullable && !col.primary_key {
-                    def.push_str(" NOT NULL");
-                }
-
-                if col.unique && !col.primary_key {
-                    def.push_str(" UNIQUE");
-                }
-
-                if col.auto_increment && col.primary_key && is_mysql_integer_type(col.data_type) {
-                    def.push_str(" AUTO_INCREMENT");
-                }
-
-                if col.on_update_current_timestamp {
-                    def.push_str(" ON UPDATE CURRENT_TIMESTAMP");
+                for constraint in constraints {
+                    match constraint {
+                        ColumnConstraint::NonNullable => {
+                            def.push_str(" NOT NULL");
+                        }
+                        ColumnConstraint::Unique => {
+                            def.push_str(" UNIQUE");
+                        }
+                        ColumnConstraint::PrimaryKey => {
+                            def.push_str(" PRIMARY KEY");
+                        }
+                        ColumnConstraint::Indexed => {}
+                        ColumnConstraint::AutoIncrement => {
+                            if is_mysql_integer_type(col.data_type) {
+                                def.push_str(" AUTO_INCREMENT");
+                            }
+                        }
+                        ColumnConstraint::Invisible => {
+                            def.push_str(" INVISIBLE");
+                        }
+                        ColumnConstraint::OnUpdateCurrentTimestamp => {
+                            def.push_str(" ON UPDATE CURRENT_TIMESTAMP");
+                        }
+                        ColumnConstraint::Check(expression) => {
+                            def.push_str(&format!(" CHECK ({})", expression));
+                        }
+                        ColumnConstraint::Generated(generated) => {
+                            def.push_str(&format!(" GENERATED {}", generated));
+                        }
+                    }
                 }
 
                 if col.comment.is_some() {
@@ -707,20 +354,30 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
                     def.push_str(&format!(" COLLATE {}", col.collate.unwrap()));
                 }
 
-                if col.invisible {
-                    def.push_str(" INVISIBLE");
-                }
-
-                if col.check.is_some() {
-                    def.push_str(&format!(" CHECK ({})", col.check.unwrap()));
-                }
-
-                if col.generated.is_some() {
-                    def.push_str(&format!(" GENERATED {}", col.generated.unwrap()));
-                }
-
-                if let Some(ref default) = col.default_sql {
-                    def.push_str(&format!(" DEFAULT {}", default));
+                if col.has_default {
+                    if let Some(ref default) = col.default_sql {
+                        if let DefaultValueEnum::Value(default) = default {
+                            // Add quotes for string default values if not already quoted
+                            let needs_quotes = col.data_type == "TEXT"
+                                || col.data_type.starts_with("VARCHAR")
+                                || col.data_type == "CHAR"
+                                || col.data_type == "STRING";
+                            if needs_quotes
+                                && !(default.starts_with('\'') && default.ends_with('\''))
+                            {
+                                def.push_str(&format!(
+                                    " DEFAULT '{}'",
+                                    default.replace('\'', "''")
+                                ));
+                            } else {
+                                def.push_str(&format!(" DEFAULT {}", default));
+                            }
+                        } else if &DefaultValueEnum::CurrentTimestamp == default {
+                            def.push_str(" DEFAULT CURRENT_TIMESTAMP");
+                        } else if &DefaultValueEnum::Random == default {
+                            def.push_str(" DEFAULT (UUID())");
+                        }
+                    }
                 }
 
                 def
@@ -733,7 +390,10 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
         // Add indexes
         let indexes: Vec<String> = columns
             .iter()
-            .filter(|col| col.indexed && !col.primary_key)
+            .filter(|col| {
+                col.constraints.contains(&ColumnConstraint::Indexed)
+                    && !col.constraints.contains(&ColumnConstraint::PrimaryKey)
+            })
             .map(|col| {
                 format!(
                     "CREATE INDEX idx_{}_{} ON {} ({});",
@@ -767,119 +427,9 @@ fn is_mysql_integer_type(data_type: &str) -> bool {
     }
 }
 
-/// Trait for converting column default values to SQL representation.
+/// Marker trait for user-defined types that should use generic `DefaultToSql`.
 ///
-/// This trait is implemented for all supported column types to provide
-/// proper SQL formatting of default values in CREATE TABLE statements.
-///
-/// # Example
-///
-/// ```rust
-/// use lume::schema::{Column, DefaultToSql};
-///
-/// let string_col = Column::<String>::new("name", "users");
-/// let int_col = Column::<i32>::new("age", "users");
-/// let bool_col = Column::<bool>::new("active", "users");
-///
-/// // Set defaults
-/// let string_col = string_col.default_value("John".to_string());
-/// let int_col = int_col.default_value(25);
-/// let bool_col = bool_col.default_value(true);
-///
-/// // Convert to SQL
-/// assert_eq!(string_col.default_to_sql(), Some("'John'".to_string()));
-/// assert_eq!(int_col.default_to_sql(), Some("25".to_string()));
-/// assert_eq!(bool_col.default_to_sql(), Some("TRUE".to_string()));
-/// ```
-pub trait DefaultToSql {
-    /// Converts the column's default value to its SQL representation.
-    ///
-    /// Returns `None` if the column has no default value.
-    ///
-    /// # Returns
-    ///
-    /// - `Some(String)`: The SQL representation of the default value
-    /// - `None`: If no default value is set
-    fn default_to_sql(&self) -> Option<String>;
-}
-
-// Implement for each column type
-impl DefaultToSql for Column<String> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default()
-            .map(|v| format!("'{}'", v.replace('\'', "''")))
-    }
-}
-
-impl DefaultToSql for Column<i32> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<i64> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<f32> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<f64> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<bool> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| {
-            if *v {
-                "TRUE".to_string()
-            } else {
-                "FALSE".to_string()
-            }
-        })
-    }
-}
-
-// Implement DefaultToSql for all integer types
-impl DefaultToSql for Column<i8> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<i16> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<u8> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<u16> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<u32> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
-
-impl DefaultToSql for Column<u64> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| v.to_string())
-    }
-}
+/// Users can implement this trait for their custom enums or types to enable
+/// default value support in schema definitions. Types implementing this trait
+/// must also implement `ToString` to provide SQL string representation.
+pub trait CustomSqlType {}

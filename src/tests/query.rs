@@ -20,7 +20,7 @@ mod tests {
 
     define_schema! {
         DummySchema {
-            id: u32,
+            _id: u32,
         }
     }
 
@@ -115,6 +115,19 @@ mod tests {
         #[cfg(feature = "sqlite")]
         let pool = Arc::new(SqlitePool::connect_lazy("sqlite://:memory:").unwrap());
 
+        #[cfg(feature = "sqlite")]
+        let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
+            .left_join::<DummySchema, SelectDummySchema>(
+                Filter::default(),
+                SelectDummySchema::selected().all(),
+            )
+            .inner_join::<DummySchema, SelectDummySchema>(
+                Filter::default(),
+                SelectDummySchema::selected().all(),
+            )
+            .cross_join::<DummySchema, SelectDummySchema>(SelectDummySchema::selected().all());
+
+        #[cfg(not(feature = "sqlite"))]
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
             .left_join::<DummySchema, SelectDummySchema>(
                 Filter::default(),
@@ -133,6 +146,7 @@ mod tests {
         assert_eq!(query.joins.len(), 4);
         assert_eq!(query.joins[0].join_type, JoinType::Left);
         assert_eq!(query.joins[1].join_type, JoinType::Inner);
+        #[cfg(not(feature = "sqlite"))]
         assert_eq!(query.joins[2].join_type, JoinType::Right);
         assert_eq!(query.joins[3].join_type, JoinType::Cross);
     }
@@ -151,7 +165,7 @@ mod tests {
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
             .select(SelectDummySchema::selected().all())
             .left_join::<DummySchema, SelectDummySchema>(
-                eq_column(DummySchema::id(), DummySchema::id()),
+                eq_column(DummySchema::_id(), DummySchema::_id()),
                 SelectDummySchema::selected().all(),
             );
 
@@ -162,7 +176,7 @@ mod tests {
             &query.joins,
         );
 
-        assert!(sql.contains("DummySchema.id"));
+        assert!(sql.contains("DummySchema._id"));
         assert!(sql.contains(" FROM DummySchema"));
 
         println!("SQL: {sql}");
@@ -187,7 +201,7 @@ mod tests {
         let pool = Arc::new(SqlitePool::connect_lazy("sqlite://:memory:").unwrap());
 
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
-            .filter(eq_value(DummySchema::id(), 1));
+            .filter(eq_value(DummySchema::_id(), 1));
 
         let mut params = vec![];
         let sql = Query::<DummySchema, SelectDummySchema>::filter_sql(
