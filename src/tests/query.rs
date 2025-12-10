@@ -115,6 +115,19 @@ mod tests {
         #[cfg(feature = "sqlite")]
         let pool = Arc::new(SqlitePool::connect_lazy("sqlite://:memory:").unwrap());
 
+        #[cfg(feature = "sqlite")]
+        let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
+            .left_join::<DummySchema, SelectDummySchema>(
+                Filter::default(),
+                SelectDummySchema::selected().all(),
+            )
+            .inner_join::<DummySchema, SelectDummySchema>(
+                Filter::default(),
+                SelectDummySchema::selected().all(),
+            )
+            .cross_join::<DummySchema, SelectDummySchema>(SelectDummySchema::selected().all());
+
+        #[cfg(not(feature = "sqlite"))]
         let query = Query::<DummySchema, SelectDummySchema>::new(pool.clone())
             .left_join::<DummySchema, SelectDummySchema>(
                 Filter::default(),
@@ -133,6 +146,7 @@ mod tests {
         assert_eq!(query.joins.len(), 4);
         assert_eq!(query.joins[0].join_type, JoinType::Left);
         assert_eq!(query.joins[1].join_type, JoinType::Inner);
+        #[cfg(not(feature = "sqlite"))]
         assert_eq!(query.joins[2].join_type, JoinType::Right);
         assert_eq!(query.joins[3].join_type, JoinType::Cross);
     }

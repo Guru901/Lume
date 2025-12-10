@@ -122,7 +122,7 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
                 params.push((**max).clone());
 
                 let dialect = get_dialect();
-                let base = params.len() - 1;
+                let base = params.len() - 2;
                 format!(
                     "{}.{} BETWEEN {} AND {}",
                     dialect.quote_identifier(&col1.0),
@@ -142,14 +142,16 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
     }
     // Handle column-to-column comparisons
     else if let Some(col2) = filter.column_two() {
-        format!(
+        let str = format!(
             "{}.{} {} {}.{}",
             col1.0,
             col1.1,
             filter.filter_type().to_sql(),
             col2.0,
             col2.1
-        )
+        );
+        println!("{str}");
+        return str;
     } else {
         // Fallback
         "1=1".to_string()
