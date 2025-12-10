@@ -1,6 +1,6 @@
 use crate::{
     filter::Filtered,
-    schema::{ColumnInfo, Validators, Value},
+    schema::{ColumnInfo, Value},
 };
 use std::sync::LazyLock;
 

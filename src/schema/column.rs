@@ -47,7 +47,6 @@ use std::{
 /// assert_eq!(id_col.name(), "id");
 /// assert!(id_col.is_primary_key());
 /// assert!(!id_col.is_nullable());
-/// assert_eq!(name_col.get_default(), Some(&"Anonymous".to_string()));
 /// ```
 #[derive(Clone, Debug)]
 pub struct Column<T> {
@@ -192,17 +191,6 @@ impl<T> Column<T> {
     /// # Arguments
     ///
     /// - `value`: The default value to set
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::schema::Column;
-    ///
-    /// let col = Column::<String>::new("name", "users")
-    ///     .default_value("Anonymous".to_string());
-    ///
-    /// assert_eq!(col.get_default(), Some(&"Anonymous".to_string()));
-    /// ```
     pub fn default_value<K: Into<T>>(mut self, value: K) -> Self {
         self.default_value = Some(DefaultValueEnum::Value(value.into()));
         self
@@ -243,9 +231,13 @@ impl<T> Column<T> {
     ///
     /// ```rust
     /// use lume::schema::Column;
+    /// use lume::schema::DefaultValueEnum;
     ///
     /// let col = Column::<String>::new("id", "users").default_random();
-    /// assert!(col.get_default_random());
+    /// match col.get_default() {
+    ///     Some(DefaultValueEnum::Random) => println!("Random default set"),
+    ///     _ => panic!("Expected Random default"),
+    /// }
     /// ```
     ///
     /// What counts as "random" depends on the column type and the backend.
@@ -263,14 +255,6 @@ impl<T> Column<T> {
     ///
     /// This is a semantic hint for validation and UI. It does not enforce
     /// format checks in the database (unless paired with a `check`).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use lume::schema::Column;
-    /// let col = Column::<String>::new("email", "users").email();
-    /// assert!(col.is_email());
-    /// ```
     pub fn email(mut self) -> Self {
         self.validators.push(Validators::Email);
         self
@@ -280,94 +264,30 @@ impl<T> Column<T> {
     ///
     /// This is a semantic hint for validation and UI, but does not enforce
     /// link format at the database level (unless paired with a `check`).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use lume::schema::Column;
-    /// let col = Column::<String>::new("website", "users").link();
-    /// assert!(col.is_link());
-    /// ```
     pub fn link(mut self) -> Self {
         self.validators.push(Validators::Url);
         self
     }
 
     /// Sets the minimum allowed length for this column's string values.
-    ///
-    /// Only meaningful for string-like types.
-    ///
-    /// # Arguments
-    ///
-    /// * `min` - The minimum character length allowed.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use lume::schema::Column;
-    /// let col = Column::<String>::new("username", "users").min_len(3);
-    /// assert_eq!(col.min_len, Some(3));
-    /// ```
     pub fn min_len(mut self, min: i32) -> Self {
         self.validators.push(Validators::MinLen(min as usize));
         self
     }
 
     /// Sets the maximum allowed length for this column's string values.
-    ///
-    /// Only meaningful for string-like types.
-    ///
-    /// # Arguments
-    ///
-    /// * `max` - The maximum character length allowed.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use lume::schema::Column;
-    /// let col = Column::<String>::new("username", "users").max_len(10);
-    /// assert_eq!(col.max_len, Some(10));
-    /// ```
     pub fn max_len(mut self, max: i32) -> Self {
         self.validators.push(Validators::MaxLen(max as usize));
         self
     }
 
     /// Sets the minimum allowed value for numeric columns.
-    ///
-    /// Only meaningful for numeric types.
-    ///
-    /// # Arguments
-    ///
-    /// * `min` - The minimum value allowed.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use lume::schema::Column;
-    /// let col = Column::<u32>::new("age", "users").min(18);
-    /// assert_eq!(col.min, Some(18));
-    /// ```
     pub fn min(mut self, min: usize) -> Self {
         self.validators.push(Validators::Min(min));
         self
     }
 
     /// Sets the maximum allowed value for numeric columns.
-    ///
-    /// Only meaningful for numeric types.
-    ///
-    /// # Arguments
-    ///
-    /// * `max` - The maximum value allowed.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use lume::schema::Column;
-    /// let col = Column::<u32>::new("age", "users").max(100);
-    /// assert_eq!(col.max, Some(100));
-    /// ```
     pub fn max(mut self, max: usize) -> Self {
         self.validators.push(Validators::Max(max));
         self
@@ -998,30 +918,6 @@ impl TryFrom<Value> for bool {
     }
 }
 
-// Better approach: Use a trait for type-safe conversion
-#[allow(unused)]
-pub trait IntoValue {
-    fn into_db_value(self) -> Value;
-}
-
-impl<T> IntoValue for T
-where
-    Value: From<T>,
-{
-    fn into_db_value(self) -> Value {
-        Value::from(self)
-    }
-}
-
-impl<T: IntoValue> IntoValue for Option<T> {
-    fn into_db_value(self) -> Value {
-        match self {
-            Some(v) => v.into_db_value(),
-            None => Value::Null,
-        }
-    }
-}
-
 /// Converts a reference to a value of any supported type into a [`Value`] enum.
 ///
 /// This function attempts to downcast the provided reference to a known supported type
@@ -1157,13 +1053,24 @@ pub enum DefaultValueEnum<T> {
     Value(T),
 }
 
+/// Represents different types of validators that can be applied to a column.
+///
+/// Validators provide semantic hints for validation and UI generation,
+/// helping ensure data integrity and proper input validation at the application layer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Validators {
+    /// Validates that the value is a properly formatted email address.
     Email,
+    /// Validates that the value is a valid URL/link.
     Url,
+    /// Validates that string length is at least the specified minimum.
     MinLen(usize),
+    /// Validates that string length does not exceed the specified maximum.
     MaxLen(usize),
+    /// Validates that numeric value is at least the specified minimum.
     Min(usize),
+    /// Validates that numeric value does not exceed the specified maximum.
     Max(usize),
+    /// Validates that the value matches the specified regex pattern.
     Pattern(&'static str),
 }

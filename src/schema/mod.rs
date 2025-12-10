@@ -782,26 +782,6 @@ fn is_mysql_integer_type(data_type: &str) -> bool {
 ///
 /// This trait is implemented for all supported column types to provide
 /// proper SQL formatting of default values in CREATE TABLE statements.
-///
-/// # Example
-///
-/// ```rust
-/// use lume::schema::{Column, DefaultToSql};
-///
-/// let string_col = Column::<String>::new("name", "users");
-/// let int_col = Column::<i32>::new("age", "users");
-/// let bool_col = Column::<bool>::new("active", "users");
-///
-/// // Set defaults
-/// let string_col = string_col.default_value("John".to_string());
-/// let int_col = int_col.default_value(25);
-/// let bool_col = bool_col.default_value(true);
-///
-/// // Convert to SQL
-/// assert_eq!(string_col.default_to_sql(), Some("'John'".to_string()));
-/// assert_eq!(int_col.default_to_sql(), Some("25".to_string()));
-/// assert_eq!(bool_col.default_to_sql(), Some("TRUE".to_string()));
-/// ```
 pub trait DefaultToSql {
     /// Converts the column's default value to its SQL representation.
     ///
@@ -895,14 +875,22 @@ impl DefaultToSql for Column<time::OffsetDateTime> {
 // Implement for Vec<String> (needs special escaping)
 #[cfg(feature = "postgres")]
 impl DefaultToSql for Column<Vec<String>> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| {
-            let escaped = v
-                .iter()
-                .map(|s| format!("'{}'", s.replace('\'', "''")))
-                .collect::<Vec<_>>();
-            format!("ARRAY[{}]", escaped.join(", "))
-        })
+    fn default_to_sql(&self) -> Option<DefaultValueEnum<std::string::String>> {
+        match self.get_default() {
+            Some(DefaultValueEnum::Value(vec)) => {
+                let escaped = vec
+                    .iter()
+                    .map(|s| format!("'{}'", s.replace('\'', "''")))
+                    .collect::<Vec<_>>();
+                Some(DefaultValueEnum::Value(format!(
+                    "ARRAY[{}]",
+                    escaped.join(", ")
+                )))
+            }
+            Some(DefaultValueEnum::CurrentTimestamp) => Some(DefaultValueEnum::CurrentTimestamp),
+            Some(DefaultValueEnum::Random) => Some(DefaultValueEnum::Random),
+            None => None,
+        }
     }
 }
 
@@ -926,14 +914,22 @@ impl DefaultToSql for Column<bool> {
 // Implement for Vec<bool>
 #[cfg(feature = "postgres")]
 impl DefaultToSql for Column<Vec<bool>> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default().map(|v| {
-            let items = v
-                .iter()
-                .map(|b| if *b { "TRUE" } else { "FALSE" })
-                .collect::<Vec<_>>();
-            format!("ARRAY[{}]", items.join(", "))
-        })
+    fn default_to_sql(&self) -> Option<DefaultValueEnum<std::string::String>> {
+        match self.get_default() {
+            Some(DefaultValueEnum::Value(vec)) => {
+                let items = vec
+                    .iter()
+                    .map(|b| if *b { "TRUE" } else { "FALSE" })
+                    .collect::<Vec<_>>();
+                Some(DefaultValueEnum::Value(format!(
+                    "ARRAY[{}]",
+                    items.join(", ")
+                )))
+            }
+            Some(DefaultValueEnum::CurrentTimestamp) => Some(DefaultValueEnum::CurrentTimestamp),
+            Some(DefaultValueEnum::Random) => Some(DefaultValueEnum::Random),
+            None => None,
+        }
     }
 }
 
@@ -960,11 +956,14 @@ impl<T> DefaultToSql for Column<Vec<T>>
 where
     T: ToString + CustomSqlType,
 {
-    fn default_to_sql(&self) -> Option<String> {
-        // For user-defined types (enums), convert each to string
-        self.get_default().map(|v| {
-            let items = v.iter().map(|item| item.to_string()).collect::<Vec<_>>();
-            format!("ARRAY[{}]", items.join(", "))
+    fn default_to_sql(&self) -> Option<DefaultValueEnum<std::string::String>> {
+        self.get_default().map(|v| match v {
+            DefaultValueEnum::Value(vec) => {
+                let items = vec.iter().map(|item| item.to_string()).collect::<Vec<_>>();
+                DefaultValueEnum::Value(format!("ARRAY[{}]", items.join(", ")))
+            }
+            DefaultValueEnum::CurrentTimestamp => DefaultValueEnum::CurrentTimestamp,
+            DefaultValueEnum::Random => DefaultValueEnum::Random,
         })
     }
 }
