@@ -150,7 +150,7 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
             col2.0,
             col2.1
         );
-        println!("{str}");
+        return str;
         return str;
     } else {
         // Fallback
