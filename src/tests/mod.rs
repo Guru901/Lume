@@ -8,6 +8,7 @@ mod tests {
     #[allow(unused)]
     use crate::helpers::get_starting_sql;
     use crate::row::Row;
+    use crate::schema::DefaultValueEnum;
     use crate::schema::{ColumnInfo, Schema};
     use crate::table::TableDefinition;
 
@@ -109,8 +110,6 @@ mod tests {
                 min: None,
                 max: None,
                 link: false,
-                default_random: false,
-                default_now: false,
             },
             42,
         );
@@ -118,7 +117,6 @@ mod tests {
         row._insert(
             ColumnInfo {
                 name: "username",
-                default_random: false,
                 data_type: "VARCHAR(255)",
                 nullable: false,
                 unique: false,
@@ -140,7 +138,6 @@ mod tests {
                 min: None,
                 max: None,
                 link: false,
-                default_now: false,
             },
             "testuser".to_string(),
         );
@@ -148,7 +145,6 @@ mod tests {
         row._insert(
             ColumnInfo {
                 name: "email",
-                default_now: false,
                 data_type: "VARCHAR(255)",
                 nullable: true,
                 unique: false,
@@ -170,7 +166,6 @@ mod tests {
                 min: None,
                 max: None,
                 link: false,
-                default_random: false,
             },
             "test@example.com".to_string(),
         );
@@ -178,7 +173,6 @@ mod tests {
         row._insert(
             ColumnInfo {
                 name: "age",
-                default_random: false,
                 data_type: "INTEGER",
                 nullable: true,
                 unique: false,
@@ -200,7 +194,6 @@ mod tests {
                 min: None,
                 max: None,
                 link: false,
-                default_now: false,
             },
             25,
         );
@@ -229,8 +222,6 @@ mod tests {
                 min: None,
                 max: None,
                 link: false,
-                default_random: false,
-                default_now: false,
             },
             true,
         );
@@ -314,8 +305,11 @@ mod tests {
         let score_col = TestDefaults::score();
         let active_col = TestDefaults::active();
 
-        assert_eq!(score_col.get_default(), Some(&100));
-        assert_eq!(active_col.get_default(), Some(&true));
+        let default_score = score_col.get_default().unwrap();
+        let default_active = active_col.get_default().unwrap();
+
+        assert_eq!(default_score, &DefaultValueEnum::Value(100));
+        assert_eq!(default_active, &DefaultValueEnum::Value(true));
 
         let columns = TestDefaults::get_all_columns();
         let score_info = columns.iter().find(|c| c.name == "score").unwrap();
@@ -323,8 +317,14 @@ mod tests {
 
         assert!(score_info.has_default);
         assert!(active_info.has_default);
-        assert_eq!(score_info.default_sql, Some("100".to_string()));
-        assert_eq!(active_info.default_sql, Some("TRUE".to_string()));
+        assert_eq!(
+            score_info.default_sql,
+            Some(DefaultValueEnum::Value("100".to_string()))
+        );
+        assert_eq!(
+            active_info.default_sql,
+            Some(DefaultValueEnum::Value("TRUE".to_string()))
+        );
     }
 
     #[test]

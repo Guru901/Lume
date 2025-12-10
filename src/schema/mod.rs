@@ -33,6 +33,7 @@ mod column;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
+pub use crate::schema::column::DefaultValueEnum;
 use crate::schema::column::GeneratedColumn;
 use crate::table::TableDefinition;
 pub use column::Column;
@@ -200,7 +201,7 @@ pub struct ColumnInfo {
     /// Whether the column has a default value
     pub has_default: bool,
     /// The SQL representation of the default value
-    pub default_sql: Option<String>,
+    pub default_sql: Option<DefaultValueEnum<String>>,
     /// Whether this column auto-increments (MySQL AUTO_INCREMENT)
     pub auto_increment: bool,
     /// Optional column comment (MySQL COMMENT)
@@ -217,12 +218,6 @@ pub struct ColumnInfo {
     pub check: Option<&'static str>,
     /// Optional generated column definition (VIRTUAL or STORED)
     pub generated: Option<GeneratedColumn>,
-    /// Whether this column uses a backend-generated random default value
-    /// (e.g., `UUID()` on MySQL, `gen_random_uuid()` on PostgreSQL).
-    pub default_random: bool,
-
-    /// Whether this column uses a backend-generated "current timestamp" as its default value.
-    pub default_now: bool,
 }
 
 /// Defines a database schema with type-safe columns and constraints.
@@ -412,8 +407,6 @@ macro_rules! define_schema {
                                     min_len: col.min_len,
                                     max_len: col.max_len,
                                     link: col.is_link(),
-                                    default_random: col.get_default_random(),
-                                    default_now: col.get_default_now(),
                                 }
                             }
                         ),*
@@ -558,8 +551,6 @@ macro_rules! define_schema {
                                 min_len: col.min_len,
                                 max_len: col.max_len,
                                 link: col.is_link(),
-                                default_random: col.get_default_random(),
-                                default_now: col.get_default_now(),
                             }
                         }
                     ),*
@@ -636,7 +627,7 @@ pub fn type_to_sql_string<T: 'static>() -> &'static str {
     } else if type_id == TypeId::of::<time::OffsetDateTime>() {
         "DATETIME"
     } else {
-        "TEXT" // fallback
+        "VARCHAR(255)" // fallback
     }
 }
 
@@ -695,10 +686,6 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
                     def.push_str(" PRIMARY KEY");
                 }
 
-                if col.default_random {
-                    def.push_str(" DEFAULT (UUID())");
-                }
-
                 if !col.nullable && !col.primary_key {
                     def.push_str(" NOT NULL");
                 }
@@ -742,21 +729,28 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
 
                 if col.has_default {
                     if let Some(ref default) = col.default_sql {
-                        // Add quotes for string default values if not already quoted
-                        let needs_quotes = col.data_type == "TEXT"
-                            || col.data_type == "VARCHAR"
-                            || col.data_type == "CHAR"
-                            || col.data_type == "STRING";
-                        if needs_quotes && !(default.starts_with('\'') && default.ends_with('\'')) {
-                            def.push_str(&format!(" DEFAULT '{}'", default.replace('\'', "''")));
-                        } else {
-                            def.push_str(&format!(" DEFAULT {}", default));
+                        if let DefaultValueEnum::Value(default) = default {
+                            // Add quotes for string default values if not already quoted
+                            let needs_quotes = col.data_type == "TEXT"
+                                || col.data_type.starts_with("VARCHAR")
+                                || col.data_type == "CHAR"
+                                || col.data_type == "STRING";
+                            if needs_quotes
+                                && !(default.starts_with('\'') && default.ends_with('\''))
+                            {
+                                def.push_str(&format!(
+                                    " DEFAULT '{}'",
+                                    default.replace('\'', "''")
+                                ));
+                            } else {
+                                def.push_str(&format!(" DEFAULT {}", default));
+                            }
+                        } else if &DefaultValueEnum::CurrentTimestamp == default {
+                            def.push_str(" DEFAULT CURRENT_TIMESTAMP");
+                        } else if &DefaultValueEnum::Random == default {
+                            def.push_str(" DEFAULT (UUID())");
                         }
                     }
-                }
-
-                if col.default_now {
-                    def.push_str(" DEFAULT CURRENT_TIMESTAMP");
                 }
 
                 def
@@ -836,7 +830,7 @@ pub trait DefaultToSql {
     ///
     /// - `Some(String)`: The SQL representation of the default value
     /// - `None`: If no default value is set
-    fn default_to_sql(&self) -> Option<String>;
+    fn default_to_sql(&self) -> Option<DefaultValueEnum<String>>;
 }
 
 /// Marker trait for user-defined types that should use generic `DefaultToSql`.
@@ -851,14 +845,20 @@ macro_rules! impl_default_to_sql_numeric {
     ($($t:ty),*) => {
         $(
             impl DefaultToSql for Column<$t> {
-                fn default_to_sql(&self) -> Option<String> {
-                    self.get_default().map(|v| v.to_string())
+                fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
+                    self.get_default().map(|v| {
+                        if let DefaultValueEnum::Value(v) = v {
+                            DefaultValueEnum::Value(v.to_string())
+                        } else {
+                            DefaultValueEnum::Value("".to_string())
+                        }
+                    })
                 }
             }
 
             #[cfg(feature = "postgres")]
             impl DefaultToSql for Column<Vec<$t>> {
-                fn default_to_sql(&self) -> Option<String> {
+                fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
                     self.get_default().map(|v| {
                         let items = v.iter()
                             .map(|item| item.to_string())
@@ -877,20 +877,25 @@ impl_default_to_sql_numeric!(i8, i16, i32, i64, u8, u16, u32, u64, f32, f64);
 
 // Implement for String (needs special escaping)
 impl DefaultToSql for Column<String> {
-    fn default_to_sql(&self) -> Option<String> {
-        self.get_default()
-            .map(|v| format!("'{}'", v.replace('\'', "''")))
+    fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
+        self.get_default().map(|v| {
+            if let DefaultValueEnum::Value(v) = v {
+                DefaultValueEnum::Value(format!("'{}'", v.replace('\'', "''")))
+            } else {
+                DefaultValueEnum::Value("".to_string())
+            }
+        })
     }
 }
 
 impl DefaultToSql for Column<time::Date> {
-    fn default_to_sql(&self) -> Option<String> {
+    fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
         None
     }
 }
 
 impl DefaultToSql for Column<time::OffsetDateTime> {
-    fn default_to_sql(&self) -> Option<String> {
+    fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
         let datetime = self.get_default();
 
         match datetime {
@@ -899,8 +904,12 @@ impl DefaultToSql for Column<time::OffsetDateTime> {
                 let format = format_description!(
                     "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]"
                 );
-                let mysql_datetime = datetime.format(&format).unwrap();
-                Some(format!("'{}'", mysql_datetime))
+                if let DefaultValueEnum::Value(datetime) = datetime {
+                    let mysql_datetime = datetime.format(&format).unwrap();
+                    Some(DefaultValueEnum::Value(format!("'{}'", mysql_datetime)))
+                } else {
+                    None
+                }
             }
         }
     }
@@ -922,12 +931,16 @@ impl DefaultToSql for Column<Vec<String>> {
 
 // Implement for bool (needs TRUE/FALSE)
 impl DefaultToSql for Column<bool> {
-    fn default_to_sql(&self) -> Option<String> {
+    fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
         self.get_default().map(|v| {
-            if *v {
-                "TRUE".to_string()
+            if let DefaultValueEnum::Value(v) = v {
+                if *v {
+                    DefaultValueEnum::Value("TRUE".to_string())
+                } else {
+                    DefaultValueEnum::Value("FALSE".to_string())
+                }
             } else {
-                "FALSE".to_string()
+                DefaultValueEnum::Value("FALSE".to_string())
             }
         })
     }
@@ -953,9 +966,14 @@ impl<T> DefaultToSql for Column<T>
 where
     T: ToString + CustomSqlType,
 {
-    fn default_to_sql(&self) -> Option<String> {
-        // For user-defined types (enums), just use ToString
-        self.get_default().map(|v| v.to_string())
+    fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
+        self.get_default().map(|v| {
+            if let DefaultValueEnum::Value(v) = v {
+                DefaultValueEnum::Value(v.to_string())
+            } else {
+                DefaultValueEnum::Value("".to_string())
+            }
+        })
     }
 }
 

@@ -54,7 +54,7 @@ pub struct Column<T> {
     /// The column name in the database
     pub(crate) name: &'static str,
     /// The default value for this column
-    default_value: Option<T>,
+    default_value: Option<DefaultValueEnum<T>>,
     /// The name of the table this column belongs to
     table_name: &'static str,
     /// Whether this column allows NULL values
@@ -93,10 +93,6 @@ pub struct Column<T> {
     pub min: Option<usize>,
     /// Maximum value of the column
     pub max: Option<usize>,
-
-    default_random_: bool,
-
-    default_now: bool,
 
     /// Phantom data to maintain type information
     _phantom: PhantomData<T>,
@@ -203,8 +199,6 @@ impl<T> Column<T> {
             max: None,
             _phantom: PhantomData,
             link: false,
-            default_random_: false,
-            default_now: false,
         }
     }
 
@@ -225,7 +219,7 @@ impl<T> Column<T> {
     /// assert_eq!(col.get_default(), Some(&"Anonymous".to_string()));
     /// ```
     pub fn default_value<K: Into<T>>(mut self, value: K) -> Self {
-        self.default_value = Some(value.into());
+        self.default_value = Some(DefaultValueEnum::Value(value.into()));
         self
     }
 
@@ -237,7 +231,7 @@ impl<T> Column<T> {
     /// - On types where `CURRENT_TIMESTAMP` is not meaningful, this flag is ignored.
     /// ```
     pub fn default_now(mut self) -> Self {
-        self.default_now = true;
+        self.default_value = Some(DefaultValueEnum::CurrentTimestamp);
         self
     }
 
@@ -276,13 +270,8 @@ impl<T> Column<T> {
     /// Not all databases support truly random default values for all types.
     /// This flag is intended as a hint for builder and migration tools.
     pub fn default_random(mut self) -> Self {
-        self.default_random_ = true;
+        self.default_value = Some(DefaultValueEnum::Random);
         self
-    }
-
-    #[doc(hidden)]
-    pub fn get_default_random(&self) -> bool {
-        self.default_random_
     }
 
     /// Marks this column as requiring a valid email address.
@@ -519,13 +508,8 @@ impl<T> Column<T> {
     }
 
     #[doc(hidden)]
-    pub fn get_default(&self) -> Option<&T> {
+    pub fn get_default(&self) -> Option<&DefaultValueEnum<T>> {
         self.default_value.as_ref()
-    }
-
-    #[doc(hidden)]
-    pub fn get_default_now(&self) -> bool {
-        self.default_now
     }
 
     #[doc(hidden)]
@@ -1179,4 +1163,11 @@ pub fn convert_to_value<T: Any + Debug>(value: &T) -> Value {
             Value::String(s)
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DefaultValueEnum<T> {
+    CurrentTimestamp,
+    Random,
+    Value(T),
 }
