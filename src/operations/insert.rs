@@ -426,7 +426,14 @@ impl<T: Schema + Debug> InsertMany<T> {
             }
 
             #[cfg(feature = "mysql")]
-            self.insert_mysql_row_and_capture_id_or_returning(conn, query, inserted_ids, &values);
+            self.insert_mysql_row_and_capture_id_or_returning(
+                &mut conn,
+                query,
+                &mut inserted_ids,
+                &values,
+            )
+            .await
+            .unwrap();
 
             #[cfg(feature = "postgres")]
             self.insert_postgres_row_and_capture_id_or_returning(
@@ -639,7 +646,7 @@ impl<T: Schema + Debug> InsertMany<T> {
         &self,
         conn: &mut PoolConnection<MySql>,
         query: sqlx::query::Query<'_, MySql, sqlx::mysql::MySqlArguments>,
-        mut inserted_ids: Vec<u64>,
+        inserted_ids: &mut Vec<u64>,
         values: &HashMap<String, Value>,
     ) -> Result<(), DatabaseError> {
         let result: Result<sqlx::mysql::MySqlQueryResult, sqlx::Error> =
