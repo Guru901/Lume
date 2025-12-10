@@ -37,36 +37,36 @@ mod tests {
         let age_col = TestUser::age();
         let is_active_col = TestUser::is_active();
 
-        assert_eq!(id_col.name(), "id");
-        assert_eq!(username_col.name(), "username");
-        assert_eq!(email_col.name(), "email");
-        assert_eq!(age_col.name(), "age");
-        assert_eq!(is_active_col.name(), "is_active");
+        assert_eq!(id_col.__internal_name(), "id");
+        assert_eq!(username_col.__internal_name(), "username");
+        assert_eq!(email_col.__internal_name(), "email");
+        assert_eq!(age_col.__internal_name(), "age");
+        assert_eq!(is_active_col.__internal_name(), "is_active");
 
         // Test column properties
         assert!(
             id_col
-                .get_constraints()
+                .__internal_get_constraints()
                 .contains(&ColumnConstraint::PrimaryKey)
         );
         assert!(
             id_col
-                .get_constraints()
+                .__internal_get_constraints()
                 .contains(&ColumnConstraint::NonNullable)
         );
         assert!(
             username_col
-                .get_constraints()
+                .__internal_get_constraints()
                 .contains(&ColumnConstraint::NonNullable)
         ); // username has not_null()
         assert!(
             !username_col
-                .get_constraints()
+                .__internal_get_constraints()
                 .contains(&ColumnConstraint::PrimaryKey)
         );
         assert!(
             is_active_col
-                .get_constraints()
+                .__internal_get_constraints()
                 .contains(&ColumnConstraint::NonNullable)
         ); // is_active has not_null()
     }
@@ -276,8 +276,8 @@ mod tests {
         let score_col = TestDefaults::score();
         let active_col = TestDefaults::active();
 
-        let default_score = score_col.get_default().unwrap();
-        let default_active = active_col.get_default().unwrap();
+        let default_score = score_col.__internal_get_default().unwrap();
+        let default_active = active_col.__internal_get_default().unwrap();
 
         assert_eq!(default_score, &DefaultValueEnum::Value(100));
         assert_eq!(default_active, &DefaultValueEnum::Value(true));

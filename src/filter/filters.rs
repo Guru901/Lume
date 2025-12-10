@@ -41,7 +41,10 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_one: (column.table_name().to_string(), column.name().to_string()),
+        column_one: (
+            column.__internal_table_name().to_string(),
+            column.__internal_name().to_string(),
+        ),
         value: Some(value.into()),
         column_two: None,
         filter_type: FilterType::Eq,
@@ -87,13 +90,13 @@ where
 pub fn eq_column<T>(column_1: &'static Column<T>, column_2: &'static Column<T>) -> Filter {
     Filter {
         column_one: (
-            column_1.table_name().to_string(),
-            column_1.name().to_string(),
+            column_1.__internal_table_name().to_string(),
+            column_1.__internal_name().to_string(),
         ),
         value: None,
         column_two: Some((
-            column_2.table_name().to_string(),
-            column_2.name().to_string(),
+            column_2.__internal_table_name().to_string(),
+            column_2.__internal_name().to_string(),
         )),
         filter_type: FilterType::Eq,
     }
@@ -133,7 +136,10 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_one: (column.table_name().to_string(), column.name().to_string()),
+        column_one: (
+            column.__internal_table_name().to_string(),
+            column.__internal_name().to_string(),
+        ),
         value: Some(value.into()),
         column_two: None,
         filter_type: FilterType::Neq,
@@ -176,9 +182,15 @@ where
 /// ```
 pub fn ne_column<T>(column1: &'static Column<T>, column2: &'static Column<T>) -> Filter {
     Filter {
-        column_one: (column1.table_name().to_string(), column1.name().to_string()),
+        column_one: (
+            column1.__internal_table_name().to_string(),
+            column1.__internal_name().to_string(),
+        ),
         value: None,
-        column_two: Some((column2.table_name().to_string(), column2.name().to_string())),
+        column_two: Some((
+            column2.__internal_table_name().to_string(),
+            column2.__internal_name().to_string(),
+        )),
         filter_type: FilterType::Neq,
     }
 }
@@ -217,7 +229,10 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_one: (column.table_name().to_string(), column.name().to_string()),
+        column_one: (
+            column.__internal_table_name().to_string(),
+            column.__internal_name().to_string(),
+        ),
         value: Some(value.into()),
         column_two: None,
         filter_type: FilterType::Gt,
@@ -258,7 +273,10 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_one: (column.table_name().to_string(), column.name().to_string()),
+        column_one: (
+            column.__internal_table_name().to_string(),
+            column.__internal_name().to_string(),
+        ),
         value: Some(value.into()),
         column_two: None,
         filter_type: FilterType::Gte,
@@ -299,7 +317,10 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_one: (column.table_name().to_string(), column.name().to_string()),
+        column_one: (
+            column.__internal_table_name().to_string(),
+            column.__internal_name().to_string(),
+        ),
         value: Some(value.into()),
         column_two: None,
         filter_type: FilterType::Lt,
@@ -340,7 +361,10 @@ where
     V: Into<Value>,
 {
     Filter {
-        column_one: (column.table_name().to_string(), column.name().to_string()),
+        column_one: (
+            column.__internal_table_name().to_string(),
+            column.__internal_name().to_string(),
+        ),
         value: Some(value.into()),
         column_two: None,
         filter_type: FilterType::Lte,
@@ -505,7 +529,10 @@ pub fn in_array<T: Debug>(
     values: Vec<Value>,
 ) -> impl Filtered + 'static {
     ArrayFilter {
-        column: Some((column.table_name().to_string(), column.name().to_string())),
+        column: Some((
+            column.__internal_table_name().to_string(),
+            column.__internal_name().to_string(),
+        )),
         values: values,
         in_array: true,
     }
@@ -545,7 +572,10 @@ pub fn in_array<T: Debug>(
 /// ```
 pub fn not_in_array<'a, T: Debug>(column: &'a Column<T>, values: Vec<Value>) -> impl Filtered {
     ArrayFilter {
-        column: Some((column.table_name().to_string(), column.name().to_string())),
+        column: Some((
+            column.__internal_table_name().to_string(),
+            column.__internal_name().to_string(),
+        )),
         values: values,
         in_array: false,
     }
@@ -582,7 +612,10 @@ pub fn not_in_array<'a, T: Debug>(column: &'a Column<T>, values: Vec<Value>) -> 
 /// ```
 pub fn is_null<T: Debug>(column: &'static Column<T>) -> impl Filtered + 'static {
     Filter {
-        column_one: (column.table_name().to_string(), column.name().to_string()),
+        column_one: (
+            column.__internal_table_name().to_string(),
+            column.__internal_name().to_string(),
+        ),
         value: Some(Value::Null),
         column_two: None,
         filter_type: FilterType::Eq,
@@ -620,7 +653,10 @@ pub fn is_null<T: Debug>(column: &'static Column<T>) -> impl Filtered + 'static 
 /// ```
 pub fn is_not_null<T: Debug>(column: &'static Column<T>) -> impl Filtered + 'static {
     Filter {
-        column_one: (column.table_name().to_string(), column.name().to_string()),
+        column_one: (
+            column.__internal_table_name().to_string(),
+            column.__internal_name().to_string(),
+        ),
         value: Some(Value::Null),
         column_two: None,
         filter_type: FilterType::Neq,
@@ -662,7 +698,10 @@ pub fn like<T: Debug, P: Into<String>>(
     pattern: P,
 ) -> impl Filtered + 'static {
     Filter {
-        column_one: (column.table_name().to_string(), column.name().to_string()),
+        column_one: (
+            column.__internal_table_name().to_string(),
+            column.__internal_name().to_string(),
+        ),
         value: Some(Value::String(pattern.into())),
         column_two: None,
         filter_type: FilterType::Like,
@@ -751,7 +790,10 @@ pub fn between<T: Debug, V: Into<Value>>(
     max: V,
 ) -> impl Filtered + 'static {
     Filter {
-        column_one: (column.table_name().to_string(), column.name().to_string()),
+        column_one: (
+            column.__internal_table_name().to_string(),
+            column.__internal_name().to_string(),
+        ),
         value: Some(Value::Between(Box::new(min.into()), Box::new(max.into()))),
         column_two: None,
         filter_type: FilterType::Between,
