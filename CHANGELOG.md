@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.12.0] - 2025-12-11
+
+- A lot of internal refactoring
+- Added native tls support.
+- Changed the default fallback type to `Varchar(255)` instead of `TEXT`.
+- Added support for `uuid` with `default_random()` function.
+- Added support for `time` with `default_now()` function and time::OffsetDateTime type.
+- Added support for `arrays` with vectors.
+- Added support for `enums`, read the docs for more info.
+
 ## [0.11.1] - 2025-12-1
 
 - Forgot to add sqlite as a feature
