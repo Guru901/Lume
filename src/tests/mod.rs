@@ -44,21 +44,29 @@ mod tests {
         assert_eq!(is_active_col.name(), "is_active");
 
         // Test column properties
-        assert!(id_col.constraints.contains(&ColumnConstraint::PrimaryKey));
-        assert!(id_col.constraints.contains(&ColumnConstraint::NonNullable));
+        assert!(
+            id_col
+                .get_constraints()
+                .contains(&ColumnConstraint::PrimaryKey)
+        );
+        assert!(
+            id_col
+                .get_constraints()
+                .contains(&ColumnConstraint::NonNullable)
+        );
         assert!(
             username_col
-                .constraints
+                .get_constraints()
                 .contains(&ColumnConstraint::NonNullable)
         ); // username has not_null()
         assert!(
             !username_col
-                .constraints
+                .get_constraints()
                 .contains(&ColumnConstraint::PrimaryKey)
         );
         assert!(
             is_active_col
-                .constraints
+                .get_constraints()
                 .contains(&ColumnConstraint::NonNullable)
         ); // is_active has not_null()
     }

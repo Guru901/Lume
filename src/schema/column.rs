@@ -61,7 +61,7 @@ pub struct Column<T> {
     collate: Option<&'static str>,
 
     validators: Vec<ColumnValidators>,
-    pub(crate) constraints: Vec<ColumnConstraint>,
+    constraints: Vec<ColumnConstraint>,
 }
 
 impl<T: Debug> Display for Column<T> {
