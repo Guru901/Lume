@@ -1143,10 +1143,17 @@ pub fn convert_to_value<T: Any + Debug>(value: &T) -> Value {
     }
 }
 
+/// Represents different types of default values that can be set on a column.
+///
+/// This enum allows columns to have literal default values, database-generated
+/// timestamps, or random values like UUIDs, depending on the column type and backend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DefaultValueEnum<T> {
+    /// Use the database's current timestamp (e.g., `CURRENT_TIMESTAMP` in SQL).
     CurrentTimestamp,
+    /// Use a database-generated random value (e.g., `UUID()` in MySQL, `gen_random_uuid()` in PostgreSQL).
     Random,
+    /// Use a specific literal value provided by the user.
     Value(T),
 }
 
