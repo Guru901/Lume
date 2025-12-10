@@ -53,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     db.insert(Users {
         id: 1,
         username: "alice".to_string(),
-        email: Some("alice@example.com".to_string()),
+        email: "alice@example.com".to_string(),
         age: Some(30),
     })
     .execute()

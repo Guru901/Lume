@@ -146,8 +146,8 @@ The main struct representing a row:
 Users {
     id: i32,
     username: String,
-    email: String,  // Nullable columns are still T, not Option<T>
-    age: i32,      // Nullable columns are still T, not Option<T>
+    email: String,
+    age: i32,
     is_active: Option<bool>,  // Only columns with default_value() or auto_increment() are Option<T>
 }
 ```

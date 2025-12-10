@@ -3,6 +3,7 @@
 ## [0.12.0] - 2025-12-11
 
 - A lot of internal refactoring
+- REWROTE all the docs.
 - Added native tls support.
 - Changed the default fallback type to `Varchar(255)` instead of `TEXT`.
 - Added support for `uuid` with `default_random()` function.
