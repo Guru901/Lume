@@ -111,9 +111,10 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
 
     // Handle IN / NOT IN array filters
     if let Some(in_array) = filter.is_in_array() {
-        let values = filter.array_values();
-        if values.is_none() {}
-        let values = values.unwrap();
+        let Some(values) = filter.array_values() else {
+            eprintln!("Warning: IN/NOT IN filter missing array_values, using tautology");
+            return if in_array { "1=0".to_string() } else { "1=1".to_string() };
+        };
         if values.is_empty() {
             return if in_array {
                 "1=0".to_string()
