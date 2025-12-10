@@ -265,10 +265,8 @@ impl<T: Schema + Debug> Insert<T> {
         // For MySQL, build SELECT ... WHERE id = ? using either provided id or last_insert_id
         #[cfg(feature = "mysql")]
         {
-            use crate::helpers::returning_sql;
-
             let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
-            let mut select_sql = returning_sql(select_sql, &self.returning);
+            let mut select_sql = get_dialect().returning_sql(select_sql, &self.returning);
             select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
 
             let conn = self.conn.acquire().await;
@@ -626,15 +624,13 @@ impl<T: Schema + Debug> InsertMany<T> {
 
         #[cfg(any(feature = "mysql", feature = "sqlite"))]
         {
-            use crate::helpers::returning_sql;
-
             if self.returning.is_empty() {
                 return Ok(None);
             }
 
             // Fetch selected columns for all inserted ids
             let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
-            let mut select_sql = returning_sql(select_sql, &self.returning);
+            let mut select_sql = get_dialect().returning_sql(select_sql, &self.returning);
             select_sql.push_str(format!(" FROM {} WHERE id = ?;", T::table_name()).as_str());
 
             for id in inserted_ids {

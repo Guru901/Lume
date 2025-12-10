@@ -1,4 +1,16 @@
-// src/backends/mod.rs
+#[cfg(feature = "mysql")]
+use sqlx::mysql::MySqlRow;
+
+#[cfg(feature = "postgres")]
+use sqlx::pg::PgRow;
+
+#[cfg(feature = "sqlite")]
+use sqlx::sqlite::SqliteRow;
+
+use crate::{
+    filter::{FilterType, Filtered},
+    schema::Value,
+};
 
 /// Trait for database-specific SQL generation
 pub trait SqlDialect {
@@ -10,6 +22,22 @@ pub trait SqlDialect {
 
     /// Adapt SQL syntax for backend-specific requirements
     fn adapt_sql(&self, sql: String) -> String;
+
+    fn returning_sql(&self, sql: String, returning: &Vec<&'static str>) -> String;
+
+    fn extract_column_value(
+        &self,
+        row: &MySqlRow,
+        column_name: &str,
+        data_type: &str,
+    ) -> Option<Value>;
+
+    fn build_filter_expr_fallback(
+        &self,
+        col1: &(String, String),
+        filter: &FilterType,
+        idx: usize,
+    ) -> String;
 }
 
 // MySQL Implementation
@@ -31,6 +59,148 @@ impl SqlDialect for MySqlDialect {
         // MySQL-specific transformations (if needed)
         sql
     }
+    fn returning_sql(&self, sql: String, _returning: &Vec<&'static str>) -> String {
+        sql
+    }
+
+    fn extract_column_value(
+        &self,
+        row: &MySqlRow,
+        column_name: &str,
+        data_type: &str,
+    ) -> Option<Value> {
+        use sqlx::Row as _;
+        match data_type {
+            "TEXT" => {
+                // Try to get as string first
+                if let Ok(val) = row.try_get::<String, _>(column_name) {
+                    Some(Value::String(val))
+                } else if let Ok(val) = row.try_get::<Option<String>, _>(column_name) {
+                    val.map(Value::String)
+                } else {
+                    None
+                }
+            }
+            "TINYINT" => {
+                if let Ok(val) = row.try_get::<i8, _>(column_name) {
+                    Some(Value::Int8(val))
+                } else if let Ok(val) = row.try_get::<Option<i8>, _>(column_name) {
+                    val.map(Value::Int8)
+                } else {
+                    None
+                }
+            }
+            "SMALLINT" => {
+                if let Ok(val) = row.try_get::<i16, _>(column_name) {
+                    Some(Value::Int16(val))
+                } else if let Ok(val) = row.try_get::<Option<i16>, _>(column_name) {
+                    val.map(Value::Int16)
+                } else {
+                    None
+                }
+            }
+            "INTEGER" => {
+                if let Ok(val) = row.try_get::<i32, _>(column_name) {
+                    Some(Value::Int32(val))
+                } else if let Ok(val) = row.try_get::<Option<i32>, _>(column_name) {
+                    val.map(Value::Int32)
+                } else {
+                    None
+                }
+            }
+            "BIGINT" => {
+                if let Ok(val) = row.try_get::<i64, _>(column_name) {
+                    Some(Value::Int64(val))
+                } else if let Ok(val) = row.try_get::<Option<i64>, _>(column_name) {
+                    val.map(Value::Int64)
+                } else {
+                    None
+                }
+            }
+            "TINYINT UNSIGNED" => {
+                if let Ok(val) = row.try_get::<u8, _>(column_name) {
+                    Some(Value::UInt8(val))
+                } else if let Ok(val) = row.try_get::<Option<u8>, _>(column_name) {
+                    val.map(Value::UInt8)
+                } else {
+                    None
+                }
+            }
+            "SMALLINT UNSIGNED" => {
+                if let Ok(val) = row.try_get::<u16, _>(column_name) {
+                    Some(Value::UInt16(val))
+                } else if let Ok(val) = row.try_get::<Option<u16>, _>(column_name) {
+                    val.map(Value::UInt16)
+                } else {
+                    None
+                }
+            }
+            "INTEGER UNSIGNED" => {
+                if let Ok(val) = row.try_get::<u32, _>(column_name) {
+                    Some(Value::UInt32(val))
+                } else if let Ok(val) = row.try_get::<Option<u32>, _>(column_name) {
+                    val.map(Value::UInt32)
+                } else {
+                    None
+                }
+            }
+            "BIGINT UNSIGNED" => {
+                if let Ok(val) = row.try_get::<u64, _>(column_name) {
+                    Some(Value::UInt64(val))
+                } else if let Ok(val) = row.try_get::<Option<u64>, _>(column_name) {
+                    val.map(Value::UInt64)
+                } else {
+                    None
+                }
+            }
+            "FLOAT" => {
+                if let Ok(val) = row.try_get::<f32, _>(column_name) {
+                    Some(Value::Float32(val))
+                } else if let Ok(val) = row.try_get::<Option<f32>, _>(column_name) {
+                    val.map(Value::Float32)
+                } else {
+                    None
+                }
+            }
+            "REAL" | "DOUBLE PRECISION" | "DOUBLE" => {
+                if let Ok(val) = row.try_get::<f64, _>(column_name) {
+                    Some(Value::Float64(val))
+                } else if let Ok(val) = row.try_get::<Option<f64>, _>(column_name) {
+                    val.map(Value::Float64)
+                } else {
+                    None
+                }
+            }
+            "BOOLEAN" => {
+                if let Ok(val) = row.try_get::<bool, _>(column_name) {
+                    Some(Value::Bool(val))
+                } else if let Ok(val) = row.try_get::<Option<bool>, _>(column_name) {
+                    val.map(Value::Bool)
+                } else {
+                    None
+                }
+            }
+            _ => {
+                // Fallback: try to get as string
+                if let Ok(val) = row.try_get::<String, _>(column_name) {
+                    Some(Value::String(val))
+                } else if let Ok(val) = row.try_get::<Option<String>, _>(column_name) {
+                    val.map(Value::String)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    fn build_filter_expr_fallback(
+        &self,
+        col1: &(String, String),
+        filter: &FilterType,
+        _idx: usize,
+    ) -> String {
+        format!("{}.{} {} ?", col1.0, col1.1, filter.to_sql())
+    }
 }
 
 // PostgreSQL Implementation
@@ -51,6 +221,116 @@ impl SqlDialect for PostgresDialect {
     fn adapt_sql(&self, sql: String) -> String {
         sql.replace("AUTO_INCREMENT", "GENERATED ALWAYS AS IDENTITY")
             .replace("DEFAULT (UUID())", "DEFAULT gen_random_uuid()")
+    }
+
+    fn returning_sql(&self, mut sql: String, returning: &Vec<&'static str>) -> String {
+        if returning.is_empty() {
+            return sql;
+        }
+
+        sql.push_str(" RETURNING ");
+        for (i, col) in returning.iter().enumerate() {
+            if i > 0 {
+                sql.push_str(", ");
+            }
+            sql.push_str(col);
+        }
+        sql.push_str(";");
+        sql
+    }
+
+    fn extract_column_value(
+        &self,
+        row: &MySqlRow,
+        column_name: &str,
+        data_type: &str,
+    ) -> Option<Value> {
+        use sqlx::Row as _;
+        match data_type {
+            "TEXT" => {
+                // Try to get as string first
+                if let Ok(val) = row.try_get::<String, _>(column_name) {
+                    Some(Value::String(val))
+                } else if let Ok(val) = row.try_get::<Option<String>, _>(column_name) {
+                    val.map(Value::String)
+                } else {
+                    None
+                }
+            }
+            "SMALLINT" => {
+                if let Ok(val) = row.try_get::<i16, _>(column_name) {
+                    Some(Value::Int16(val))
+                } else if let Ok(val) = row.try_get::<Option<i16>, _>(column_name) {
+                    val.map(Value::Int16)
+                } else {
+                    None
+                }
+            }
+            "INTEGER" => {
+                if let Ok(val) = row.try_get::<i32, _>(column_name) {
+                    Some(Value::Int32(val))
+                } else if let Ok(val) = row.try_get::<Option<i32>, _>(column_name) {
+                    val.map(Value::Int32)
+                } else {
+                    None
+                }
+            }
+            "BIGINT" => {
+                if let Ok(val) = row.try_get::<i64, _>(column_name) {
+                    Some(Value::Int64(val))
+                } else if let Ok(val) = row.try_get::<Option<i64>, _>(column_name) {
+                    val.map(Value::Int64)
+                } else {
+                    None
+                }
+            }
+            "FLOAT" => {
+                if let Ok(val) = row.try_get::<f32, _>(column_name) {
+                    Some(Value::Float32(val))
+                } else if let Ok(val) = row.try_get::<Option<f32>, _>(column_name) {
+                    val.map(Value::Float32)
+                } else {
+                    None
+                }
+            }
+            "REAL" | "DOUBLE PRECISION" | "DOUBLE" => {
+                if let Ok(val) = row.try_get::<f64, _>(column_name) {
+                    Some(Value::Float64(val))
+                } else if let Ok(val) = row.try_get::<Option<f64>, _>(column_name) {
+                    val.map(Value::Float64)
+                } else {
+                    None
+                }
+            }
+            "BOOLEAN" => {
+                if let Ok(val) = row.try_get::<bool, _>(column_name) {
+                    Some(Value::Bool(val))
+                } else if let Ok(val) = row.try_get::<Option<bool>, _>(column_name) {
+                    val.map(Value::Bool)
+                } else {
+                    None
+                }
+            }
+            _ => {
+                // Fallback: try to get as string
+                if let Ok(val) = row.try_get::<String, _>(column_name) {
+                    Some(Value::String(val))
+                } else if let Ok(val) = row.try_get::<Option<String>, _>(column_name) {
+                    val.map(Value::String)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    fn build_filter_expr_fallback(
+        &self,
+        col1: &(String, String),
+        filter: &FilterType,
+        idx: usize,
+    ) -> String {
+        format!("{}.{} {} ${}", col1.0, col1.1, filter.to_sql(), idx)
     }
 }
 
@@ -76,6 +356,116 @@ impl SqlDialect for SqliteDialect {
             // Remove AUTO_INCREMENT
             .replace(" AUTO_INCREMENT", "")
             .replace("AUTO_INCREMENT ", "")
+    }
+
+    fn returning_sql(&self, mut sql: String, returning: &Vec<&'static str>) -> String {
+        if returning.is_empty() {
+            return sql;
+        }
+
+        sql.push_str(" RETURNING ");
+        for (i, col) in returning.iter().enumerate() {
+            if i > 0 {
+                sql.push_str(", ");
+            }
+            sql.push_str(col);
+        }
+        sql.push_str(";");
+        sql
+    }
+
+    fn extract_column_value(
+        &self,
+        row: &MySqlRow,
+        column_name: &str,
+        data_type: &str,
+    ) -> Option<Value> {
+        use sqlx::Row as _;
+        match data_type {
+            "TEXT" => {
+                // Try to get as string first
+                if let Ok(val) = row.try_get::<String, _>(column_name) {
+                    Some(Value::String(val))
+                } else if let Ok(val) = row.try_get::<Option<String>, _>(column_name) {
+                    val.map(Value::String)
+                } else {
+                    None
+                }
+            }
+            "SMALLINT" => {
+                if let Ok(val) = row.try_get::<i16, _>(column_name) {
+                    Some(Value::Int16(val))
+                } else if let Ok(val) = row.try_get::<Option<i16>, _>(column_name) {
+                    val.map(Value::Int16)
+                } else {
+                    None
+                }
+            }
+            "INTEGER" => {
+                if let Ok(val) = row.try_get::<i32, _>(column_name) {
+                    Some(Value::Int32(val))
+                } else if let Ok(val) = row.try_get::<Option<i32>, _>(column_name) {
+                    val.map(Value::Int32)
+                } else {
+                    None
+                }
+            }
+            "BIGINT" => {
+                if let Ok(val) = row.try_get::<i64, _>(column_name) {
+                    Some(Value::Int64(val))
+                } else if let Ok(val) = row.try_get::<Option<i64>, _>(column_name) {
+                    val.map(Value::Int64)
+                } else {
+                    None
+                }
+            }
+            "FLOAT" => {
+                if let Ok(val) = row.try_get::<f32, _>(column_name) {
+                    Some(Value::Float32(val))
+                } else if let Ok(val) = row.try_get::<Option<f32>, _>(column_name) {
+                    val.map(Value::Float32)
+                } else {
+                    None
+                }
+            }
+            "REAL" | "DOUBLE PRECISION" | "DOUBLE" => {
+                if let Ok(val) = row.try_get::<f64, _>(column_name) {
+                    Some(Value::Float64(val))
+                } else if let Ok(val) = row.try_get::<Option<f64>, _>(column_name) {
+                    val.map(Value::Float64)
+                } else {
+                    None
+                }
+            }
+            "BOOLEAN" => {
+                if let Ok(val) = row.try_get::<bool, _>(column_name) {
+                    Some(Value::Bool(val))
+                } else if let Ok(val) = row.try_get::<Option<bool>, _>(column_name) {
+                    val.map(Value::Bool)
+                } else {
+                    None
+                }
+            }
+            _ => {
+                // Fallback: try to get as string
+                if let Ok(val) = row.try_get::<String, _>(column_name) {
+                    Some(Value::String(val))
+                } else if let Ok(val) = row.try_get::<Option<String>, _>(column_name) {
+                    val.map(Value::String)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    fn build_filter_expr_fallback(
+        &self,
+        col1: &(String, String),
+        filter: &FilterType,
+        _idx: usize,
+    ) -> String {
+        format!("{}.{} {} ?", col1.0, col1.1, filter.to_sql())
     }
 }
 

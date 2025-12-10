@@ -32,35 +32,6 @@ pub(crate) fn get_starting_sql(starting_sql: StartingSql, table_name: &str) -> S
     }
 }
 
-// This implementation is fine for SQLite. SQLite supports the `RETURNING` clause
-// at the end of INSERT/UPDATE/DELETE statements in recent versions (since 3.35.0, released in March 2021).
-// So appending " RETURNING ..." to the SQL as is done here is appropriate.
-
-#[cfg(any(feature = "sqlite", feature = "postgres"))]
-pub(crate) fn returning_sql(mut sql: String, returning: &Vec<&'static str>) -> String {
-    if returning.is_empty() {
-        return sql;
-    }
-
-    sql.push_str(" RETURNING ");
-    for (i, col) in returning.iter().enumerate() {
-        if i > 0 {
-            sql.push_str(", ");
-        }
-        sql.push_str(col);
-    }
-    sql.push_str(";");
-    sql
-}
-
-#[cfg(feature = "mysql")]
-pub(crate) fn returning_sql(sql: String, returning: &Vec<&'static str>) -> String {
-    if returning.is_empty() {
-        return sql;
-    }
-    sql
-}
-
 pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) -> String {
     // Handle logical combinators (AND/OR)
     if filter.is_or_filter() || filter.is_and_filter() {
@@ -97,7 +68,11 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
     if let Some(in_array) = filter.is_in_array() {
         let Some(values) = filter.array_values() else {
             eprintln!("Warning: IN/NOT IN filter missing array_values, using tautology");
-            return if in_array { "1=0".to_string() } else { "1=1".to_string() };
+            return if in_array {
+                "1=0".to_string()
+            } else {
+                "1=1".to_string()
+            };
         };
         if values.is_empty() {
             return if in_array {
@@ -158,29 +133,10 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
             }
             _ => {
                 params.push(value.clone());
-                #[cfg(any(feature = "mysql", feature = "sqlite"))]
-                {
-                    format!("{}.{} {} ?", col1.0, col1.1, filter.filter_type().to_sql())
-                }
-                #[cfg(all(not(feature = "mysql"), not(feature = "sqlite"), feature = "postgres"))]
-                {
-                    let idx = params.len();
-                    format!(
-                        "{}.{} {} ${}",
-                        col1.0,
-                        col1.1,
-                        filter.filter_type().to_sql(),
-                        idx
-                    )
-                }
-                #[cfg(all(
-                    not(feature = "mysql"),
-                    not(feature = "sqlite"),
-                    not(feature = "postgres")
-                ))]
-                {
-                    format!("{}.{} {} ?", col1.0, col1.1, filter.filter_type().to_sql())
-                }
+                let filter_type = filter.filter_type();
+                let sql =
+                    get_dialect().build_filter_expr_fallback(col1, &filter_type, params.len());
+                return sql;
             }
         }
     }
