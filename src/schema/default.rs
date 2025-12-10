@@ -35,7 +35,7 @@ macro_rules! impl_default_to_sql_numeric {
             #[cfg(feature = "postgres")]
             impl DefaultToSql for Column<Vec<$t>> {
                 fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
-                    self.get_default().map(|v| match v {
+                    self.__internal_get_default().map(|v| match v {
                         DefaultValueEnum::Value(vec) => {
                             let items = vec.iter()
                                  .map(|item| item.to_string())
@@ -93,7 +93,7 @@ impl DefaultToSql for Column<time::OffsetDateTime> {
 #[cfg(feature = "postgres")]
 impl DefaultToSql for Column<Vec<String>> {
     fn default_to_sql(&self) -> Option<DefaultValueEnum<std::string::String>> {
-        match self.get_default() {
+        match self.__internal_get_default() {
             Some(DefaultValueEnum::Value(vec)) => {
                 let escaped = vec
                     .iter()
@@ -132,7 +132,7 @@ impl DefaultToSql for Column<bool> {
 #[cfg(feature = "postgres")]
 impl DefaultToSql for Column<Vec<bool>> {
     fn default_to_sql(&self) -> Option<DefaultValueEnum<std::string::String>> {
-        match self.get_default() {
+        match self.__internal_get_default() {
             Some(DefaultValueEnum::Value(vec)) => {
                 let items = vec
                     .iter()
@@ -174,7 +174,7 @@ where
     T: ToString + CustomSqlType,
 {
     fn default_to_sql(&self) -> Option<DefaultValueEnum<std::string::String>> {
-        self.get_default().map(|v| match v {
+        self.__internal_get_default().map(|v| match v {
             DefaultValueEnum::Value(vec) => {
                 let items = vec.iter().map(|item| item.to_string()).collect::<Vec<_>>();
                 DefaultValueEnum::Value(format!("ARRAY[{}]", items.join(", ")))

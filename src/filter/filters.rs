@@ -745,7 +745,10 @@ pub fn ilike<T: Debug, P: Into<String>>(
     pattern: P,
 ) -> impl Filtered + 'static {
     Filter {
-        column_one: (column.table_name().to_string(), column.name().to_string()),
+        column_one: (
+            column.__internal_table_name().to_string(),
+            column.__internal_name().to_string(),
+        ),
         value: Some(Value::String(pattern.into())),
         column_two: None,
         filter_type: FilterType::ILike,

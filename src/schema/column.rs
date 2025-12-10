@@ -40,9 +40,6 @@ use crate::schema::{ColumnConstraint, ColumnValidators, DefaultValueEnum, Genera
 ///     .not_null()
 ///     .unique()
 ///     .default_value("Anonymous".to_string());
-///
-/// // Access column properties
-/// assert_eq!(id_col.name(), "id");
 /// ```
 #[derive(Clone, Debug)]
 pub struct Column<T> {
@@ -87,15 +84,6 @@ impl<T> Column<T> {
     ///
     /// - `name`: The name of the column in the database
     /// - `table_name`: The name of the table this column belongs to
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::schema::Column;
-    ///
-    /// let col = Column::<String>::new("username", "users");
-    /// assert_eq!(col.name(), "username");
-    /// ```
     pub const fn new(name: &'static str, table_name: &'static str) -> Self {
         Self {
             name,
@@ -138,19 +126,6 @@ impl<T> Column<T> {
     }
 
     /// Sets this column's default value to a random value (where supported).
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::schema::Column;
-    /// use lume::schema::DefaultValueEnum;
-    ///
-    /// let col = Column::<String>::new("id", "users").default_random();
-    /// match col.get_default() {
-    ///     Some(DefaultValueEnum::Random) => println!("Random default set"),
-    ///     _ => panic!("Expected Random default"),
-    /// }
-    /// ```
     ///
     /// What counts as "random" depends on the column type and the backend.
     /// - For string columns, this means a randomly generated string (such as UUID).
