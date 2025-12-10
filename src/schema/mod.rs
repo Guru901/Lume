@@ -207,7 +207,7 @@ pub struct ColumnInfo {
     pub check: Option<&'static str>,
     /// Optional generated column definition (VIRTUAL or STORED)
     pub generated: Option<GeneratedColumn>,
-
+    /// Validators applied to this column's values at runtime.
     pub validators: Vec<Validators>,
 }
 
