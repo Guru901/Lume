@@ -191,7 +191,7 @@ pub struct ColumnInfo {
     pub collate: Option<&'static str>,
     /// Validators applied to this column's values at runtime.
     pub validators: Vec<ColumnValidators>,
-
+    /// Constraints applied to this column (e.g., NOT NULL, UNIQUE, PRIMARY KEY).
     pub constraints: Vec<ColumnConstraint>,
 }
 
