@@ -303,45 +303,45 @@ pub(crate) fn bind_column_value<'q>(
 }
 
 pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) -> bool {
-    use crate::schema::Validators;
+    use crate::schema::ColumnValidators;
 
     match value {
         Some(Value::String(s)) => {
             for validator in &column.validators {
                 match *validator {
-                    Validators::Email => {
+                    ColumnValidators::Email => {
                         if !EMAIL_REGEX.is_match(s) {
                             return false;
                         }
                     }
-                    Validators::Url => {
+                    ColumnValidators::Url => {
                         if !LINK_REGEX.is_match(s) {
                             return false;
                         }
                     }
-                    Validators::MinLen(min) => {
+                    ColumnValidators::MinLen(min) => {
                         if s.len() < min {
                             return false;
                         }
                     }
-                    Validators::MaxLen(max) => {
+                    ColumnValidators::MaxLen(max) => {
                         if s.len() > max {
                             return false;
                         }
                     }
-                    Validators::Min(min) => {
+                    ColumnValidators::Min(min) => {
                         // For backward compatibility, treat as MinLen for string
                         if s.len() < min {
                             return false;
                         }
                     }
-                    Validators::Max(max) => {
+                    ColumnValidators::Max(max) => {
                         // For backward compatibility, treat as MaxLen for string
                         if s.len() > max {
                             return false;
                         }
                     }
-                    Validators::Pattern(pattern) => {
+                    ColumnValidators::Pattern(pattern) => {
                         let regex = Regex::new(pattern).unwrap();
                         if !regex.is_match(s) {
                             return false;
@@ -354,12 +354,12 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
         Some(Value::Int32(i)) => {
             for validator in &column.validators {
                 match *validator {
-                    Validators::Min(min) => {
+                    ColumnValidators::Min(min) => {
                         if *i < min as i32 {
                             return false;
                         }
                     }
-                    Validators::Max(max) => {
+                    ColumnValidators::Max(max) => {
                         if *i > max as i32 {
                             return false;
                         }
@@ -372,12 +372,12 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
         Some(Value::Int64(i)) => {
             for validator in &column.validators {
                 match *validator {
-                    Validators::Min(min) => {
+                    ColumnValidators::Min(min) => {
                         if *i < min as i64 {
                             return false;
                         }
                     }
-                    Validators::Max(max) => {
+                    ColumnValidators::Max(max) => {
                         if *i > max as i64 {
                             return false;
                         }
@@ -390,12 +390,12 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
         Some(Value::UInt32(u)) => {
             for validator in &column.validators {
                 match *validator {
-                    Validators::Min(min) => {
+                    ColumnValidators::Min(min) => {
                         if *u < min as u32 {
                             return false;
                         }
                     }
-                    Validators::Max(max) => {
+                    ColumnValidators::Max(max) => {
                         if *u > max as u32 {
                             return false;
                         }
@@ -408,12 +408,12 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
         Some(Value::UInt64(u)) => {
             for validator in &column.validators {
                 match *validator {
-                    Validators::Min(min) => {
+                    ColumnValidators::Min(min) => {
                         if *u < min as u64 {
                             return false;
                         }
                     }
-                    Validators::Max(max) => {
+                    ColumnValidators::Max(max) => {
                         if *u > max as u64 {
                             return false;
                         }
@@ -427,12 +427,12 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
             let f = *f as f64;
             for validator in &column.validators {
                 match *validator {
-                    Validators::Min(min) => {
+                    ColumnValidators::Min(min) => {
                         if f < min as f64 {
                             return false;
                         }
                     }
-                    Validators::Max(max) => {
+                    ColumnValidators::Max(max) => {
                         if f > max as f64 {
                             return false;
                         }
@@ -445,12 +445,12 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
         Some(Value::Float64(f)) => {
             for validator in &column.validators {
                 match *validator {
-                    Validators::Min(min) => {
+                    ColumnValidators::Min(min) => {
                         if *f < min as f64 {
                             return false;
                         }
                     }
-                    Validators::Max(max) => {
+                    ColumnValidators::Max(max) => {
                         if *f > max as f64 {
                             return false;
                         }

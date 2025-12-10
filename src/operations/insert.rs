@@ -11,7 +11,7 @@ use crate::helpers::{
     StartingSql, bind_column_value, get_starting_sql, quote_identifier, validate_column_value,
 };
 use crate::row::Row;
-use crate::schema::{ColumnInfo, Schema, Select, Value};
+use crate::schema::{ColumnConstraint, ColumnInfo, Schema, Select, Value};
 
 #[cfg(feature = "mysql")]
 use sqlx::MySqlPool;
@@ -37,8 +37,12 @@ fn select_insertable_columns(
     all_columns
         .into_iter()
         .filter(|col| match values.get(col.name) {
-            None => !(col.has_default || col.auto_increment),
-            Some(Value::Null) => !(col.has_default || col.auto_increment),
+            None => {
+                !(col.has_default || col.constraints.contains(&ColumnConstraint::AutoIncrement))
+            }
+            Some(Value::Null) => {
+                !(col.has_default || col.constraints.contains(&ColumnConstraint::AutoIncrement))
+            }
             _ => true,
         })
         .collect()

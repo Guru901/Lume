@@ -9,7 +9,6 @@
 use std::{
     any::Any,
     fmt::{Debug, Display},
-    marker::PhantomData,
 };
 
 /// A type-safe column definition with constraints and metadata.
@@ -45,8 +44,6 @@ use std::{
 ///
 /// // Access column properties
 /// assert_eq!(id_col.name(), "id");
-/// assert!(id_col.is_primary_key());
-/// assert!(!id_col.is_nullable());
 /// ```
 #[derive(Clone, Debug)]
 pub struct Column<T> {
@@ -56,35 +53,15 @@ pub struct Column<T> {
     default_value: Option<DefaultValueEnum<T>>,
     /// The name of the table this column belongs to
     table_name: &'static str,
-    /// Whether this column allows NULL values
-    nullable: bool,
-    /// Whether this column has a UNIQUE constraint
-    unique: bool,
-    /// Whether this column is a primary key
-    primary_key: bool,
-    /// Whether this column has an index
-    indexed: bool,
-    /// Whether this column auto-increments (MySQL AUTO_INCREMENT)
-    auto_increment: bool,
     /// Optional column comment (MySQL COMMENT)
     comment: Option<&'static str>,
     /// Optional character set (MySQL CHARACTER SET)
     charset: Option<&'static str>,
     /// Optional collation (MySQL COLLATE)
     collate: Option<&'static str>,
-    /// Whether column has ON UPDATE CURRENT_TIMESTAMP behavior (MySQL)
-    on_update_current_timestamp: bool,
-    /// Whether this column is invisible (MySQL 8: INVISIBLE)
-    invisible: bool,
-    /// Optional CHECK constraint expression (MySQL 8)
-    check: Option<&'static str>,
-    /// Optional generated column definition (VIRTUAL or STORED)
-    generated: Option<GeneratedColumn>,
 
-    validators: Vec<Validators>,
-
-    /// Phantom data to maintain type information
-    _phantom: PhantomData<T>,
+    validators: Vec<ColumnValidators>,
+    pub(crate) constraints: Vec<ColumnConstraint>,
 }
 
 impl<T: Debug> Display for Column<T> {
@@ -94,34 +71,16 @@ impl<T: Debug> Display for Column<T> {
             "Column {{
     name: {},
     default_value: {:?},
-    nullable: {},
-    unique: {},
-    primary_key: {},
-    indexed: {},
-    auto_increment: {},
     comment: {:?},
     charset: {:?},
     collate: {:?},
-    on_update_current_timestamp: {},
-    invisible: {},
-    check: {:?},
-    generated: {:?},
     table_name: {}
 }}",
             self.name,
             self.default_value,
-            self.nullable,
-            self.unique,
-            self.primary_key,
-            self.indexed,
-            self.auto_increment,
             self.comment,
             self.charset,
             self.collate,
-            self.on_update_current_timestamp,
-            self.invisible,
-            self.check,
-            self.generated,
             self.table_name
         )
     }
@@ -162,27 +121,17 @@ impl<T> Column<T> {
     ///
     /// let col = Column::<String>::new("username", "users");
     /// assert_eq!(col.name(), "username");
-    /// assert!(col.is_nullable());
     /// ```
     pub const fn new(name: &'static str, table_name: &'static str) -> Self {
         Self {
             name,
             default_value: None,
-            nullable: true,
             table_name,
-            unique: false,
-            primary_key: false,
-            indexed: false,
-            auto_increment: false,
             comment: None,
             charset: None,
             collate: None,
-            on_update_current_timestamp: false,
-            invisible: false,
-            check: None,
-            generated: None,
             validators: Vec::new(),
-            _phantom: PhantomData,
+            constraints: Vec::new(),
         }
     }
 
@@ -209,19 +158,8 @@ impl<T> Column<T> {
     }
 
     /// Makes this column NOT NULL.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::schema::Column;
-    ///
-    /// let col = Column::<String>::new("name", "users")
-    ///     .not_null();
-    ///
-    /// assert!(!col.is_nullable());
-    /// ```
     pub fn not_null(mut self) -> Self {
-        self.nullable = false;
+        self.constraints.push(ColumnConstraint::NonNullable);
         self
     }
 
@@ -256,7 +194,7 @@ impl<T> Column<T> {
     /// This is a semantic hint for validation and UI. It does not enforce
     /// format checks in the database (unless paired with a `check`).
     pub fn email(mut self) -> Self {
-        self.validators.push(Validators::Email);
+        self.validators.push(ColumnValidators::Email);
         self
     }
 
@@ -265,92 +203,57 @@ impl<T> Column<T> {
     /// This is a semantic hint for validation and UI, but does not enforce
     /// link format at the database level (unless paired with a `check`).
     pub fn link(mut self) -> Self {
-        self.validators.push(Validators::Url);
+        self.validators.push(ColumnValidators::Url);
         self
     }
 
     /// Sets the minimum allowed length for this column's string values.
     pub fn min_len(mut self, min: i32) -> Self {
-        self.validators.push(Validators::MinLen(min as usize));
+        self.validators.push(ColumnValidators::MinLen(min as usize));
         self
     }
 
     /// Sets the maximum allowed length for this column's string values.
     pub fn max_len(mut self, max: i32) -> Self {
-        self.validators.push(Validators::MaxLen(max as usize));
+        self.validators.push(ColumnValidators::MaxLen(max as usize));
         self
     }
 
     /// Sets the minimum allowed value for numeric columns.
     pub fn min(mut self, min: usize) -> Self {
-        self.validators.push(Validators::Min(min));
+        self.validators.push(ColumnValidators::Min(min));
         self
     }
 
     /// Sets the maximum allowed value for numeric columns.
     pub fn max(mut self, max: usize) -> Self {
-        self.validators.push(Validators::Max(max));
+        self.validators.push(ColumnValidators::Max(max));
         self
     }
 
     /// Adds a UNIQUE constraint to this column.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::schema::Column;
-    ///
-    /// let col = Column::<String>::new("email", "users")
-    ///     .unique();
-    ///
-    /// assert!(col.is_unique());
-    /// ```
     pub fn unique(mut self) -> Self {
-        self.unique = true;
+        self.constraints.push(ColumnConstraint::Unique);
         self
     }
 
     /// Makes this column a primary key.
     ///
     /// Primary keys are automatically set to NOT NULL.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::schema::Column;
-    ///
-    /// let col = Column::<i32>::new("id", "users")
-    ///     .primary_key();
-    ///
-    /// assert!(col.is_primary_key());
-    /// assert!(!col.is_nullable()); // Primary keys are always NOT NULL
-    /// ```
     pub fn primary_key(mut self) -> Self {
-        self.primary_key = true;
-        self.nullable = false; // Primary keys are always not null
+        self.constraints.push(ColumnConstraint::PrimaryKey);
         self
     }
 
     /// Adds an index to this column.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use lume::schema::Column;
-    ///
-    /// let col = Column::<String>::new("username", "users")
-    ///     .indexed();
-    ///
-    /// assert!(col.is_indexed());
-    /// ```
     pub fn indexed(mut self) -> Self {
-        self.indexed = true;
+        self.constraints.push(ColumnConstraint::Indexed);
         self
     }
 
     /// Enables AUTO_INCREMENT on this column (MySQL).
     pub fn auto_increment(mut self) -> Self {
-        self.auto_increment = true;
+        self.constraints.push(ColumnConstraint::AutoIncrement);
         self
     }
 
@@ -374,31 +277,38 @@ impl<T> Column<T> {
 
     /// Adds `ON UPDATE CURRENT_TIMESTAMP` behavior (MySQL).
     pub fn on_update_current_timestamp(mut self) -> Self {
-        self.on_update_current_timestamp = true;
+        self.constraints
+            .push(ColumnConstraint::OnUpdateCurrentTimestamp);
         self
     }
 
     /// Marks the column as INVISIBLE (MySQL 8).
     pub fn invisible(mut self) -> Self {
-        self.invisible = true;
+        self.constraints.push(ColumnConstraint::Invisible);
         self
     }
 
     /// Adds a CHECK constraint expression (MySQL 8).
     pub fn check(mut self, expression: &'static str) -> Self {
-        self.check = Some(expression);
+        self.constraints.push(ColumnConstraint::Check(expression));
         self
     }
 
     /// Defines this column as a VIRTUAL generated column (MySQL) with the given expression.
     pub fn generated_virtual(mut self, expression: &'static str) -> Self {
-        self.generated = Some(GeneratedColumn::Virtual(expression));
+        self.constraints
+            .push(ColumnConstraint::Generated(GeneratedColumn::Virtual(
+                expression,
+            )));
         self
     }
 
     /// Defines this column as a STORED generated column (MySQL) with the given expression.
     pub fn generated_stored(mut self, expression: &'static str) -> Self {
-        self.generated = Some(GeneratedColumn::Stored(expression));
+        self.constraints
+            .push(ColumnConstraint::Generated(GeneratedColumn::Stored(
+                expression,
+            )));
         self
     }
 
@@ -418,33 +328,13 @@ impl<T> Column<T> {
     }
 
     #[doc(hidden)]
-    pub fn is_nullable(&self) -> bool {
-        self.nullable
-    }
-
-    #[doc(hidden)]
-    pub fn is_unique(&self) -> bool {
-        self.unique
-    }
-
-    #[doc(hidden)]
-    pub fn is_primary_key(&self) -> bool {
-        self.primary_key
-    }
-
-    #[doc(hidden)]
-    pub fn is_indexed(&self) -> bool {
-        self.indexed
-    }
-
-    #[doc(hidden)]
-    pub fn get_validators(&self) -> Vec<Validators> {
+    pub fn get_validators(&self) -> Vec<ColumnValidators> {
         return self.validators.clone();
     }
 
     #[doc(hidden)]
-    pub fn is_auto_increment(&self) -> bool {
-        self.auto_increment
+    pub fn get_constraints(&self) -> Vec<ColumnConstraint> {
+        return self.constraints.clone();
     }
 
     #[doc(hidden)]
@@ -460,26 +350,6 @@ impl<T> Column<T> {
     #[doc(hidden)]
     pub fn get_collate(&self) -> Option<&'static str> {
         self.collate
-    }
-
-    #[doc(hidden)]
-    pub fn has_on_update_current_timestamp(&self) -> bool {
-        self.on_update_current_timestamp
-    }
-
-    #[doc(hidden)]
-    pub fn is_invisible(&self) -> bool {
-        self.invisible
-    }
-
-    #[doc(hidden)]
-    pub fn get_check(&self) -> Option<&'static str> {
-        self.check
-    }
-
-    #[doc(hidden)]
-    pub fn get_generated(&self) -> Option<GeneratedColumn> {
-        self.generated
     }
 }
 
@@ -1058,7 +928,7 @@ pub enum DefaultValueEnum<T> {
 /// Validators provide semantic hints for validation and UI generation,
 /// helping ensure data integrity and proper input validation at the application layer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Validators {
+pub enum ColumnValidators {
     /// Validates that the value is a properly formatted email address.
     Email,
     /// Validates that the value is a valid URL/link.
@@ -1073,4 +943,17 @@ pub enum Validators {
     Max(usize),
     /// Validates that the value matches the specified regex pattern.
     Pattern(&'static str),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ColumnConstraint {
+    NonNullable,
+    Unique,
+    PrimaryKey,
+    Indexed,
+    AutoIncrement,
+    Invisible,
+    OnUpdateCurrentTimestamp,
+    Check(&'static str),
+    Generated(GeneratedColumn),
 }

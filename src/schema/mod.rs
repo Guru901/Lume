@@ -33,9 +33,9 @@ mod column;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
+pub use crate::schema::column::ColumnConstraint;
+pub use crate::schema::column::ColumnValidators;
 pub use crate::schema::column::DefaultValueEnum;
-use crate::schema::column::GeneratedColumn;
-pub use crate::schema::column::Validators;
 use crate::table::TableDefinition;
 pub use column::Column;
 pub use column::Value;
@@ -180,35 +180,19 @@ pub struct ColumnInfo {
     /// The SQL data type (e.g., "INTEGER", "VARCHAR(255)")
     pub data_type: &'static str,
     /// Whether the column allows NULL values
-    pub nullable: bool,
-    /// Whether the column has a UNIQUE constraint
-    pub unique: bool,
-    /// Whether the column is a primary key
-    pub primary_key: bool,
-    /// Whether the column has an index
-    pub indexed: bool,
-    /// Whether the column has a default value
     pub has_default: bool,
     /// The SQL representation of the default value
     pub default_sql: Option<DefaultValueEnum<String>>,
-    /// Whether this column auto-increments (MySQL AUTO_INCREMENT)
-    pub auto_increment: bool,
     /// Optional column comment (MySQL COMMENT)
     pub comment: Option<&'static str>,
     /// Optional character set (MySQL CHARACTER SET)
     pub charset: Option<&'static str>,
     /// Optional collation (MySQL COLLATE)
     pub collate: Option<&'static str>,
-    /// Whether column has ON UPDATE CURRENT_TIMESTAMP behavior (MySQL)
-    pub on_update_current_timestamp: bool,
-    /// Whether this column is invisible (MySQL 8: INVISIBLE)
-    pub invisible: bool,
-    /// Optional CHECK constraint expression (MySQL 8)
-    pub check: Option<&'static str>,
-    /// Optional generated column definition (VIRTUAL or STORED)
-    pub generated: Option<GeneratedColumn>,
     /// Validators applied to this column's values at runtime.
-    pub validators: Vec<Validators>,
+    pub validators: Vec<ColumnValidators>,
+
+    pub constraints: Vec<ColumnConstraint>,
 }
 
 /// Defines a database schema with type-safe columns and constraints.
@@ -378,21 +362,13 @@ macro_rules! define_schema {
                                 $crate::schema::ColumnInfo {
                                     name: col.name(),
                                     data_type: type_to_sql_string::<$type>(),
-                                    nullable: col.is_nullable(),
-                                    unique: col.is_unique(),
-                                    primary_key: col.is_primary_key(),
-                                    indexed: col.is_indexed(),
                                     has_default: col.get_default().is_some(),
                                     default_sql: col.default_to_sql(),
-                                    auto_increment: col.is_auto_increment(),
                                     comment: col.get_comment(),
                                     charset: col.get_charset(),
                                     collate: col.get_collate(),
-                                    on_update_current_timestamp: col.has_on_update_current_timestamp(),
-                                    invisible: col.is_invisible(),
-                                    check: col.get_check(),
-                                    generated: col.get_generated(),
                                     validators: col.get_validators(),
+                                    constraints: col.get_constraints(),
                                 }
                             }
                         ),*
@@ -517,21 +493,13 @@ macro_rules! define_schema {
                             $crate::schema::ColumnInfo {
                                 name: col.name(),
                                 data_type: type_to_sql_string::<$type>(),
-                                nullable: col.is_nullable(),
-                                unique: col.is_unique(),
-                                primary_key: col.is_primary_key(),
-                                indexed: col.is_indexed(),
                                 has_default: col.get_default().is_some(),
                                 default_sql: col.default_to_sql(),
-                                auto_increment: col.is_auto_increment(),
                                 comment: col.get_comment(),
                                 charset: col.get_charset(),
                                 collate: col.get_collate(),
-                                on_update_current_timestamp: col.has_on_update_current_timestamp(),
-                                invisible: col.is_invisible(),
-                                check: col.get_check(),
-                                generated: col.get_generated(),
                                 validators: col.get_validators(),
+                                constraints: col.get_constraints(),
                             }
                         }
                     ),*
@@ -662,25 +630,36 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
             .iter()
             .map(|col| {
                 let mut def = format!("    {} {}", col.name, col.data_type);
+                let constraints = &col.constraints;
 
-                if col.primary_key {
-                    def.push_str(" PRIMARY KEY");
-                }
-
-                if !col.nullable && !col.primary_key {
-                    def.push_str(" NOT NULL");
-                }
-
-                if col.unique && !col.primary_key {
-                    def.push_str(" UNIQUE");
-                }
-
-                if col.auto_increment && col.primary_key && is_mysql_integer_type(col.data_type) {
-                    def.push_str(" AUTO_INCREMENT");
-                }
-
-                if col.on_update_current_timestamp {
-                    def.push_str(" ON UPDATE CURRENT_TIMESTAMP");
+                for constraint in constraints {
+                    match constraint {
+                        ColumnConstraint::NonNullable => {
+                            def.push_str(" NOT NULL");
+                        }
+                        ColumnConstraint::Unique => {
+                            def.push_str(" UNIQUE");
+                        }
+                        ColumnConstraint::PrimaryKey => {
+                            def.push_str(" PRIMARY KEY");
+                        }
+                        ColumnConstraint::Indexed => {}
+                        ColumnConstraint::AutoIncrement => {
+                            def.push_str(" AUTO_INCREMENT");
+                        }
+                        ColumnConstraint::Invisible => {
+                            def.push_str(" INVISIBLE");
+                        }
+                        ColumnConstraint::OnUpdateCurrentTimestamp => {
+                            def.push_str(" ON UPDATE CURRENT_TIMESTAMP");
+                        }
+                        ColumnConstraint::Check(expression) => {
+                            def.push_str(&format!(" CHECK ({})", expression));
+                        }
+                        ColumnConstraint::Generated(generated) => {
+                            def.push_str(&format!(" GENERATED {}", generated));
+                        }
+                    }
                 }
 
                 if col.comment.is_some() {
@@ -694,18 +673,6 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
 
                 if col.collate.is_some() {
                     def.push_str(&format!(" COLLATE {}", col.collate.unwrap()));
-                }
-
-                if col.invisible {
-                    def.push_str(" INVISIBLE");
-                }
-
-                if col.check.is_some() {
-                    def.push_str(&format!(" CHECK ({})", col.check.unwrap()));
-                }
-
-                if col.generated.is_some() {
-                    def.push_str(&format!(" GENERATED {}", col.generated.unwrap()));
                 }
 
                 if col.has_default {
@@ -744,7 +711,10 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
         // Add indexes
         let indexes: Vec<String> = columns
             .iter()
-            .filter(|col| col.indexed && !col.primary_key)
+            .filter(|col| {
+                col.constraints.contains(&ColumnConstraint::Indexed)
+                    && !col.constraints.contains(&ColumnConstraint::PrimaryKey)
+            })
             .map(|col| {
                 format!(
                     "CREATE INDEX idx_{}_{} ON {} ({});",

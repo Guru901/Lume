@@ -8,7 +8,7 @@ mod tests {
     #[allow(unused)]
     use crate::helpers::get_starting_sql;
     use crate::row::Row;
-    use crate::schema::DefaultValueEnum;
+    use crate::schema::{ColumnConstraint, DefaultValueEnum};
     use crate::schema::{ColumnInfo, Schema};
     use crate::table::TableDefinition;
 
@@ -44,11 +44,23 @@ mod tests {
         assert_eq!(is_active_col.name(), "is_active");
 
         // Test column properties
-        assert!(id_col.is_primary_key());
-        assert!(!id_col.is_nullable());
-        assert!(!username_col.is_nullable()); // username has not_null()
-        assert!(!username_col.is_primary_key());
-        assert!(!is_active_col.is_nullable()); // is_active has not_null()
+        assert!(id_col.constraints.contains(&ColumnConstraint::PrimaryKey));
+        assert!(id_col.constraints.contains(&ColumnConstraint::NonNullable));
+        assert!(
+            username_col
+                .constraints
+                .contains(&ColumnConstraint::NonNullable)
+        ); // username has not_null()
+        assert!(
+            !username_col
+                .constraints
+                .contains(&ColumnConstraint::PrimaryKey)
+        );
+        assert!(
+            is_active_col
+                .constraints
+                .contains(&ColumnConstraint::NonNullable)
+        ); // is_active has not_null()
     }
 
     #[test]
@@ -60,19 +72,35 @@ mod tests {
 
         // Check column info
         let id_info = columns.iter().find(|c| c.name == "id").unwrap();
-        assert!(id_info.primary_key);
-        assert!(!id_info.nullable);
+        assert!(id_info.constraints.contains(&ColumnConstraint::PrimaryKey));
+        assert!(id_info.constraints.contains(&ColumnConstraint::NonNullable));
         assert_eq!(id_info.data_type, "INT");
 
         let username_info = columns.iter().find(|c| c.name == "username").unwrap();
         assert_eq!(username_info.data_type, "VARCHAR(255)");
-        assert!(!username_info.primary_key);
-        assert!(!username_info.nullable); // username has not_null()
+        assert!(
+            !username_info
+                .constraints
+                .contains(&ColumnConstraint::PrimaryKey)
+        );
+        assert!(
+            username_info
+                .constraints
+                .contains(&ColumnConstraint::NonNullable)
+        ); // username has not_null()
 
         let is_active_info = columns.iter().find(|c| c.name == "is_active").unwrap();
         assert_eq!(is_active_info.data_type, "BOOLEAN");
-        assert!(!is_active_info.primary_key);
-        assert!(!is_active_info.nullable); // is_active has not_null()
+        assert!(
+            !is_active_info
+                .constraints
+                .contains(&ColumnConstraint::PrimaryKey)
+        );
+        assert!(
+            is_active_info
+                .constraints
+                .contains(&ColumnConstraint::NonNullable)
+        );
     }
 
     #[test]
@@ -90,21 +118,13 @@ mod tests {
             ColumnInfo {
                 name: "id",
                 data_type: "INTEGER",
-                nullable: false,
-                unique: false,
-                primary_key: true,
-                indexed: false,
                 has_default: false,
                 default_sql: None,
-                auto_increment: false,
-                on_update_current_timestamp: false,
-                invisible: false,
-                check: None,
-                generated: None,
                 comment: None,
                 charset: None,
                 collate: None,
                 validators: Vec::new(),
+                constraints: Vec::new(),
             },
             42,
         );
@@ -113,21 +133,13 @@ mod tests {
             ColumnInfo {
                 name: "username",
                 data_type: "VARCHAR(255)",
-                nullable: false,
-                unique: false,
-                primary_key: false,
-                indexed: false,
                 has_default: false,
                 default_sql: None,
-                auto_increment: false,
-                on_update_current_timestamp: false,
-                invisible: false,
-                check: None,
-                generated: None,
                 comment: None,
                 charset: None,
                 collate: None,
                 validators: Vec::new(),
+                constraints: Vec::new(),
             },
             "testuser".to_string(),
         );
@@ -136,21 +148,13 @@ mod tests {
             ColumnInfo {
                 name: "email",
                 data_type: "VARCHAR(255)",
-                nullable: true,
-                unique: false,
-                primary_key: false,
-                indexed: false,
                 has_default: false,
                 default_sql: None,
-                auto_increment: false,
-                on_update_current_timestamp: false,
-                invisible: false,
-                check: None,
-                generated: None,
                 comment: None,
                 charset: None,
                 collate: None,
                 validators: Vec::new(),
+                constraints: Vec::new(),
             },
             "test@example.com".to_string(),
         );
@@ -159,21 +163,13 @@ mod tests {
             ColumnInfo {
                 name: "age",
                 data_type: "INTEGER",
-                nullable: true,
-                unique: false,
-                primary_key: false,
-                indexed: false,
                 has_default: false,
                 default_sql: None,
-                auto_increment: false,
-                on_update_current_timestamp: false,
-                invisible: false,
-                check: None,
-                generated: None,
                 comment: None,
                 charset: None,
                 collate: None,
                 validators: Vec::new(),
+                constraints: Vec::new(),
             },
             25,
         );
@@ -182,21 +178,13 @@ mod tests {
             ColumnInfo {
                 name: "is_active",
                 data_type: "BOOLEAN",
-                nullable: false,
-                unique: false,
-                primary_key: false,
-                indexed: false,
                 has_default: false,
                 default_sql: None,
-                auto_increment: false,
-                on_update_current_timestamp: false,
-                invisible: false,
-                check: None,
-                generated: None,
                 comment: None,
                 charset: None,
                 collate: None,
                 validators: Vec::new(),
+                constraints: Vec::new(),
             },
             true,
         );
