@@ -28,7 +28,7 @@ tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 ### Basic Usage
 
 ```rust
-use lume::{database::Database, define_schema, filter::eq_value, schema::CustomSqlType};
+use lume::{database::Database, define_schema, enum_to_sql, filter::eq_value};
 
 // Use an enum for one of your fields!
 #[derive(Clone, Debug, PartialEq)]
@@ -60,33 +60,11 @@ define_schema! {
     }
 }
 
-impl ToString for UserStatus {
-    fn to_string(&self) -> String {
-        match self {
-            UserStatus::Active => String::from("active"),
-            UserStatus::Inactive => String::from("inactive"),
-            UserStatus::Banned => String::from("banned"),
-        }
-    }
-}
-
-impl CustomSqlType for UserStatus {}
-
-impl TryFrom<Value> for UserStatus {
-    type Error = ();
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        match value {
-            Value::String(s) => match s.as_str() {
-                "active" => Ok(UserStatus::Active),
-                "inactive" => Ok(UserStatus::Inactive),
-                "banned" => Ok(UserStatus::Banned),
-                _ => Err(()),
-            },
-            _ => Err(()),
-        }
-    }
-}
+enum_to_sql!(UserStatus {
+    Active => "active",
+    Inactive => "inactive",
+    Banned => "banned",
+});
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

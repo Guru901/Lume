@@ -510,6 +510,88 @@ macro_rules! define_schema {
     };
 }
 
+#[macro_export]
+/// Macro to generate SQL string conversions for enums used as custom SQL column types.
+///
+/// This macro implements the [`ToString`] and [`TryFrom<Value>`] traits for an enum,
+/// enabling seamless conversion between enum variants and their string representations
+/// in the database. It is intended for use with enums representing custom column types
+/// that need to be stored as strings in SQL databases.
+///
+/// # Example
+///
+/// ```rust
+/// use lume::enum_to_sql;
+/// use lume::schema::Value;
+///
+/// #[derive(Debug, PartialEq)]
+/// pub enum UserStatus {
+///     Active,
+///     Inactive,
+///     Banned,
+/// }
+///
+/// enum_to_sql!(UserStatus {
+///     Active => "active",
+///     Inactive => "inactive",
+///     Banned => "banned",
+/// });
+///
+/// assert_eq!(UserStatus::Active.to_string(), "active");
+/// assert_eq!(
+///     UserStatus::try_from(Value::String("banned".to_string())),
+///     Ok(UserStatus::Banned)
+/// );
+/// ```
+///
+/// # Macro Usage
+///
+/// ```ignore
+/// enum_to_sql!(EnumName {
+///     Variant1 => "sql_value1",
+///     Variant2 => "sql_value2",
+///     // ...
+/// });
+/// ```
+///
+/// - Automatically implements:
+///     - [`ToString`] for the enum mapping each variant to the specified string.
+///     - [`TryFrom<Value>`] for the enum (converts a string value to the respective variant; returns `Err(())` if not matched).
+///
+/// [`ToString`]: std::string::ToString
+/// [`TryFrom<Value>`]: std::convert::TryFrom
+macro_rules! enum_to_sql {
+    ($enum_name:ident { $($variant:ident => $str:expr),* $(,)? }) => {
+        impl ToString for $enum_name {
+            fn to_string(&self) -> String {
+                match self {
+                    $(
+                        $enum_name::$variant => String::from($str),
+                    )*
+                }
+            }
+        }
+
+        impl TryFrom<$crate::schema::Value> for $enum_name {
+            type Error = ();
+
+            fn try_from(value: $crate::schema::Value) -> Result<Self, Self::Error> {
+                match value {
+                    $crate::schema::Value::String(s) => match s.as_str() {
+                        $(
+                            $str => Ok($enum_name::$variant),
+                        )*
+                        _ => Err(()),
+                    },
+                    _ => Err(()),
+                }
+            }
+        }
+
+        impl $crate::schema::CustomSqlType for $enum_name {}
+    };
+}
+
 /// Converts a Rust type to its corresponding SQL type string.
 ///
 /// This function provides the mapping between Rust types and SQL column types
