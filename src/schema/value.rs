@@ -494,7 +494,7 @@ pub fn convert_to_value<T: Any + Debug>(value: &T) -> Value {
         return Value::UInt8(*u);
 
         #[cfg(feature = "postgres")]
-        return Value::Int8(*u as i8);
+        return Value::Int16(*u as i16);
     } else if let Some(u) = <dyn Any>::downcast_ref::<u16>(value) {
         Value::UInt16(*u)
     } else if let Some(u) = <dyn Any>::downcast_ref::<u32>(value) {
