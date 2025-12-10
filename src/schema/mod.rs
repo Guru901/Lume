@@ -645,7 +645,9 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
                         }
                         ColumnConstraint::Indexed => {}
                         ColumnConstraint::AutoIncrement => {
-                            def.push_str(" AUTO_INCREMENT");
+                            if is_mysql_integer_type(col.data_type) {
+                                def.push_str(" AUTO_INCREMENT");
+                            }
                         }
                         ColumnConstraint::Invisible => {
                             def.push_str(" INVISIBLE");
