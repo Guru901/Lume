@@ -8,7 +8,8 @@ use sqlx::pg::PgRow;
 use sqlx::sqlite::SqliteRow;
 
 use crate::{
-    filter::{FilterType, Filtered},
+    filter::FilterType,
+    helpers::{ColumnBindingKind, SqlBindQuery},
     schema::Value,
 };
 
@@ -38,6 +39,8 @@ pub trait SqlDialect {
         filter: &FilterType,
         idx: usize,
     ) -> String;
+
+    fn bind_null<'q>(&self, query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQuery<'q>;
 }
 
 // MySQL Implementation
@@ -201,6 +204,26 @@ impl SqlDialect for MySqlDialect {
     ) -> String {
         format!("{}.{} {} ?", col1.0, col1.1, filter.to_sql())
     }
+
+    fn bind_null<'q>(&self, query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQuery<'q> {
+        match kind {
+            ColumnBindingKind::Varchar | ColumnBindingKind::Text | ColumnBindingKind::Unknown => {
+                query.bind(None::<&str>)
+            }
+            ColumnBindingKind::TinyInt => query.bind(None::<i8>),
+            ColumnBindingKind::SmallInt => query.bind(None::<i16>),
+            ColumnBindingKind::Integer => query.bind(None::<i32>),
+            ColumnBindingKind::BigInt => query.bind(None::<i64>),
+            ColumnBindingKind::TinyIntUnsigned => query.bind(None::<u8>),
+            ColumnBindingKind::SmallIntUnsigned => query.bind(None::<u16>),
+
+            ColumnBindingKind::IntegerUnsigned => query.bind(None::<u32>),
+            ColumnBindingKind::BigIntUnsigned => query.bind(None::<u64>),
+            ColumnBindingKind::Float => query.bind(None::<f32>),
+            ColumnBindingKind::Double => query.bind(None::<f64>),
+            ColumnBindingKind::Boolean => query.bind(None::<bool>),
+        }
+    }
 }
 
 // PostgreSQL Implementation
@@ -331,6 +354,27 @@ impl SqlDialect for PostgresDialect {
         idx: usize,
     ) -> String {
         format!("{}.{} {} ${}", col1.0, col1.1, filter.to_sql(), idx)
+    }
+
+    fn bind_null<'q>(&self, query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQuery<'q> {
+        match kind {
+            ColumnBindingKind::Varchar | ColumnBindingKind::Text | ColumnBindingKind::Unknown => {
+                query.bind(None::<&str>)
+            }
+            ColumnBindingKind::TinyInt | ColumnBindingKind::TinyIntUnsigned => {
+                query.bind(None::<i16>)
+            }
+            ColumnBindingKind::SmallInt => query.bind(None::<i16>),
+            ColumnBindingKind::SmallIntUnsigned => query.bind(None::<i32>),
+            ColumnBindingKind::Integer => query.bind(None::<i32>),
+            ColumnBindingKind::IntegerUnsigned => query.bind(None::<i64>),
+            ColumnBindingKind::BigInt | ColumnBindingKind::BigIntUnsigned => {
+                query.bind(None::<i64>)
+            }
+            ColumnBindingKind::Float => query.bind(None::<f32>),
+            ColumnBindingKind::Double => query.bind(None::<f64>),
+            ColumnBindingKind::Boolean => query.bind(None::<bool>),
+        }
     }
 }
 
@@ -466,6 +510,27 @@ impl SqlDialect for SqliteDialect {
         _idx: usize,
     ) -> String {
         format!("{}.{} {} ?", col1.0, col1.1, filter.to_sql())
+    }
+
+    fn bind_null<'q>(&self, query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQuery<'q> {
+        match kind {
+            ColumnBindingKind::Varchar | ColumnBindingKind::Text | ColumnBindingKind::Unknown => {
+                query.bind(None::<&str>)
+            }
+            ColumnBindingKind::TinyInt | ColumnBindingKind::TinyIntUnsigned => {
+                query.bind(None::<i16>)
+            }
+            ColumnBindingKind::SmallInt => query.bind(None::<i16>),
+            ColumnBindingKind::SmallIntUnsigned => query.bind(None::<i32>),
+            ColumnBindingKind::Integer => query.bind(None::<i32>),
+            ColumnBindingKind::IntegerUnsigned => query.bind(None::<i64>),
+            ColumnBindingKind::BigInt | ColumnBindingKind::BigIntUnsigned => {
+                query.bind(None::<i64>)
+            }
+            ColumnBindingKind::Float => query.bind(None::<f32>),
+            ColumnBindingKind::Double => query.bind(None::<f64>),
+            ColumnBindingKind::Boolean => query.bind(None::<bool>),
+        }
     }
 }
 

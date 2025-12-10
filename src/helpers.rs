@@ -166,7 +166,7 @@ pub(crate) type SqlBindQuery<'q> = sqlx::query::Query<'q, Postgres, PgArguments>
 pub(crate) type SqlBindQuery<'q> = sqlx::query::Query<'q, Sqlite, SqliteArguments<'q>>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum ColumnBindingKind {
+pub(crate) enum ColumnBindingKind {
     Varchar,
     Text,
     TinyInt,
@@ -212,9 +212,9 @@ pub(crate) fn bind_column_value<'q>(
 ) -> SqlBindQuery<'q> {
     let kind = ColumnBindingKind::from_column(column);
     match value {
-        None => bind_null(query, kind),
-        Some(Value::Null) => bind_null(query, kind),
-        Some(Value::Array(_)) => bind_null(query, kind),
+        None => get_dialect().bind_null(query, kind),
+        Some(Value::Null) => get_dialect().bind_null(query, kind),
+        Some(Value::Array(_)) => get_dialect().bind_null(query, kind),
         Some(other) => bind_value(query, other.clone()),
     }
 }
@@ -432,61 +432,5 @@ pub(crate) fn bind_value<'q>(query: SqlBindQuery<'q>, value: Value) -> SqlBindQu
             query
         }
         Value::Null => query,
-    }
-}
-
-#[cfg(feature = "mysql")]
-fn bind_null<'q>(query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQuery<'q> {
-    match kind {
-        ColumnBindingKind::Varchar | ColumnBindingKind::Text | ColumnBindingKind::Unknown => {
-            query.bind(None::<&str>)
-        }
-        ColumnBindingKind::TinyInt => query.bind(None::<i8>),
-        ColumnBindingKind::SmallInt => query.bind(None::<i16>),
-        ColumnBindingKind::Integer => query.bind(None::<i32>),
-        ColumnBindingKind::BigInt => query.bind(None::<i64>),
-        ColumnBindingKind::TinyIntUnsigned => query.bind(None::<u8>),
-        ColumnBindingKind::SmallIntUnsigned => query.bind(None::<u16>),
-        ColumnBindingKind::IntegerUnsigned => query.bind(None::<u32>),
-        ColumnBindingKind::BigIntUnsigned => query.bind(None::<u64>),
-        ColumnBindingKind::Float => query.bind(None::<f32>),
-        ColumnBindingKind::Double => query.bind(None::<f64>),
-        ColumnBindingKind::Boolean => query.bind(None::<bool>),
-    }
-}
-
-#[cfg(feature = "sqlite")]
-fn bind_null<'q>(query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQuery<'q> {
-    match kind {
-        ColumnBindingKind::Varchar | ColumnBindingKind::Text | ColumnBindingKind::Unknown => {
-            query.bind(None::<&str>)
-        }
-        ColumnBindingKind::TinyInt | ColumnBindingKind::TinyIntUnsigned => query.bind(None::<i16>),
-        ColumnBindingKind::SmallInt => query.bind(None::<i16>),
-        ColumnBindingKind::SmallIntUnsigned => query.bind(None::<i32>),
-        ColumnBindingKind::Integer => query.bind(None::<i32>),
-        ColumnBindingKind::IntegerUnsigned => query.bind(None::<i64>),
-        ColumnBindingKind::BigInt | ColumnBindingKind::BigIntUnsigned => query.bind(None::<i64>),
-        ColumnBindingKind::Float => query.bind(None::<f32>),
-        ColumnBindingKind::Double => query.bind(None::<f64>),
-        ColumnBindingKind::Boolean => query.bind(None::<bool>),
-    }
-}
-
-#[cfg(feature = "postgres")]
-fn bind_null<'q>(query: SqlBindQuery<'q>, kind: ColumnBindingKind) -> SqlBindQuery<'q> {
-    match kind {
-        ColumnBindingKind::Varchar | ColumnBindingKind::Text | ColumnBindingKind::Unknown => {
-            query.bind(None::<&str>)
-        }
-        ColumnBindingKind::TinyInt | ColumnBindingKind::TinyIntUnsigned => query.bind(None::<i16>),
-        ColumnBindingKind::SmallInt => query.bind(None::<i16>),
-        ColumnBindingKind::SmallIntUnsigned => query.bind(None::<i32>),
-        ColumnBindingKind::Integer => query.bind(None::<i32>),
-        ColumnBindingKind::IntegerUnsigned => query.bind(None::<i64>),
-        ColumnBindingKind::BigInt | ColumnBindingKind::BigIntUnsigned => query.bind(None::<i64>),
-        ColumnBindingKind::Float => query.bind(None::<f32>),
-        ColumnBindingKind::Double => query.bind(None::<f64>),
-        ColumnBindingKind::Boolean => query.bind(None::<bool>),
     }
 }
