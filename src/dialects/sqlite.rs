@@ -23,7 +23,6 @@ impl SqlDialect for SqliteDialect {
         sql.replace("DEFAULT (UUID())", "DEFAULT (lower(hex(randomblob(16))))")
             .replace("DATETIME", "TEXT")
             .replace("CURRENT_TIMESTAMP", "(datetime('now'))")
-            // Remove AUTO_INCREMENT
             .replace(" AUTO_INCREMENT", "")
             .replace("AUTO_INCREMENT ", "")
     }
@@ -72,5 +71,27 @@ impl SqlDialect for SqliteDialect {
             ColumnBindingKind::Double => query.bind(None::<f64>),
             ColumnBindingKind::Boolean => query.bind(None::<bool>),
         }
+    }
+
+    fn insert_sql(&self, mut sql: String, columns: &Vec<crate::schema::ColumnInfo>) -> String {
+        for (i, col) in columns.iter().enumerate() {
+            if i > 0 {
+                sql.push_str(", ");
+            }
+            sql.push_str(&self.quote_identifier(&col.name));
+        }
+        sql.push_str(") VALUES (");
+
+        // Use ? for MySQL and SQLite
+        for (i, _col) in columns.iter().enumerate() {
+            if i > 0 {
+                sql.push_str(", ");
+            }
+            sql.push_str("?");
+        }
+
+        sql.push_str(")");
+
+        sql
     }
 }

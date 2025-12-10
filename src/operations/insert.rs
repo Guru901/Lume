@@ -186,7 +186,7 @@ impl<T: Schema + Debug> Insert<T> {
         let selected: Vec<ColumnInfo> = select_insertable_columns(all_columns, &values);
 
         let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-        let sql = Self::insert_sql(sql, &selected);
+        let sql = get_dialect().insert_sql(sql, &selected);
         let mut query = sqlx::query(&sql);
 
         for col in selected.iter() {
@@ -205,11 +205,9 @@ impl<T: Schema + Debug> Insert<T> {
         // For PostgreSQL with RETURNING, we need to add RETURNING clause to the INSERT
         #[cfg(feature = "postgres")]
         if !self.returning.is_empty() {
-            use crate::helpers::returning_sql;
-
             let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-            let sql = Self::insert_sql(sql, &selected);
-            let sql = returning_sql(sql, &self.returning);
+            let sql = get_dialect().insert_sql(sql, &selected);
+            let sql = get_dialect().returning_sql(sql, &self.returning);
             let mut query = sqlx::query(&sql);
 
             for col in selected.iter() {
@@ -229,11 +227,9 @@ impl<T: Schema + Debug> Insert<T> {
         // For SQLite with "RETURNING"
         #[cfg(feature = "sqlite")]
         if !self.returning.is_empty() {
-            use crate::helpers::returning_sql;
-
             let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-            let sql = Self::insert_sql(sql, &selected);
-            let sql = returning_sql(sql, &self.returning);
+            let sql = get_dialect().insert_sql(sql, &selected);
+            let sql = get_dialect().returning_sql(sql, &self.returning);
             let mut query = sqlx::query(&sql);
 
             for col in selected.iter() {
@@ -297,14 +293,13 @@ impl<T: Schema + Debug> Insert<T> {
         {
             // In SQLite, if user called returning(), they already got results above.
             // Otherwise, emulate by SELECT ... WHERE rowid = last_insert_rowid().
-            use crate::helpers::returning_sql;
 
             if self.returning.is_empty() {
                 return Ok(None);
             }
 
             let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
-            let mut select_sql = returning_sql(select_sql, &self.returning);
+            let mut select_sql = get_dialect().returning_sql(select_sql, &self.returning);
 
             // Look for an "id" column in the table schema, not just the values
             let has_id_column = {
@@ -338,57 +333,6 @@ impl<T: Schema + Debug> Insert<T> {
             // This should not be reached as we handle RETURNING above
             Ok(None)
         }
-    }
-
-    /// Builds a parameterized INSERT SQL statement, with identifier quoting for MySQL/Postgres/SQLite and parameter style for all backends.
-    pub(crate) fn insert_sql(mut sql: String, columns: &Vec<ColumnInfo>) -> String {
-        // Quote identifiers for portability (uses quote_identifier from lib.rs)
-        for (i, col) in columns.iter().enumerate() {
-            if i > 0 {
-                sql.push_str(", ");
-            }
-            sql.push_str(&get_dialect().quote_identifier(&col.name));
-        }
-        sql.push_str(") VALUES (");
-
-        #[cfg(feature = "postgres")]
-        {
-            // Use $1, $2, $3... for Postgres
-            for (i, _col) in columns.iter().enumerate() {
-                if i > 0 {
-                    sql.push_str(", ");
-                }
-                sql.push_str(&format!("${}", i + 1));
-            }
-        }
-        #[cfg(any(feature = "mysql", feature = "sqlite"))]
-        {
-            // Use ? for MySQL and SQLite
-            for (i, _col) in columns.iter().enumerate() {
-                if i > 0 {
-                    sql.push_str(", ");
-                }
-                sql.push_str("?");
-            }
-        }
-        // fallback (support at least something for no features)
-        #[cfg(all(
-            not(feature = "postgres"),
-            not(feature = "mysql"),
-            not(feature = "sqlite")
-        ))]
-        {
-            for (i, _col) in columns.iter().enumerate() {
-                if i > 0 {
-                    sql.push_str(", ");
-                }
-                sql.push_str("?");
-            }
-        }
-
-        sql.push_str(")");
-
-        sql
     }
 }
 
@@ -472,7 +416,7 @@ impl<T: Schema + Debug> InsertMany<T> {
             let selected: Vec<ColumnInfo> = select_insertable_columns(all_columns, &values);
 
             let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-            let sql = Insert::<T>::insert_sql(sql, &selected);
+            let sql = get_dialect().insert_sql(sql, &selected);
             let mut query = sqlx::query(&sql);
 
             for col in selected.iter() {
@@ -518,11 +462,9 @@ impl<T: Schema + Debug> InsertMany<T> {
             {
                 // For PostgreSQL, if returning is requested, we need to use RETURNING clause
                 if !self.returning.is_empty() {
-                    use crate::helpers::returning_sql;
-
                     let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-                    let sql = Insert::<T>::insert_sql(sql, &selected);
-                    let sql = returning_sql(sql, &self.returning);
+                    let sql = get_dialect().insert_sql(sql, &selected);
+                    let sql = get_dialect().returning_sql(sql, &self.returning);
                     let mut query = sqlx::query(&sql);
 
                     for col in selected.iter() {
@@ -564,11 +506,9 @@ impl<T: Schema + Debug> InsertMany<T> {
             {
                 // For SQLite, if returning is requested, we use RETURNING clause
                 if !self.returning.is_empty() {
-                    use crate::helpers::returning_sql;
-
                     let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-                    let sql = Insert::<T>::insert_sql(sql, &selected);
-                    let sql = returning_sql(sql, &self.returning);
+                    let sql = get_dialect().insert_sql(sql, &selected);
+                    let sql = get_dialect().returning_sql(sql, &self.returning);
                     let mut query = sqlx::query(&sql);
 
                     for col in selected.iter() {
@@ -666,11 +606,8 @@ impl<T: Schema + Debug> InsertMany<T> {
             if !self.returning.is_empty() {
                 Ok(Some(final_rows))
             } else if !inserted_ids.is_empty() {
-                // Fetch selected columns for all inserted ids
-
-                use crate::helpers::returning_sql;
                 let select_sql = get_starting_sql(StartingSql::Select, T::table_name());
-                let mut select_sql = returning_sql(select_sql, &self.returning);
+                let mut select_sql = get_dialect().returning_sql(select_sql, &self.returning);
                 select_sql.push_str(format!(" FROM {} WHERE id = $1;", T::table_name()).as_str());
 
                 for id in inserted_ids {
@@ -688,6 +625,7 @@ impl<T: Schema + Debug> InsertMany<T> {
                 Ok(Some(final_rows))
             } else {
                 Ok(None)
+                // Fetch selected columns for all inserted ids
             }
         }
     }

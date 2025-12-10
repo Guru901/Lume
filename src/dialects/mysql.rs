@@ -1,5 +1,3 @@
-use sqlx::mysql::MySqlRow;
-
 use crate::{
     dialects::SqlDialect,
     filter::FilterType,
@@ -25,6 +23,7 @@ impl SqlDialect for MySqlDialect {
         // MySQL-specific transformations (if needed)
         sql
     }
+
     fn returning_sql(&self, sql: String, _returning: &Vec<&'static str>) -> String {
         sql
     }
@@ -49,23 +48,32 @@ impl SqlDialect for MySqlDialect {
             ColumnBindingKind::BigInt => query.bind(None::<i64>),
             ColumnBindingKind::TinyIntUnsigned => query.bind(None::<u8>),
             ColumnBindingKind::SmallIntUnsigned => query.bind(None::<u16>),
-
             ColumnBindingKind::IntegerUnsigned => query.bind(None::<u32>),
-            ColumnBindingKind::BigIntUnsigned => query.bind(None::<u64>),
+            ColumnBindingKind::BigIntUnsigned => query.bind(None::<u32>),
             ColumnBindingKind::Float => query.bind(None::<f32>),
             ColumnBindingKind::Double => query.bind(None::<f64>),
             ColumnBindingKind::Boolean => query.bind(None::<bool>),
         }
     }
 
-    type Row = MySqlRow;
+    fn insert_sql(&self, mut sql: String, columns: &Vec<crate::schema::ColumnInfo>) -> String {
+        for (i, col) in columns.iter().enumerate() {
+            if i > 0 {
+                sql.push_str(", ");
+            }
+            sql.push_str(&self.quote_identifier(&col.name));
+        }
+        sql.push_str(") VALUES (");
 
-    fn extract_column_value(
-        &self,
-        row: &Self::Row,
-        column_name: &str,
-        data_type: &str,
-    ) -> Option<crate::schema::Value> {
-        todo!()
+        for (i, _col) in columns.iter().enumerate() {
+            if i > 0 {
+                sql.push_str(", ");
+            }
+            sql.push_str("?");
+        }
+
+        sql.push_str(")");
+
+        sql
     }
 }

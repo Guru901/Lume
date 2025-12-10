@@ -1,24 +1,21 @@
 #[cfg(feature = "mysql")]
-use sqlx::mysql::MySqlRow;
-
-#[cfg(feature = "postgres")]
-use sqlx::pg::PgRow;
-
-#[cfg(feature = "sqlite")]
-use sqlx::sqlite::SqliteRow;
-
 mod mysql;
+#[cfg(feature = "postgres")]
 mod postgres;
+#[cfg(feature = "sqlite")]
 mod sqlite;
 
+#[cfg(feature = "mysql")]
 use mysql::MySqlDialect;
+#[cfg(feature = "postgres")]
 use postgres::PostgresDialect;
+#[cfg(feature = "sqlite")]
 use sqlite::SqliteDialect;
 
 use crate::{
-    filter::{FilterType, Filtered},
+    filter::FilterType,
     helpers::{ColumnBindingKind, SqlBindQuery},
-    schema::{ColumnInfo, Value},
+    schema::ColumnInfo,
 };
 
 /// Trait for database-specific SQL generation and binding behavior.
@@ -29,9 +26,6 @@ use crate::{
 /// Only one backend feature (`mysql`, `postgres`, or `sqlite`) is expected to be
 /// active at a time, so the associated `Row` type is specialized per dialect.
 pub trait SqlDialect {
-    /// The concrete row type for this dialect (e.g., `MySqlRow`, `PgRow`, `SqliteRow`).
-    type Row;
-
     /// Quote an identifier (table name, column name) according to backend rules.
     fn quote_identifier(&self, identifier: &str) -> String;
 
@@ -50,14 +44,6 @@ pub trait SqlDialect {
     /// - Postgres / SQLite: appends `RETURNING col1, col2, ...;`
     /// - MySQL: usually a no-op (returns the same `sql`)
     fn returning_sql(&self, sql: String, returning: &Vec<&'static str>) -> String;
-
-    /// Extract a value from a backend-specific row into the generic [`Value`] enum.
-    fn extract_column_value(
-        &self,
-        row: &Self::Row,
-        column_name: &str,
-        data_type: &str,
-    ) -> Option<Value>;
 
     /// Build a simple filter expression when no specialized behavior is needed.
     ///
@@ -86,49 +72,13 @@ pub trait SqlDialect {
     ///
     /// Intended to replace `Insert::insert_sql` so that the insert operation
     /// no longer needs any `#[cfg(feature = "...")]` logic for SQL construction.
-    fn build_insert_sql<'a>(&self, table_name: &str, columns: &[ColumnInfo<'a>]) -> String {
-        // INSERT INTO <table> (
-        let mut sql = format!("INSERT INTO {} (", self.quote_identifier(table_name));
-
-        // column list with proper quoting
-        for (i, col) in columns.iter().enumerate() {
-            if i > 0 {
-                sql.push_str(", ");
-            }
-            sql.push_str(&self.quote_identifier(col.name));
-        }
-
-        sql.push_str(") VALUES (");
-
-        // placeholders
-        for (i, _col) in columns.iter().enumerate() {
-            if i > 0 {
-                sql.push_str(", ");
-            }
-            sql.push_str(&self.placeholder(i));
-        }
-
-        sql.push(')');
-
-        sql
-    }
+    fn insert_sql(&self, sql: String, columns: &Vec<ColumnInfo>) -> String;
 }
-
-/// A concrete trait-object type for the active backend.
-/// The associated `Row` type is fixed by the selected feature.
-#[cfg(feature = "mysql")]
-pub type DynSqlDialect = dyn SqlDialect<Row = MySqlRow>;
-
-#[cfg(all(not(feature = "mysql"), feature = "postgres"))]
-pub type DynSqlDialect = dyn SqlDialect<Row = PgRow>;
-
-#[cfg(all(not(feature = "mysql"), not(feature = "postgres"), feature = "sqlite"))]
-pub type DynSqlDialect = dyn SqlDialect<Row = SqliteRow>;
 
 /// Get the appropriate dialect for the current backend.
 ///
 /// Only one of the branches below is compiled, depending on enabled features.
-pub fn get_dialect() -> Box<DynSqlDialect> {
+pub fn get_dialect() -> Box<dyn SqlDialect> {
     #[cfg(feature = "mysql")]
     {
         return Box::new(MySqlDialect);
@@ -143,7 +93,4 @@ pub fn get_dialect() -> Box<DynSqlDialect> {
     {
         return Box::new(SqliteDialect);
     }
-
-    // If no supported backend feature is enabled, this will fail to compile,
-    // which is desirable because the crate can't function without a backend.
 }
