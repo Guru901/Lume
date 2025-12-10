@@ -1,52 +1,81 @@
 # Lume Documentation
 
-Welcome to Lume — a type-safe, ergonomic query builder and schema macro for MySQL.
+Welcome to the Lume documentation! Lume is a type-safe, ergonomic query builder and ORM for SQL databases.
 
-- What is Lume: minimal, fast, compile-time safe layer for schema definition and queries
-- Core concepts: `define_schema!`, typed `Column<T>`, `Query`, `Insert`, `Update`, filters
-- Status: Actively evolving; see CHANGELOG for breaking changes
+## What is Lume?
 
-## Contents
+Lume is a minimal, fast, compile-time safe layer for schema definition and database queries. It provides:
 
-- Getting Started: getting-started.md
-- Defining Schemas: schema.md
-- Selecting and Filtering: queries.md
-- Inserts and Updates: inserts-updates.md
-- Joins: joins.md
-- Defaults and Auto-Increment: defaults-auto-increment.md
-- Cookbook: cookbook.md
+- **Type-safe queries** - Compile-time checking prevents runtime errors
+- **Ergonomic API** - Clean, intuitive interface inspired by modern ORMs
+- **Multi-database support** - Works with MySQL, PostgreSQL, and SQLite
+- **Zero-cost abstractions** - Minimal runtime overhead
+- **SQL injection protection** - Parameterized queries by default
 
-## Requirements
+## Documentation Structure
 
-- Rust stable
-- MySQL compatible database (tested with MySQL 8)
-- Tokio async runtime
+### Getting Started
 
-## Example
+- [Getting Started Guide](getting-started.md) - Installation, setup, and your first query
+
+### Core Concepts
+
+- [Schema Definition](schema.md) - Define your database schemas with the `define_schema!` macro
+- [Queries](queries.md) - Build and execute type-safe queries
+- [Filters](filters.md) - Filter data with conditions and operators
+- [Inserts & Updates](inserts-updates.md) - Insert and update records
+- [Joins](joins.md) - Join multiple tables in queries
+
+### Advanced Topics
+
+- [Advanced Features](advanced.md) - Raw SQL, transactions, enums, and more
+
+## Quick Example
 
 ```rust
-use lume::{database::Database, define_schema, schema::Schema};
+use lume::{database::Database, define_schema, filter::eq_value};
 
 define_schema! {
     Users {
-        id: u64 [primary_key().not_null().auto_increment()],
+        id: i32 [primary_key().not_null()],
         username: String [not_null()],
         email: String,
-        is_active: bool [default_value(true)],
+        age: i32,
     }
 }
 
-# #[tokio::main]
-# async fn main() -> Result<(), Box<dyn std::error::Error>> {
-let db = Database::connect("mysql://user:pass@localhost/db").await?;
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let db = Database::connect("mysql://user:pass@localhost/db").await?;
+    db.register_table::<Users>().await?;
 
-db.register_table::<Users>().await?;
-
-db.insert(Users { id: None, username: "guru".into(), email: None, is_active: None })
+    // Insert
+    db.insert(Users {
+        id: 1,
+        username: "alice".to_string(),
+        email: Some("alice@example.com".to_string()),
+        age: Some(30),
+    })
     .execute()
     .await?;
 
-let rows = db.query::<Users, SelectUsers>().execute().await?;
-# Ok(())
-# }
+    // Query
+    let users = db
+        .query::<Users, SelectUsers>()
+        .filter(eq_value(Users::username(), "alice"))
+        .execute()
+        .await?;
+
+    Ok(())
+}
 ```
+
+## Requirements
+
+- Rust stable (2021 edition or later)
+- Tokio async runtime
+- MySQL 8+, PostgreSQL 12+, or SQLite 3.8+
+
+## Next Steps
+
+Start with the [Getting Started Guide](getting-started.md) to set up Lume in your project.
