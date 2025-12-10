@@ -827,12 +827,10 @@ macro_rules! impl_default_to_sql_numeric {
         $(
             impl DefaultToSql for Column<$t> {
                 fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
-                    self.get_default().map(|v| {
-                        if let DefaultValueEnum::Value(v) = v {
-                            DefaultValueEnum::Value(v.to_string())
-                        } else {
-                            DefaultValueEnum::Value("".to_string())
-                        }
+                    self.get_default().map(|v| match v {
+                            DefaultValueEnum::Value(val) => DefaultValueEnum::Value(val.to_string()),
+                            DefaultValueEnum::CurrentTimestamp => DefaultValueEnum::CurrentTimestamp,
+                            DefaultValueEnum::Random => DefaultValueEnum::Random,
                     })
                 }
             }
@@ -840,11 +838,15 @@ macro_rules! impl_default_to_sql_numeric {
             #[cfg(feature = "postgres")]
             impl DefaultToSql for Column<Vec<$t>> {
                 fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
-                    self.get_default().map(|v| {
-                        let items = v.iter()
-                            .map(|item| item.to_string())
-                            .collect::<Vec<_>>();
-                        format!("ARRAY[{}]", items.join(", "))
+                    self.get_default().map(|v| match v {
+                        DefaultValueEnum::Value(vec) => {
+                            let items = vec.iter()
+                                 .map(|item| item.to_string())
+                                 .collect::<Vec<_>>();
+                            DefaultValueEnum::Value(format!("ARRAY[{}]", items.join(", ")))
+                        }
+                        DefaultValueEnum::CurrentTimestamp => DefaultValueEnum::CurrentTimestamp,
+                        DefaultValueEnum::Random => DefaultValueEnum::Random,
                     })
                 }
             }
@@ -866,12 +868,6 @@ impl DefaultToSql for Column<String> {
                 DefaultValueEnum::Value("".to_string())
             }
         })
-    }
-}
-
-impl DefaultToSql for Column<time::Date> {
-    fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
-        None
     }
 }
 

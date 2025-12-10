@@ -461,10 +461,16 @@ impl Database {
     fn adapt_sql_for_sqlite(sql: String) -> String {
         // Basic textual normalization to keep shared schema metadata working
         // with SQLite-specific syntax expectations.
+        // "AUTO_INCREMENT" isn't supported in SQLite; INTEGER PRIMARY KEY
+        // auto-increments by default, so we strip it and any leading/trailing whitespace.
         const REPLACEMENTS: &[(&str, &str)] = &[
             ("DEFAULT (UUID())", "DEFAULT (lower(hex(randomblob(16))))"),
             ("DATETIME", "TEXT"),
             ("CURRENT_TIMESTAMP", "(datetime('now'))"),
+            // Remove AUTO_INCREMENT and any surrounding whitespace.
+            (" AUTO_INCREMENT", ""),
+            ("AUTO_INCREMENT ", ""),
+            ("AUTO_INCREMENT", ""),
         ];
 
         let mut converted = sql;
@@ -473,7 +479,12 @@ impl Database {
             converted = converted.replace(mysql, sqlite);
         }
 
-        converted
+        // After replacements, collapse any double spaces that might have resulted from
+        // stripping "AUTO_INCREMENT" to avoid odd gaps in the type declaration.
+        let double_space_re = regex::Regex::new(r"[ ]{2,}").unwrap();
+        converted = double_space_re.replace_all(&converted, " ").to_string();
+
+        converted.trim_end().to_string()
     }
 
     /// Retrieves column information for a specific table.
