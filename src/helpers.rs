@@ -142,16 +142,15 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
     }
     // Handle column-to-column comparisons
     else if let Some(col2) = filter.column_two() {
-        let str = format!(
+        let dialect = get_dialect();
+        return format!(
             "{}.{} {} {}.{}",
-            col1.0,
-            col1.1,
+            dialect.quote_identifier(&col1.0),
+            dialect.quote_identifier(&col1.1),
             filter.filter_type().to_sql(),
-            col2.0,
-            col2.1
+            dialect.quote_identifier(&col2.0),
+            dialect.quote_identifier(&col2.1)
         );
-        println!("{str}");
-        return str;
     } else {
         // Fallback
         "1=1".to_string()

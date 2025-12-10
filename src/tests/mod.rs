@@ -725,7 +725,12 @@ mod build_filter_expr_tests {
         };
         let mut params = vec![];
         let sql = build_filter_expr(&filter, &mut params);
-        assert_eq!(sql, "t.a = t.b");
+        #[cfg(feature = "mysql")]
+        assert_eq!(sql, "`t`.`a` = `t`.`b`");
+        #[cfg(feature = "postgres")]
+        assert_eq!(sql, "\"t\".\"a\" = \"t\".\"b\"");
+        #[cfg(feature = "sqlite")]
+        assert_eq!(sql, "\"t\".\"a\" = \"t\".\"b\"");
         assert!(params.is_empty());
     }
 }
