@@ -49,7 +49,7 @@ impl SqlDialect for MySqlDialect {
             ColumnBindingKind::TinyIntUnsigned => query.bind(None::<u8>),
             ColumnBindingKind::SmallIntUnsigned => query.bind(None::<u16>),
             ColumnBindingKind::IntegerUnsigned => query.bind(None::<u32>),
-            ColumnBindingKind::BigIntUnsigned => query.bind(None::<u32>),
+            ColumnBindingKind::BigIntUnsigned => query.bind(None::<u64>),
             ColumnBindingKind::Float => query.bind(None::<f32>),
             ColumnBindingKind::Double => query.bind(None::<f64>),
             ColumnBindingKind::Boolean => query.bind(None::<bool>),
