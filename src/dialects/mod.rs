@@ -92,7 +92,14 @@ pub fn get_dialect() -> Box<dyn SqlDialect> {
     }
 
     #[cfg(all(not(feature = "mysql"), not(feature = "postgres"), feature = "sqlite"))]
-    {
-        return Box::new(SqliteDialect);
-    }
+    return Box::new(SqliteDialect);
+
+    #[cfg(all(
+        not(feature = "mysql"),
+        not(feature = "postgres"),
+        not(feature = "sqlite")
+    ))]
+    compile_error!(
+        "At least one database backend feature (mysql, postgres, sqlite) must be enabled"
+    );
 }
