@@ -115,14 +115,12 @@ impl DefaultToSql for Column<Vec<String>> {
 impl DefaultToSql for Column<bool> {
     fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
         self.__internal_get_default().map(|v| {
-            if let DefaultValueEnum::Value(v) = v {
-                if *v {
-                    DefaultValueEnum::Value("TRUE".to_string())
-                } else {
-                    DefaultValueEnum::Value("FALSE".to_string())
+            match v {
+                DefaultValueEnum::Value(v) => {
+                    DefaultValueEnum::Value(if *v { "TRUE" } else { "FALSE" }.to_string())
                 }
-            } else {
-                DefaultValueEnum::Value("FALSE".to_string())
+                DefaultValueEnum::CurrentTimestamp => DefaultValueEnum::CurrentTimestamp,
+                DefaultValueEnum::Random => DefaultValueEnum::Random,
             }
         })
     }
