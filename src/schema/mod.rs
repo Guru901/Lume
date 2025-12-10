@@ -81,7 +81,7 @@ pub trait Schema {
     ///
     /// This includes column names, types, constraints, and other metadata
     /// needed for SQL generation and type checking.
-    fn get_all_columns() -> Vec<ColumnInfo>;
+    fn get_all_columns() -> Vec<ColumnInfo<'static>>;
 
     /// Ensures the schema is registered in the table registry.
     ///
@@ -166,7 +166,7 @@ pub trait Select {
 /// - `has_default`: Whether the column has a default value
 /// - `default_sql`: The SQL representation of the default value
 #[derive(Debug, Clone)]
-pub struct ColumnInfo {
+pub struct ColumnInfo<'a> {
     /// The column name in the database
     pub name: &'static str,
     /// The SQL data type (e.g., "INTEGER", "VARCHAR(255)")
@@ -182,9 +182,9 @@ pub struct ColumnInfo {
     /// Optional collation (MySQL COLLATE)
     pub collate: Option<&'static str>,
     /// Validators applied to this column's values at runtime.
-    pub validators: Vec<ColumnValidators>,
+    pub validators: &'a Vec<ColumnValidators>,
     /// Constraints applied to this column (e.g., NOT NULL, UNIQUE, PRIMARY KEY).
-    pub constraints: Vec<ColumnConstraint>,
+    pub constraints: &'a Vec<ColumnConstraint>,
 }
 
 /// Converts a Rust type to its corresponding SQL type string.
@@ -293,7 +293,7 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
         T::table_name()
     }
 
-    fn get_columns(&self) -> Vec<ColumnInfo> {
+    fn get_columns(&self) -> Vec<ColumnInfo<'static>> {
         T::get_all_columns()
     }
 
@@ -307,7 +307,7 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
             .iter()
             .map(|col| {
                 let mut def = format!("    {} {}", col.name, col.data_type);
-                let constraints = &col.constraints;
+                let constraints = col.constraints;
 
                 for constraint in constraints {
                     match constraint {

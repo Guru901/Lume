@@ -170,7 +170,7 @@ macro_rules! define_schema {
                     });
                 }
 
-                fn get_all_columns() -> Vec<$crate::schema::ColumnInfo> {
+                fn get_all_columns() -> Vec<$crate::schema::ColumnInfo<'static>> {
                     vec![
                         $(
                             {
@@ -301,7 +301,7 @@ macro_rules! define_schema {
                 });
             }
 
-            fn get_all_columns() -> Vec<$crate::schema::ColumnInfo> {
+            fn get_all_columns() -> Vec<$crate::schema::ColumnInfo<'static>> {
                 vec![
                     $(
                         {

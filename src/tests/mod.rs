@@ -131,8 +131,8 @@ mod tests {
                 comment: None,
                 charset: None,
                 collate: None,
-                validators: Vec::new(),
-                constraints: Vec::new(),
+                validators: &Vec::new(),
+                constraints: &Vec::new(),
             },
             42,
         );
@@ -146,8 +146,8 @@ mod tests {
                 comment: None,
                 charset: None,
                 collate: None,
-                validators: Vec::new(),
-                constraints: Vec::new(),
+                validators: &Vec::new(),
+                constraints: &Vec::new(),
             },
             "testuser".to_string(),
         );
@@ -161,8 +161,8 @@ mod tests {
                 comment: None,
                 charset: None,
                 collate: None,
-                validators: Vec::new(),
-                constraints: Vec::new(),
+                validators: &Vec::new(),
+                constraints: &Vec::new(),
             },
             "test@example.com".to_string(),
         );
@@ -176,8 +176,8 @@ mod tests {
                 comment: None,
                 charset: None,
                 collate: None,
-                validators: Vec::new(),
-                constraints: Vec::new(),
+                validators: &Vec::new(),
+                constraints: &Vec::new(),
             },
             25,
         );
@@ -191,8 +191,8 @@ mod tests {
                 comment: None,
                 charset: None,
                 collate: None,
-                validators: Vec::new(),
-                constraints: Vec::new(),
+                validators: &Vec::new(),
+                constraints: &Vec::new(),
             },
             true,
         );
@@ -464,8 +464,8 @@ mod build_filter_expr_tests {
         fn is_in_array(&self) -> Option<bool> {
             self.in_array
         }
-        fn array_values(&self) -> Option<Vec<Value>> {
-            self.array_values.clone()
+        fn array_values(&self) -> Option<&Vec<Value>> {
+            self.array_values.as_ref()
         }
     }
 

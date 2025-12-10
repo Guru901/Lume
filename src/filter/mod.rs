@@ -310,7 +310,7 @@ pub trait Filtered: Debug + Send + Sync {
     /// For filters that operate on an array of values (such as SQL `IN` or `NOT IN` clauses),
     /// this returns `Some(&[Value])` containing the values being compared.
     /// For other filter types, this returns `None`.
-    fn array_values(&self) -> Option<Vec<Value>> {
+    fn array_values(&self) -> Option<&Vec<Value>> {
         None
     }
 
@@ -407,8 +407,8 @@ impl Filtered for ArrayFilter {
         None
     }
 
-    fn array_values(&self) -> Option<Vec<Value>> {
-        Some(self.values.clone())
+    fn array_values(&self) -> Option<&Vec<Value>> {
+        Some(self.values.as_ref())
     }
 
     fn is_in_array(&self) -> Option<bool> {

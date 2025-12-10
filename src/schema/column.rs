@@ -277,13 +277,13 @@ impl<T> Column<T> {
     }
 
     #[doc(hidden)]
-    pub fn __internal_get_validators(&self) -> Vec<ColumnValidators> {
-        return self.validators.clone();
+    pub fn __internal_get_validators(&self) -> &Vec<ColumnValidators> {
+        return self.validators.as_ref();
     }
 
     #[doc(hidden)]
-    pub fn __internal_get_constraints(&self) -> Vec<ColumnConstraint> {
-        return self.constraints.clone();
+    pub fn __internal_get_constraints(&self) -> &Vec<ColumnConstraint> {
+        return self.constraints.as_ref();
     }
 
     #[doc(hidden)]

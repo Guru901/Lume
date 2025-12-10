@@ -111,7 +111,9 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
 
     // Handle IN / NOT IN array filters
     if let Some(in_array) = filter.is_in_array() {
-        let values = filter.array_values().unwrap_or(Vec::new());
+        let values = filter.array_values();
+        if values.is_none() {}
+        let values = values.unwrap();
         if values.is_empty() {
             return if in_array {
                 "1=0".to_string()
@@ -307,7 +309,7 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
 
     match value {
         Some(Value::String(s)) => {
-            for validator in &column.validators {
+            for validator in column.validators {
                 match *validator {
                     ColumnValidators::Email => {
                         if !EMAIL_REGEX.is_match(s) {
@@ -352,7 +354,7 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
             true
         }
         Some(Value::Int32(i)) => {
-            for validator in &column.validators {
+            for validator in column.validators {
                 match *validator {
                     ColumnValidators::Min(min) => {
                         if *i < min as i32 {
@@ -370,7 +372,7 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
             true
         }
         Some(Value::Int64(i)) => {
-            for validator in &column.validators {
+            for validator in column.validators {
                 match *validator {
                     ColumnValidators::Min(min) => {
                         if *i < min as i64 {
@@ -388,7 +390,7 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
             true
         }
         Some(Value::UInt32(u)) => {
-            for validator in &column.validators {
+            for validator in column.validators {
                 match *validator {
                     ColumnValidators::Min(min) => {
                         if *u < min as u32 {
@@ -406,7 +408,7 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
             true
         }
         Some(Value::UInt64(u)) => {
-            for validator in &column.validators {
+            for validator in column.validators {
                 match *validator {
                     ColumnValidators::Min(min) => {
                         if *u < min as u64 {
@@ -425,7 +427,7 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
         }
         Some(Value::Float32(f)) => {
             let f = *f as f64;
-            for validator in &column.validators {
+            for validator in column.validators {
                 match *validator {
                     ColumnValidators::Min(min) => {
                         if f < min as f64 {
@@ -443,7 +445,7 @@ pub(crate) fn validate_column_value(column: &ColumnInfo, value: Option<&Value>) 
             true
         }
         Some(Value::Float64(f)) => {
-            for validator in &column.validators {
+            for validator in column.validators {
                 match *validator {
                     ColumnValidators::Min(min) => {
                         if *f < min as f64 {

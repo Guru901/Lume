@@ -30,10 +30,10 @@ use std::sync::Arc;
 /// Select columns that should be included in an INSERT statement based on provided values.
 ///
 /// Omits columns that have defaults or are auto-incremented when their value is absent or Null.
-fn select_insertable_columns(
-    all_columns: Vec<ColumnInfo>,
+fn select_insertable_columns<'a>(
+    all_columns: Vec<ColumnInfo<'a>>,
     values: &HashMap<String, Value>,
-) -> Vec<ColumnInfo> {
+) -> Vec<ColumnInfo<'a>> {
     all_columns
         .into_iter()
         .filter(|col| match values.get(col.name) {
@@ -187,7 +187,7 @@ impl<T: Schema + Debug> Insert<T> {
         let selected: Vec<ColumnInfo> = select_insertable_columns(all_columns, &values);
 
         let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-        let sql = Self::insert_sql(sql, selected.clone());
+        let sql = Self::insert_sql(sql, &selected);
         let mut query = sqlx::query(&sql);
 
         for col in selected.iter() {
@@ -209,7 +209,7 @@ impl<T: Schema + Debug> Insert<T> {
             use crate::helpers::returning_sql;
 
             let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-            let sql = Self::insert_sql(sql, selected.clone());
+            let sql = Self::insert_sql(sql, &selected);
             let sql = returning_sql(sql, &self.returning);
             let mut query = sqlx::query(&sql);
 
@@ -233,7 +233,7 @@ impl<T: Schema + Debug> Insert<T> {
             use crate::helpers::returning_sql;
 
             let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-            let sql = Self::insert_sql(sql, selected.clone());
+            let sql = Self::insert_sql(sql, &selected);
             let sql = returning_sql(sql, &self.returning);
             let mut query = sqlx::query(&sql);
 
@@ -344,7 +344,7 @@ impl<T: Schema + Debug> Insert<T> {
     }
 
     /// Builds a parameterized INSERT SQL statement, with identifier quoting for MySQL/Postgres/SQLite and parameter style for all backends.
-    pub(crate) fn insert_sql(mut sql: String, columns: Vec<ColumnInfo>) -> String {
+    pub(crate) fn insert_sql(mut sql: String, columns: &Vec<ColumnInfo>) -> String {
         // Quote identifiers for portability (uses quote_identifier from lib.rs)
         for (i, col) in columns.iter().enumerate() {
             if i > 0 {
@@ -475,7 +475,7 @@ impl<T: Schema + Debug> InsertMany<T> {
             let selected: Vec<ColumnInfo> = select_insertable_columns(all_columns, &values);
 
             let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-            let sql = Insert::<T>::insert_sql(sql, selected.clone());
+            let sql = Insert::<T>::insert_sql(sql, &selected);
             let mut query = sqlx::query(&sql);
 
             for col in selected.iter() {
@@ -524,7 +524,7 @@ impl<T: Schema + Debug> InsertMany<T> {
                     use crate::helpers::returning_sql;
 
                     let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-                    let sql = Insert::<T>::insert_sql(sql, selected.clone());
+                    let sql = Insert::<T>::insert_sql(sql, &selected);
                     let sql = returning_sql(sql, &self.returning);
                     let mut query = sqlx::query(&sql);
 
@@ -570,7 +570,7 @@ impl<T: Schema + Debug> InsertMany<T> {
                     use crate::helpers::returning_sql;
 
                     let sql = get_starting_sql(StartingSql::Insert, T::table_name());
-                    let sql = Insert::<T>::insert_sql(sql, selected.clone());
+                    let sql = Insert::<T>::insert_sql(sql, &selected);
                     let sql = returning_sql(sql, &self.returning);
                     let mut query = sqlx::query(&sql);
 

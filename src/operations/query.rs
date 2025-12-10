@@ -102,7 +102,7 @@ pub(crate) struct JoinInfo {
 
     pub(crate) join_type: JoinType,
 
-    pub(crate) columns: Vec<ColumnInfo>,
+    pub(crate) columns: Vec<ColumnInfo<'static>>,
 
     pub(crate) selected_columns: Vec<&'static str>,
 }

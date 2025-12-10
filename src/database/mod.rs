@@ -519,12 +519,15 @@ impl Database {
     ///     println!("User table has {} columns", cols.len());
     /// }
     /// ```
-    pub fn get_table_info(table_name: &str) -> Option<Vec<ColumnInfo>> {
-        let tables = get_all_tables();
-        tables
-            .iter()
-            .find(|table| table.table_name() == table_name)
-            .map(|table| table.get_columns())
+    pub fn get_table_info<'a>(table_name: &str) -> Option<Vec<ColumnInfo<'a>>> {
+        // Avoid returning references to local data: fully copy the columns out.
+        for table in get_all_tables() {
+            if table.table_name() == table_name {
+                let columns = table.get_columns();
+                return Some(columns);
+            }
+        }
+        None
     }
 
     /// Returns a list of all registered table names.
