@@ -149,10 +149,7 @@ impl<S: Schema + Debug> Row<S> {
             // Extract columns from the main table
             let main_columns = S::get_all_columns();
             for column in main_columns {
-                use crate::dialects::get_dialect;
-
-                let value =
-                    get_dialect().extract_column_value(&row, &column.name, &column.data_type);
+                let value = Self::extract_column_value(&row, &column.name, &column.data_type);
                 if let Some(value) = value {
                     map.insert(column.name.to_string(), value);
                 }
@@ -163,13 +160,8 @@ impl<S: Schema + Debug> Row<S> {
                     let joined_column = &join.columns;
 
                     for column in joined_column {
-                        use crate::dialects::get_dialect;
-
-                        let value = get_dialect().extract_column_value(
-                            &row,
-                            &column.name,
-                            &column.data_type,
-                        );
+                        let value =
+                            Self::extract_column_value(&row, &column.name, &column.data_type);
                         if let Some(value) = value {
                             if map.contains_key(column.name) {
                                 let fq_key = format!("{}.{}", join.table_name, column.name);
@@ -325,5 +317,296 @@ impl<S: Schema + Debug> Row<S> {
         }
 
         rows_
+    }
+
+    #[cfg(feature = "mysql")]
+    /// Extracts a column value from a MySQL row based on column name and data type
+    fn extract_column_value(row: &MySqlRow, column_name: &str, data_type: &str) -> Option<Value> {
+        use sqlx::Row as _;
+        match data_type {
+            "TEXT" => {
+                // Try to get as string first
+                if let Ok(val) = row.try_get::<String, _>(column_name) {
+                    Some(Value::String(val))
+                } else if let Ok(val) = row.try_get::<Option<String>, _>(column_name) {
+                    val.map(Value::String)
+                } else {
+                    None
+                }
+            }
+            "TINYINT" => {
+                if let Ok(val) = row.try_get::<i8, _>(column_name) {
+                    Some(Value::Int8(val))
+                } else if let Ok(val) = row.try_get::<Option<i8>, _>(column_name) {
+                    val.map(Value::Int8)
+                } else {
+                    None
+                }
+            }
+            "SMALLINT" => {
+                if let Ok(val) = row.try_get::<i16, _>(column_name) {
+                    Some(Value::Int16(val))
+                } else if let Ok(val) = row.try_get::<Option<i16>, _>(column_name) {
+                    val.map(Value::Int16)
+                } else {
+                    None
+                }
+            }
+            "INTEGER" => {
+                if let Ok(val) = row.try_get::<i32, _>(column_name) {
+                    Some(Value::Int32(val))
+                } else if let Ok(val) = row.try_get::<Option<i32>, _>(column_name) {
+                    val.map(Value::Int32)
+                } else {
+                    None
+                }
+            }
+            "BIGINT" => {
+                if let Ok(val) = row.try_get::<i64, _>(column_name) {
+                    Some(Value::Int64(val))
+                } else if let Ok(val) = row.try_get::<Option<i64>, _>(column_name) {
+                    val.map(Value::Int64)
+                } else {
+                    None
+                }
+            }
+            "TINYINT UNSIGNED" => {
+                if let Ok(val) = row.try_get::<u8, _>(column_name) {
+                    Some(Value::UInt8(val))
+                } else if let Ok(val) = row.try_get::<Option<u8>, _>(column_name) {
+                    val.map(Value::UInt8)
+                } else {
+                    None
+                }
+            }
+            "SMALLINT UNSIGNED" => {
+                if let Ok(val) = row.try_get::<u16, _>(column_name) {
+                    Some(Value::UInt16(val))
+                } else if let Ok(val) = row.try_get::<Option<u16>, _>(column_name) {
+                    val.map(Value::UInt16)
+                } else {
+                    None
+                }
+            }
+            "INTEGER UNSIGNED" => {
+                if let Ok(val) = row.try_get::<u32, _>(column_name) {
+                    Some(Value::UInt32(val))
+                } else if let Ok(val) = row.try_get::<Option<u32>, _>(column_name) {
+                    val.map(Value::UInt32)
+                } else {
+                    None
+                }
+            }
+            "BIGINT UNSIGNED" => {
+                if let Ok(val) = row.try_get::<u64, _>(column_name) {
+                    Some(Value::UInt64(val))
+                } else if let Ok(val) = row.try_get::<Option<u64>, _>(column_name) {
+                    val.map(Value::UInt64)
+                } else {
+                    None
+                }
+            }
+            "FLOAT" => {
+                if let Ok(val) = row.try_get::<f32, _>(column_name) {
+                    Some(Value::Float32(val))
+                } else if let Ok(val) = row.try_get::<Option<f32>, _>(column_name) {
+                    val.map(Value::Float32)
+                } else {
+                    None
+                }
+            }
+            "REAL" | "DOUBLE PRECISION" | "DOUBLE" => {
+                if let Ok(val) = row.try_get::<f64, _>(column_name) {
+                    Some(Value::Float64(val))
+                } else if let Ok(val) = row.try_get::<Option<f64>, _>(column_name) {
+                    val.map(Value::Float64)
+                } else {
+                    None
+                }
+            }
+            "BOOLEAN" => {
+                if let Ok(val) = row.try_get::<bool, _>(column_name) {
+                    Some(Value::Bool(val))
+                } else if let Ok(val) = row.try_get::<Option<bool>, _>(column_name) {
+                    val.map(Value::Bool)
+                } else {
+                    None
+                }
+            }
+            _ => {
+                // Fallback: try to get as string
+                if let Ok(val) = row.try_get::<String, _>(column_name) {
+                    Some(Value::String(val))
+                } else if let Ok(val) = row.try_get::<Option<String>, _>(column_name) {
+                    val.map(Value::String)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "postgres")]
+    /// Extracts a column value from a POSTGRES row based on column name and data type
+    fn extract_column_value(row: &PgRow, column_name: &str, data_type: &str) -> Option<Value> {
+        use sqlx::Row as _;
+        match data_type {
+            "TEXT" => {
+                // Try to get as string first
+                if let Ok(val) = row.try_get::<String, _>(column_name) {
+                    Some(Value::String(val))
+                } else if let Ok(val) = row.try_get::<Option<String>, _>(column_name) {
+                    val.map(Value::String)
+                } else {
+                    None
+                }
+            }
+            "SMALLINT" => {
+                if let Ok(val) = row.try_get::<i16, _>(column_name) {
+                    Some(Value::Int16(val))
+                } else if let Ok(val) = row.try_get::<Option<i16>, _>(column_name) {
+                    val.map(Value::Int16)
+                } else {
+                    None
+                }
+            }
+            "INTEGER" => {
+                if let Ok(val) = row.try_get::<i32, _>(column_name) {
+                    Some(Value::Int32(val))
+                } else if let Ok(val) = row.try_get::<Option<i32>, _>(column_name) {
+                    val.map(Value::Int32)
+                } else {
+                    None
+                }
+            }
+            "BIGINT" => {
+                if let Ok(val) = row.try_get::<i64, _>(column_name) {
+                    Some(Value::Int64(val))
+                } else if let Ok(val) = row.try_get::<Option<i64>, _>(column_name) {
+                    val.map(Value::Int64)
+                } else {
+                    None
+                }
+            }
+            "FLOAT" => {
+                if let Ok(val) = row.try_get::<f32, _>(column_name) {
+                    Some(Value::Float32(val))
+                } else if let Ok(val) = row.try_get::<Option<f32>, _>(column_name) {
+                    val.map(Value::Float32)
+                } else {
+                    None
+                }
+            }
+            "REAL" | "DOUBLE PRECISION" | "DOUBLE" => {
+                if let Ok(val) = row.try_get::<f64, _>(column_name) {
+                    Some(Value::Float64(val))
+                } else if let Ok(val) = row.try_get::<Option<f64>, _>(column_name) {
+                    val.map(Value::Float64)
+                } else {
+                    None
+                }
+            }
+            "BOOLEAN" => {
+                if let Ok(val) = row.try_get::<bool, _>(column_name) {
+                    Some(Value::Bool(val))
+                } else if let Ok(val) = row.try_get::<Option<bool>, _>(column_name) {
+                    val.map(Value::Bool)
+                } else {
+                    None
+                }
+            }
+            _ => {
+                // Fallback: try to get as string
+                if let Ok(val) = row.try_get::<String, _>(column_name) {
+                    Some(Value::String(val))
+                } else if let Ok(val) = row.try_get::<Option<String>, _>(column_name) {
+                    val.map(Value::String)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "sqlite")]
+    /// Extracts a column value from a SQLite row based on column name and data type
+    fn extract_column_value(row: &SqliteRow, column_name: &str, data_type: &str) -> Option<Value> {
+        use sqlx::Row as _;
+        match data_type {
+            "TEXT" => {
+                // Try to get as string first
+                if let Ok(val) = row.try_get::<String, _>(column_name) {
+                    Some(Value::String(val))
+                } else if let Ok(val) = row.try_get::<Option<String>, _>(column_name) {
+                    val.map(Value::String)
+                } else {
+                    None
+                }
+            }
+            "SMALLINT" => {
+                if let Ok(val) = row.try_get::<i16, _>(column_name) {
+                    Some(Value::Int16(val))
+                } else if let Ok(val) = row.try_get::<Option<i16>, _>(column_name) {
+                    val.map(Value::Int16)
+                } else {
+                    None
+                }
+            }
+            "INTEGER" => {
+                if let Ok(val) = row.try_get::<i32, _>(column_name) {
+                    Some(Value::Int32(val))
+                } else if let Ok(val) = row.try_get::<Option<i32>, _>(column_name) {
+                    val.map(Value::Int32)
+                } else {
+                    None
+                }
+            }
+            "BIGINT" => {
+                if let Ok(val) = row.try_get::<i64, _>(column_name) {
+                    Some(Value::Int64(val))
+                } else if let Ok(val) = row.try_get::<Option<i64>, _>(column_name) {
+                    val.map(Value::Int64)
+                } else {
+                    None
+                }
+            }
+            "FLOAT" => {
+                if let Ok(val) = row.try_get::<f32, _>(column_name) {
+                    Some(Value::Float32(val))
+                } else if let Ok(val) = row.try_get::<Option<f32>, _>(column_name) {
+                    val.map(Value::Float32)
+                } else {
+                    None
+                }
+            }
+            "REAL" | "DOUBLE PRECISION" | "DOUBLE" => {
+                if let Ok(val) = row.try_get::<f64, _>(column_name) {
+                    Some(Value::Float64(val))
+                } else if let Ok(val) = row.try_get::<Option<f64>, _>(column_name) {
+                    val.map(Value::Float64)
+                } else {
+                    None
+                }
+            }
+            "BOOLEAN" => {
+                if let Ok(val) = row.try_get::<bool, _>(column_name) {
+                    Some(Value::Bool(val))
+                } else if let Ok(val) = row.try_get::<Option<bool>, _>(column_name) {
+                    val.map(Value::Bool)
+                } else {
+                    None
+                }
+            }
+            _ => {
+                // Fallback: try to get as string
+                if let Ok(val) = row.try_get::<String, _>(column_name) {
+                    Some(Value::String(val))
+                } else if let Ok(val) = row.try_get::<Option<String>, _>(column_name) {
+                    val.map(Value::String)
+                } else {
+                    None
+                }
+            }
+        }
     }
 }
