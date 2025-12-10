@@ -1,4 +1,5 @@
 use crate::{
+    dialects::get_dialect,
     filter::Filtered,
     schema::{ColumnInfo, Value},
 };
@@ -22,29 +23,12 @@ pub(crate) enum StartingSql {
 }
 
 pub(crate) fn get_starting_sql(starting_sql: StartingSql, table_name: &str) -> String {
-    let table_ident = quote_identifier(table_name);
+    let table_ident = get_dialect().quote_identifier(table_name);
     match starting_sql {
         StartingSql::Select => "SELECT ".to_string(),
         StartingSql::Insert => format!("INSERT INTO {} (", table_ident),
         StartingSql::Delete => format!("DELETE FROM {} ", table_ident),
         StartingSql::Update => format!("UPDATE {} SET ", table_ident),
-    }
-}
-
-pub(crate) fn quote_identifier(identifier: &str) -> String {
-    #[cfg(feature = "mysql")]
-    {
-        return format!("`{}`", identifier.replace('`', "``"));
-    }
-
-    #[cfg(all(not(feature = "mysql"), feature = "postgres"))]
-    {
-        return format!("\"{}\"", identifier.replace('"', "\"\""));
-    }
-
-    #[cfg(all(not(feature = "mysql"), not(feature = "postgres"), feature = "sqlite"))]
-    {
-        return format!("\"{}\"", identifier.replace('"', "\"\""));
     }
 }
 
@@ -125,35 +109,18 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
         #[allow(unused)]
         let start_idx = params.len();
         let mut placeholders: Vec<String> = Vec::with_capacity(values.len());
+
         for (_i, v) in values.iter().cloned().enumerate() {
             params.push(v);
-
-            // Choose placeholder style by feature:
-            // - MySQL: ?, SQLite: ?, Postgres: $idx
-
-            #[cfg(any(feature = "mysql", feature = "sqlite"))]
-            {
-                placeholders.push("?".to_string());
-            }
-            #[cfg(all(not(feature = "mysql"), not(feature = "sqlite"), feature = "postgres"))]
-            {
-                placeholders.push(format!("${}", start_idx + _i + 1));
-            }
-            // For a "no-backend" fallback: use ?
-            #[cfg(all(
-                not(feature = "mysql"),
-                not(feature = "sqlite"),
-                not(feature = "postgres")
-            ))]
-            {
-                placeholders.push("?".to_string());
-            }
+            placeholders.push(get_dialect().placeholder(start_idx + _i));
         }
+
         let op = if in_array { "IN" } else { "NOT IN" };
+
         return format!(
             "{}.{} {} ({})",
-            quote_identifier(&col1.0),
-            quote_identifier(&col1.1),
+            get_dialect().quote_identifier(&col1.0),
+            get_dialect().quote_identifier(&col1.1),
             op,
             placeholders.join(", ")
         );
@@ -178,24 +145,15 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
                 params.push((**min).clone());
                 params.push((**max).clone());
 
-                // BETWEEN always uses two placeholders: MySQL: ?,?  Pg: $N AND $N+1  SQLite: ?,?
-                #[cfg(any(feature = "mysql", feature = "sqlite"))]
-                {
-                    format!("{}.{} BETWEEN ? AND ?", col1.0, col1.1)
-                }
-                #[cfg(all(not(feature = "mysql"), not(feature = "sqlite"), feature = "postgres"))]
-                {
-                    let base = params.len() - 1; // These two were just pushed
-                    format!("{}.{} BETWEEN ${} AND ${}", col1.0, col1.1, base, base + 1)
-                }
-                #[cfg(all(
-                    not(feature = "mysql"),
-                    not(feature = "sqlite"),
-                    not(feature = "postgres")
-                ))]
-                {
-                    format!("{}.{} BETWEEN ? AND ?", col1.0, col1.1)
-                }
+                let dialect = get_dialect();
+                let base = params.len() - 1;
+                format!(
+                    "{}.{} BETWEEN {} AND {}",
+                    dialect.quote_identifier(&col1.0),
+                    dialect.quote_identifier(&col1.1),
+                    dialect.placeholder(base),
+                    dialect.placeholder(base + 1)
+                )
             }
             _ => {
                 params.push(value.clone());

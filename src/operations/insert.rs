@@ -7,9 +7,8 @@
 //! returning of inserted rows and handles value binding for various SQL types.
 
 use crate::database::error::DatabaseError;
-use crate::helpers::{
-    StartingSql, bind_column_value, get_starting_sql, quote_identifier, validate_column_value,
-};
+use crate::dialects::get_dialect;
+use crate::helpers::{StartingSql, bind_column_value, get_starting_sql, validate_column_value};
 use crate::row::Row;
 use crate::schema::{ColumnConstraint, ColumnInfo, Schema, Select, Value};
 
@@ -350,7 +349,7 @@ impl<T: Schema + Debug> Insert<T> {
             if i > 0 {
                 sql.push_str(", ");
             }
-            sql.push_str(&quote_identifier(&col.name));
+            sql.push_str(&get_dialect().quote_identifier(&col.name));
         }
         sql.push_str(") VALUES (");
 

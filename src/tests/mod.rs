@@ -688,9 +688,9 @@ mod build_filter_expr_tests {
         let sql = build_filter_expr(&filter, &mut params);
         {
             #[cfg(feature = "mysql")]
-            assert_eq!(sql, "t.a BETWEEN ? AND ?");
+            assert_eq!(sql, "`t`.`a` BETWEEN ? AND ?");
             #[cfg(feature = "postgres")]
-            assert_eq!(sql, "t.a BETWEEN $1 AND $2");
+            assert_eq!(sql, "\"t\".\"a\" BETWEEN $2 AND $3");
         }
         assert_eq!(params, vec![Value::Int32(1), Value::Int32(5)]);
     }

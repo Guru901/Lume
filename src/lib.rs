@@ -90,3 +90,5 @@ pub mod table;
 mod tests;
 
 pub(crate) mod helpers;
+
+mod dialects;
