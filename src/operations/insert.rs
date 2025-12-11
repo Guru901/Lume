@@ -408,6 +408,7 @@ impl<T: Schema + Debug> InsertMany<T> {
 
         let mut conn = conn.unwrap();
 
+        #[allow(unused_mut)]
         let mut final_rows = Vec::new();
         let mut inserted_ids: Vec<u64> = Vec::new();
 

@@ -389,6 +389,12 @@ macro_rules! enum_to_sql {
             }
         }
 
+        impl std::fmt::Debug for $enum_name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{:?}", self)
+            }
+        }
+
         impl TryFrom<$crate::schema::Value> for $enum_name {
             type Error = ();
 
