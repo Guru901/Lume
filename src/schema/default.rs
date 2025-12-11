@@ -1,6 +1,9 @@
+#[cfg(feature = "postgres")]
+use std::any::TypeId;
+
 use time::macros::format_description;
 
-use crate::schema::{Column, CustomSqlType};
+use crate::schema::{Column, CustomSqlType, Uuid};
 
 /// Trait for converting column default values to SQL representation.
 ///
@@ -16,6 +19,33 @@ pub trait DefaultToSql {
     /// - `Some(String)`: The SQL representation of the default value
     /// - `None`: If no default value is set
     fn default_to_sql(&self) -> Option<DefaultValueEnum<String>>;
+}
+
+#[cfg(feature = "postgres")]
+fn postgres_array_type<T: 'static>() -> &'static str {
+    if TypeId::of::<T>() == TypeId::of::<String>() {
+        "TEXT"
+    } else if TypeId::of::<T>() == TypeId::of::<bool>() {
+        "BOOLEAN"
+    } else if TypeId::of::<T>() == TypeId::of::<i8>()
+        || TypeId::of::<T>() == TypeId::of::<i16>()
+        || TypeId::of::<T>() == TypeId::of::<u8>()
+    {
+        "SMALLINT"
+    } else if TypeId::of::<T>() == TypeId::of::<i32>()
+        || TypeId::of::<T>() == TypeId::of::<u16>()
+        || TypeId::of::<T>() == TypeId::of::<u32>()
+    {
+        "INT"
+    } else if TypeId::of::<T>() == TypeId::of::<i64>() || TypeId::of::<T>() == TypeId::of::<u64>() {
+        "BIGINT"
+    } else if TypeId::of::<T>() == TypeId::of::<f32>() {
+        "REAL"
+    } else if TypeId::of::<T>() == TypeId::of::<f64>() {
+        "DOUBLE PRECISION"
+    } else {
+        "TEXT"
+    }
 }
 
 // Macro to implement DefaultToSql for numeric types and their Vec variants
@@ -40,7 +70,17 @@ macro_rules! impl_default_to_sql_numeric {
                             let items = vec.iter()
                                  .map(|item| item.to_string())
                                  .collect::<Vec<_>>();
-                            DefaultValueEnum::Value(format!("ARRAY[{}]", items.join(", ")))
+                            let array_sql = if items.is_empty() {
+                                format!("ARRAY[]::{}[]", postgres_array_type::<$t>())
+                            } else {
+                                format!(
+                                    "ARRAY[{}]::{}[]",
+                                    items.join(", "),
+                                    postgres_array_type::<$t>()
+                                )
+                            };
+
+                            DefaultValueEnum::Value(array_sql)
                         }
                         DefaultValueEnum::CurrentTimestamp => DefaultValueEnum::CurrentTimestamp,
                         DefaultValueEnum::Random => DefaultValueEnum::Random,
@@ -58,12 +98,25 @@ impl_default_to_sql_numeric!(i8, i16, i32, i64, u8, u16, u32, u64, f32, f64);
 // Implement for String (needs special escaping)
 impl DefaultToSql for Column<String> {
     fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
-        self.__internal_get_default().map(|v| {
-            if let DefaultValueEnum::Value(v) = v {
+        self.__internal_get_default().map(|v| match v {
+            DefaultValueEnum::Value(v) => {
                 DefaultValueEnum::Value(format!("'{}'", v.replace('\'', "''")))
-            } else {
-                DefaultValueEnum::Value("".to_string())
             }
+            DefaultValueEnum::Random => DefaultValueEnum::Random,
+            DefaultValueEnum::CurrentTimestamp => DefaultValueEnum::CurrentTimestamp,
+        })
+    }
+}
+
+// Implement for Uuid (needs special handling for Random)
+impl DefaultToSql for Column<Uuid> {
+    fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
+        self.__internal_get_default().map(|v| match v {
+            DefaultValueEnum::Value(v) => {
+                DefaultValueEnum::Value(format!("'{}'", v.as_str().replace('\'', "''")))
+            }
+            DefaultValueEnum::Random => DefaultValueEnum::Random,
+            DefaultValueEnum::CurrentTimestamp => DefaultValueEnum::CurrentTimestamp,
         })
     }
 }
@@ -73,11 +126,23 @@ impl DefaultToSql for Column<Vec<String>> {
     fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
         self.__internal_get_default().map(|v| match v {
             DefaultValueEnum::Value(vec) => {
-                let items = vec
-                    .iter()
-                    .map(|item| format!("'{}'", item.replace('\'', "''")))
-                    .collect::<Vec<_>>();
-                DefaultValueEnum::Value(format!("ARRAY[{}]", items.join(", ")))
+                let mut json = String::from("[");
+                for (i, item) in vec.iter().enumerate() {
+                    if i > 0 {
+                        json.push(',');
+                    }
+                    json.push('"');
+                    for ch in item.chars() {
+                        if ch == '"' || ch == '\\' {
+                            json.push('\\');
+                        }
+                        json.push(ch);
+                    }
+                    json.push('"');
+                }
+                json.push(']');
+
+                DefaultValueEnum::Value(format!("'{}'", json))
             }
             DefaultValueEnum::CurrentTimestamp => DefaultValueEnum::CurrentTimestamp,
             DefaultValueEnum::Random => DefaultValueEnum::Random,
@@ -116,10 +181,16 @@ impl DefaultToSql for Column<Vec<String>> {
                     .iter()
                     .map(|s| format!("'{}'", s.replace('\'', "''")))
                     .collect::<Vec<_>>();
-                Some(DefaultValueEnum::Value(format!(
-                    "ARRAY[{}]",
-                    escaped.join(", ")
-                )))
+                let array_sql = if escaped.is_empty() {
+                    format!("ARRAY[]::{}[]", postgres_array_type::<String>())
+                } else {
+                    format!(
+                        "ARRAY[{}]::{}[]",
+                        escaped.join(", "),
+                        postgres_array_type::<String>()
+                    )
+                };
+                Some(DefaultValueEnum::Value(array_sql))
             }
             Some(DefaultValueEnum::CurrentTimestamp) => Some(DefaultValueEnum::CurrentTimestamp),
             Some(DefaultValueEnum::Random) => Some(DefaultValueEnum::Random),
@@ -151,10 +222,16 @@ impl DefaultToSql for Column<Vec<bool>> {
                     .iter()
                     .map(|b| if *b { "TRUE" } else { "FALSE" })
                     .collect::<Vec<_>>();
-                Some(DefaultValueEnum::Value(format!(
-                    "ARRAY[{}]",
-                    items.join(", ")
-                )))
+                let array_sql = if items.is_empty() {
+                    format!("ARRAY[]::{}[]", postgres_array_type::<bool>())
+                } else {
+                    format!(
+                        "ARRAY[{}]::{}[]",
+                        items.join(", "),
+                        postgres_array_type::<bool>()
+                    )
+                };
+                Some(DefaultValueEnum::Value(array_sql))
             }
             Some(DefaultValueEnum::CurrentTimestamp) => Some(DefaultValueEnum::CurrentTimestamp),
             Some(DefaultValueEnum::Random) => Some(DefaultValueEnum::Random),
@@ -170,12 +247,10 @@ where
     T: ToString + CustomSqlType,
 {
     fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
-        self.__internal_get_default().map(|v| {
-            if let DefaultValueEnum::Value(v) = v {
-                DefaultValueEnum::Value(v.to_string())
-            } else {
-                DefaultValueEnum::Value("".to_string())
-            }
+        self.__internal_get_default().map(|v| match v {
+            DefaultValueEnum::Value(v) => DefaultValueEnum::Value(v.to_string()),
+            DefaultValueEnum::Random => DefaultValueEnum::Random,
+            DefaultValueEnum::CurrentTimestamp => DefaultValueEnum::CurrentTimestamp,
         })
     }
 }

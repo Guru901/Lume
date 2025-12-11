@@ -410,6 +410,7 @@ impl<T: Schema + Debug> InsertMany<T> {
 
         #[allow(unused_mut)]
         let mut final_rows = Vec::new();
+        #[allow(unused_mut)]
         let mut inserted_ids: Vec<u64> = Vec::new();
 
         for record in &self.data {
@@ -450,7 +451,9 @@ impl<T: Schema + Debug> InsertMany<T> {
 
             #[cfg(feature = "sqlite")]
             self.insert_sqlite_row_and_capture_id_or_returning(&mut conn, selected, &values)
-                .await;
+                .await
+                .unwrap()
+                .unwrap();
         }
 
         #[cfg(feature = "sqlite")]
@@ -627,6 +630,7 @@ impl<T: Schema + Debug> InsertMany<T> {
                     Value::UInt16(v) => *v as u64,
                     Value::UInt8(v) => *v as u64,
                     Value::String(_)
+                    | Value::Uuid(_)
                     | Value::Float32(_)
                     | Value::Float64(_)
                     | Value::Bool(_)
@@ -672,6 +676,7 @@ impl<T: Schema + Debug> InsertMany<T> {
                 Value::UInt16(v) => inserted_ids.push(*v as u64),
                 Value::UInt8(v) => inserted_ids.push(*v as u64),
                 Value::String(_)
+                | Value::Uuid(_)
                 | Value::Float32(_)
                 | Value::Float64(_)
                 | Value::Bool(_)
