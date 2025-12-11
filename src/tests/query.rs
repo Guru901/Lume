@@ -179,12 +179,7 @@ mod tests {
         assert!(sql.contains("DummySchema._id"));
         assert!(sql.contains(" FROM DummySchema"));
 
-        println!("SQL: {sql}");
-        println!("Query Joins: {:?}", query.joins);
-
         let sql = Query::<DummySchema, SelectDummySchema>::joins_sql(sql, &query.joins);
-
-        println!("SQL: {sql}");
 
         assert!(sql.contains("LEFT JOIN"));
     }

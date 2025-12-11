@@ -743,8 +743,6 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             sql.push_str(&format!(" OFFSET {}", offset));
         }
 
-        println!("SQL: {sql}");
-
         let mut conn = self
             .conn
             .acquire()
