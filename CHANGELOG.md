@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.12.1] - 2025-12-11
+
+- Fixed Vec<Strings> not working
+
 ## [0.12.0] - 2025-12-11
 
 - A lot of internal refactoring
