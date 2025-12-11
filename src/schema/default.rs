@@ -68,6 +68,23 @@ impl DefaultToSql for Column<String> {
     }
 }
 
+#[cfg(not(feature = "postgres"))]
+impl DefaultToSql for Column<Vec<String>> {
+    fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
+        self.__internal_get_default().map(|v| match v {
+            DefaultValueEnum::Value(vec) => {
+                let items = vec
+                    .iter()
+                    .map(|item| format!("'{}'", item.replace('\'', "''")))
+                    .collect::<Vec<_>>();
+                DefaultValueEnum::Value(format!("ARRAY[{}]", items.join(", ")))
+            }
+            DefaultValueEnum::CurrentTimestamp => DefaultValueEnum::CurrentTimestamp,
+            DefaultValueEnum::Random => DefaultValueEnum::Random,
+        })
+    }
+}
+
 impl DefaultToSql for Column<time::OffsetDateTime> {
     fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
         let datetime = self.__internal_get_default();
@@ -114,14 +131,12 @@ impl DefaultToSql for Column<Vec<String>> {
 // Implement for bool (needs TRUE/FALSE)
 impl DefaultToSql for Column<bool> {
     fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
-        self.__internal_get_default().map(|v| {
-            match v {
-                DefaultValueEnum::Value(v) => {
-                    DefaultValueEnum::Value(if *v { "TRUE" } else { "FALSE" }.to_string())
-                }
-                DefaultValueEnum::CurrentTimestamp => DefaultValueEnum::CurrentTimestamp,
-                DefaultValueEnum::Random => DefaultValueEnum::Random,
+        self.__internal_get_default().map(|v| match v {
+            DefaultValueEnum::Value(v) => {
+                DefaultValueEnum::Value(if *v { "TRUE" } else { "FALSE" }.to_string())
             }
+            DefaultValueEnum::CurrentTimestamp => DefaultValueEnum::CurrentTimestamp,
+            DefaultValueEnum::Random => DefaultValueEnum::Random,
         })
     }
 }

@@ -341,7 +341,7 @@ macro_rules! define_schema {
 /// use lume::enum_to_sql;
 /// use lume::schema::Value;
 ///
-/// #[derive(Debug, PartialEq)]
+/// #[derive(PartialEq)]
 /// pub enum UserStatus {
 ///     Active,
 ///     Inactive,
@@ -386,6 +386,12 @@ macro_rules! enum_to_sql {
                         $enum_name::$variant => String::from($str),
                     )*
                 }
+            }
+        }
+
+        impl std::fmt::Debug for $enum_name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.to_string())
             }
         }
 
