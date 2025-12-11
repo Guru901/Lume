@@ -239,9 +239,11 @@ pub struct NotFilter {
 #[derive(Debug)]
 pub struct ArrayFilter {
     /// The column to filter on, as (table, column) or None.
-    pub(crate) column: Option<(String, String)>,
+    pub(crate) column1: Option<(String, String)>,
     /// The array of values to compare against.
-    pub(crate) values: Vec<Value>,
+    pub(crate) values: Option<Vec<Value>>,
+    pub(crate) _column2: Option<(String, String)>,
+
     /// Whether this is an `IN` (true) or `NOT IN` (false) filter.
     pub(crate) in_array: bool,
 }
@@ -396,7 +398,11 @@ impl Filtered for AndFilter {
 
 impl Filtered for ArrayFilter {
     fn column_one(&self) -> Option<&(String, String)> {
-        self.column.as_ref()
+        self.column1.as_ref()
+    }
+
+    fn column_two(&self) -> Option<&(String, String)> {
+        self._column2.as_ref()
     }
 
     fn filter_type(&self) -> FilterType {
@@ -408,7 +414,7 @@ impl Filtered for ArrayFilter {
     }
 
     fn array_values(&self) -> Option<&Vec<Value>> {
-        Some(self.values.as_ref())
+        self.values.as_ref()
     }
 
     fn is_in_array(&self) -> Option<bool> {

@@ -1,7 +1,20 @@
 # Changelog
 
-## [0.12.1] - 2025-12-11
+## [0.13.0] - 2025-12-12
 
+- Added `uuid` type support.
+- Fixed the wrong postgres array.
+- Add Value::Uuid type.
+- Added `not_in_column` filter.
+- Added `in_column` filter.
+- MySQL/SQLite: Vec<T> types now map to JSON instead of scalar types for better compatibility
+- Fixed primary keys being defaulted to Empty Strings ("").
+- Improved error handling for array filters with missing data
+- Examples updated: All schema examples now use Uuid primary keys with default_random()
+- Removed debug prints
+  
+## [0.12.1] - 2025-12-11
+  
 - Fixed Vec<Strings> not working
 
 ## [0.12.0] - 2025-12-11

@@ -529,11 +529,12 @@ pub fn in_array<T: Debug>(
     values: Vec<Value>,
 ) -> impl Filtered + 'static {
     ArrayFilter {
-        column: Some((
+        column1: Some((
             column.__internal_table_name().to_string(),
             column.__internal_name().to_string(),
         )),
-        values: values,
+        values: Some(values),
+        _column2: None,
         in_array: true,
     }
 }
@@ -546,7 +547,7 @@ pub fn in_array<T: Debug>(
 /// # Arguments
 ///
 /// * `column` - The column to filter on.
-/// * `values` - The array of values to exclude.
+/// * `values` - The array of values to exclude (as `Vec<Value>`).
 ///
 /// # Returns
 ///
@@ -557,8 +558,8 @@ pub fn in_array<T: Debug>(
 /// ```
 /// use lume::filter::not_in_array;
 /// use lume::define_schema;
-/// use lume::schema::ColumnInfo;
 /// use lume::schema::Schema;
+/// use lume::schema::ColumnInfo;
 ///
 /// define_schema! {
 ///     User {
@@ -567,17 +568,111 @@ pub fn in_array<T: Debug>(
 ///     }
 /// }
 ///
-/// let IDS = vec![Value::Int8(1), Value::Int8(2), Value::Int8(3)];
-/// let filter = not_in_array(User::id(), IDS);
+/// let ids = vec![Value::Int8(1), Value::Int8(2), Value::Int8(3)];
+/// let filter = not_in_array(User::id(), ids);
 /// ```
-pub fn not_in_array<'a, T: Debug>(column: &'a Column<T>, values: Vec<Value>) -> impl Filtered {
+pub fn not_in_array<T: Debug>(
+    column: &'static Column<T>,
+    values: Vec<Value>,
+) -> impl Filtered + 'static {
     ArrayFilter {
-        column: Some((
+        column1: Some((
             column.__internal_table_name().to_string(),
             column.__internal_name().to_string(),
         )),
-        values: values,
+        values: Some(values),
+        _column2: None,
         in_array: false,
+    }
+}
+
+/// Creates a filter that matches rows where the value of one column (`col1`) is *not* contained in the set of values from another column (`col2`).
+///
+/// This corresponds to a SQL clause of the form `col1 NOT IN (SELECT col2 FROM ...)`.
+///
+/// # Arguments
+///
+/// * `col1` - The first column whose values are matched (on the left side of `NOT IN`)
+/// * `col2` - The second column whose values form the right-hand side of `NOT IN` (the subquery column)
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `NOT IN (SELECT ...)` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::not_in_column;
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User { id: i32 [primary_key()], name: String, }
+///     Post { id: i32 [primary_key()], user_id: i32 [not_null()] }
+/// }
+///
+/// let filter = not_in_column(User::id(), Post::user_id());
+/// ```
+pub fn not_in_column<T: Debug, K: Debug>(
+    col1: &'static Column<T>,
+    col2: &'static Column<K>,
+) -> impl Filtered + 'static {
+    ArrayFilter {
+        column1: Some((
+            col1.__internal_table_name().to_string(),
+            col1.__internal_name().to_string(),
+        )),
+        values: None,
+        _column2: Some((
+            col2.__internal_table_name().to_string(),
+            col2.__internal_name().to_string(),
+        )),
+        in_array: false,
+    }
+}
+
+/// Creates a filter that matches rows where the value of one column (`col1`) is contained in the set of values from another column (`col2`).
+///
+/// This corresponds to a SQL clause of the form `col1 IN (SELECT col2 FROM ...)`.
+///
+/// # Arguments
+///
+/// * `col1` - The first column whose values are matched (on the left side of `IN`)
+/// * `col2` - The second column whose values form the right-hand side of `IN` (the subquery column)
+///
+/// # Returns
+///
+/// An object implementing [`Filtered`] that represents the `IN (SELECT ...)` filter.
+///
+/// # Example
+///
+/// ```
+/// use lume::filter::in_column;
+/// use lume::define_schema;
+/// use lume::schema::Schema;
+///
+/// define_schema! {
+///     User { id: i32 [primary_key()], name: String, }
+///     Post { id: i32 [primary_key()], user_id: i32 [not_null()] }
+/// }
+///
+/// let filter = in_column(User::id(), Post::user_id());
+/// ```
+pub fn in_column<T: Debug, K: Debug>(
+    col1: &'static Column<T>,
+    col2: &'static Column<K>,
+) -> impl Filtered + 'static {
+    ArrayFilter {
+        column1: Some((
+            col1.__internal_table_name().to_string(),
+            col1.__internal_name().to_string(),
+        )),
+        values: None,
+        _column2: Some((
+            col2.__internal_table_name().to_string(),
+            col2.__internal_name().to_string(),
+        )),
+        in_array: true,
     }
 }
 

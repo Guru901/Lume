@@ -32,6 +32,7 @@ mod column;
 mod constraints;
 mod default;
 mod macros;
+mod uuid;
 mod validators;
 mod value;
 
@@ -46,6 +47,7 @@ pub use crate::schema::validators::ColumnValidators;
 use crate::table::TableDefinition;
 pub use column::Column;
 use std::fmt::Debug;
+pub use uuid::Uuid;
 pub use value::Value;
 pub use value::convert_to_value;
 
@@ -224,7 +226,57 @@ pub fn type_to_sql_string<T: 'static>() -> &'static str {
 
     let type_id = TypeId::of::<T>();
 
-    if type_id == TypeId::of::<String>() {
+    #[cfg(feature = "postgres")]
+    {
+        if type_id == TypeId::of::<Vec<String>>() {
+            return "TEXT[]";
+        } else if type_id == TypeId::of::<Vec<bool>>() {
+            return "BOOLEAN[]";
+        } else if type_id == TypeId::of::<Vec<i8>>() || type_id == TypeId::of::<Vec<i16>>() {
+            return "SMALLINT[]";
+        } else if type_id == TypeId::of::<Vec<i32>>()
+            || type_id == TypeId::of::<Vec<u16>>()
+            || type_id == TypeId::of::<Vec<u32>>()
+        {
+            return "INT[]";
+        } else if type_id == TypeId::of::<Vec<i64>>() || type_id == TypeId::of::<Vec<u64>>() {
+            return "BIGINT[]";
+        } else if type_id == TypeId::of::<Vec<f32>>() {
+            return "REAL[]";
+        } else if type_id == TypeId::of::<Vec<f64>>() {
+            return "DOUBLE PRECISION[]";
+        }
+    }
+
+    #[cfg(any(feature = "mysql", feature = "sqlite"))]
+    {
+        if type_id == TypeId::of::<Vec<String>>()
+            || type_id == TypeId::of::<Vec<bool>>()
+            || type_id == TypeId::of::<Vec<i8>>()
+            || type_id == TypeId::of::<Vec<i16>>()
+            || type_id == TypeId::of::<Vec<i32>>()
+            || type_id == TypeId::of::<Vec<i64>>()
+            || type_id == TypeId::of::<Vec<u8>>()
+            || type_id == TypeId::of::<Vec<u16>>()
+            || type_id == TypeId::of::<Vec<u32>>()
+            || type_id == TypeId::of::<Vec<u64>>()
+            || type_id == TypeId::of::<Vec<f32>>()
+            || type_id == TypeId::of::<Vec<f64>>()
+        {
+            return "JSON";
+        }
+    }
+
+    if type_id == TypeId::of::<crate::schema::Uuid>() {
+        #[cfg(feature = "postgres")]
+        {
+            return "UUID";
+        }
+        #[cfg(any(feature = "mysql", feature = "sqlite"))]
+        {
+            return "CHAR(36)";
+        }
+    } else if type_id == TypeId::of::<String>() {
         "VARCHAR(255)"
     } else if type_id == TypeId::of::<i8>() {
         "TINYINT"
@@ -357,20 +409,30 @@ impl<T: Schema + Debug + Sync + Send + 'static> TableDefinition for SchemaWrappe
                 if col.has_default {
                     if let Some(ref default) = col.default_sql {
                         if let DefaultValueEnum::Value(default) = default {
-                            // Add quotes for string default values if not already quoted
-                            let needs_quotes = col.data_type == "TEXT"
-                                || col.data_type.starts_with("VARCHAR")
-                                || col.data_type == "CHAR"
-                                || col.data_type == "STRING";
-                            if needs_quotes
-                                && !(default.starts_with('\'') && default.ends_with('\''))
-                            {
-                                def.push_str(&format!(
-                                    " DEFAULT '{}'",
-                                    default.replace('\'', "''")
-                                ));
+                            // Skip empty string defaults for primary keys
+                            let is_empty_string = default == "" || default == "''";
+                            let is_primary_key =
+                                col.constraints.contains(&ColumnConstraint::PrimaryKey);
+
+                            if is_primary_key && is_empty_string {
+                                // Skip default for primary keys with empty string
                             } else {
-                                def.push_str(&format!(" DEFAULT {}", default));
+                                // Add quotes for string default values if not already quoted
+                                let needs_quotes = col.data_type == "TEXT"
+                                    || col.data_type.starts_with("VARCHAR")
+                                    || col.data_type == "CHAR"
+                                    || col.data_type == "STRING"
+                                    || col.data_type == "UUID";
+                                if needs_quotes
+                                    && !(default.starts_with('\'') && default.ends_with('\''))
+                                {
+                                    def.push_str(&format!(
+                                        " DEFAULT '{}'",
+                                        default.replace('\'', "''")
+                                    ));
+                                } else {
+                                    def.push_str(&format!(" DEFAULT {}", default));
+                                }
                             }
                         } else if &DefaultValueEnum::CurrentTimestamp == default {
                             def.push_str(" DEFAULT CURRENT_TIMESTAMP");

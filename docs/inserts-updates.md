@@ -10,7 +10,7 @@ Insert a single record:
 
 ```rust
 db.insert(Users {
-    id: 1,
+    id: None,
     username: "alice".to_string(),
     email: "alice@example.com".to_string(),
     age: 30,
@@ -34,7 +34,7 @@ define_schema! {
 
 // Both work:
 db.insert(Users {
-    id: 0,  // or omit entirely
+    id: None,  // or omit entirely
     username: "alice".to_string(),
 })
 .execute()

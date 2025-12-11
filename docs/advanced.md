@@ -30,7 +30,7 @@ pub enum UserStatus {
 
 define_schema! {
     Users {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         username: String [not_null()],
         status: UserStatus [default_value(UserStatus::Active)],
     }
@@ -51,7 +51,7 @@ Create computed columns (MySQL 5.7+, PostgreSQL):
 ```rust
 define_schema! {
     Products {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         price: f64 [not_null()],
         tax_rate: f64 [not_null()],
         total_price: f64 [generated("ALWAYS AS (price * (1 + tax_rate)) STORED")],
@@ -66,7 +66,7 @@ Add check constraints to validate data:
 ```rust
 define_schema! {
     Users {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         age: i32 [check("age >= 0 AND age <= 150")],
         email: String [check("email LIKE '%@%'")],
     }
@@ -80,7 +80,7 @@ Add comments to columns (MySQL):
 ```rust
 define_schema! {
     Users {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         username: String [not_null().comment("User's unique username")],
     }
 }
@@ -93,7 +93,7 @@ Specify character sets and collation (MySQL):
 ```rust
 define_schema! {
     Users {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         username: String [not_null().charset("utf8mb4").collate("utf8mb4_unicode_ci")],
     }
 }
@@ -106,7 +106,7 @@ Create invisible columns (MySQL 8.0.23+):
 ```rust
 define_schema! {
     Users {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         username: String [not_null()],
         internal_id: i32 [invisible()],
     }
@@ -120,9 +120,9 @@ Automatically update timestamp columns:
 ```rust
 define_schema! {
     Users {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         username: String [not_null()],
-        updated_at: i64 [on_update_current_timestamp()],
+        updated_at: OffsetDateTime [on_update_current_timestamp().default_now()],
     }
 }
 ```
@@ -134,10 +134,9 @@ Use SQL functions as defaults:
 ```rust
 define_schema! {
     Users {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         username: String [not_null()],
-        created_at: i64 [default_value(DefaultValueEnum::CurrentTimestamp)],
-        uuid: String [default_value(DefaultValueEnum::Random)],
+        created_at: OffsetDateTime [default_now()],
     }
 }
 ```
@@ -225,7 +224,7 @@ impl ToString for MyCustomType {
 
 define_schema! {
     Users {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         custom_field: MyCustomType,
     }
 }
@@ -238,7 +237,7 @@ Add runtime validators to columns (if supported):
 ```rust
 define_schema! {
     Users {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         email: String [validate(|v| v.contains("@"))],
     }
 }

@@ -14,6 +14,7 @@ use sqlx::PgPool;
 #[cfg(feature = "sqlite")]
 use sqlx::SqlitePool;
 
+use crate::dialects::get_dialect;
 use crate::filter::{Filter, Filtered};
 use crate::helpers::{StartingSql, bind_value, build_filter_expr, get_starting_sql};
 use crate::schema::{ColumnInfo, Select, Value};
@@ -110,8 +111,9 @@ pub(crate) struct JoinInfo {
 pub(crate) enum JoinType {
     Left,
     Inner,
+    #[cfg(not(feature = "sqlite"))]
     Right,
-    #[cfg(not(feature = "mysql"))]
+    #[cfg(feature = "postgres")]
     Full,
     Cross,
 }
@@ -774,10 +776,12 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
         table_name: &str,
         joins: &Vec<JoinInfo>,
     ) -> String {
-        if select.is_some() {
-            sql.push_str(&select.unwrap().get_selected().join(", "));
+        if let Some(selection) = select {
+            sql.push_str(&selection.get_selected().join(", "));
         } else {
-            sql.push_str("*");
+            // Default to the base table only (avoid pulling join columns twice)
+            let dialect = get_dialect();
+            sql.push_str(&format!("{}.*", dialect.quote_identifier(table_name)));
         }
 
         if !joins.is_empty() {
@@ -788,7 +792,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             }
         }
 
-        sql.push_str(format!(" FROM {}", table_name).as_str());
+        sql.push_str(format!(" FROM {}", get_dialect().quote_identifier(table_name)).as_str());
         sql
     }
 
@@ -801,8 +805,9 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             let join_type = match join.join_type {
                 JoinType::Left => "LEFT JOIN",
                 JoinType::Inner => "INNER JOIN",
+                #[cfg(not(feature = "sqlite"))]
                 JoinType::Right => "RIGHT JOIN",
-                #[cfg(not(feature = "mysql"))]
+                #[cfg(feature = "postgres")]
                 JoinType::Full => "FULL JOIN",
                 JoinType::Cross => "CROSS JOIN",
             };

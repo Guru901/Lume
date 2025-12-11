@@ -66,40 +66,55 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
 
     // Handle IN / NOT IN array filters
     if let Some(in_array) = filter.is_in_array() {
-        let Some(values) = filter.array_values() else {
-            eprintln!("Warning: IN/NOT IN filter missing array_values, using tautology");
-            return if in_array {
-                "1=0".to_string()
-            } else {
-                "1=1".to_string()
-            };
-        };
-        if values.is_empty() {
+        if let Some(values) = filter.array_values() {
+            if values.is_empty() {
+                return if in_array {
+                    "1=0".to_string()
+                } else {
+                    "1=1".to_string()
+                };
+            }
+
+            #[allow(unused)]
+            let start_idx = params.len();
+            let mut placeholders: Vec<String> = Vec::with_capacity(values.len());
+
+            for (_i, v) in values.iter().cloned().enumerate() {
+                params.push(v);
+                placeholders.push(get_dialect().placeholder(start_idx + _i));
+            }
+
+            let op = if in_array { "IN" } else { "NOT IN" };
+
+            return format!(
+                "{}.{} {} ({})",
+                get_dialect().quote_identifier(&col1.0),
+                get_dialect().quote_identifier(&col1.1),
+                op,
+                placeholders.join(", ")
+            );
+        } else if let Some(col2) = filter.column_two() {
+            let dialect = get_dialect();
+            let op = if in_array { "IN" } else { "NOT IN" };
+
+            return format!(
+                "{}.{} {} {}.{}",
+                dialect.quote_identifier(&col1.0),
+                dialect.quote_identifier(&col1.1),
+                op,
+                dialect.quote_identifier(&col2.0),
+                dialect.quote_identifier(&col2.1)
+            );
+        } else {
+            eprintln!(
+                "Warning: IN/NOT IN filter missing array_values and column_two, using tautology"
+            );
             return if in_array {
                 "1=0".to_string()
             } else {
                 "1=1".to_string()
             };
         }
-
-        #[allow(unused)]
-        let start_idx = params.len();
-        let mut placeholders: Vec<String> = Vec::with_capacity(values.len());
-
-        for (_i, v) in values.iter().cloned().enumerate() {
-            params.push(v);
-            placeholders.push(get_dialect().placeholder(start_idx + _i));
-        }
-
-        let op = if in_array { "IN" } else { "NOT IN" };
-
-        return format!(
-            "{}.{} {} ({})",
-            get_dialect().quote_identifier(&col1.0),
-            get_dialect().quote_identifier(&col1.1),
-            op,
-            placeholders.join(", ")
-        );
     }
 
     // Handle value-based filters
@@ -402,6 +417,7 @@ pub(crate) fn bind_value<'q>(query: SqlBindQuery<'q>, value: Value) -> SqlBindQu
 
         #[cfg(feature = "postgres")]
         Value::UInt16(u) => query.bind(u as i32),
+        Value::Uuid(uuid) => query.bind(uuid.to_string()),
         #[cfg(feature = "postgres")]
         Value::UInt32(u) => query.bind(u as i64),
         #[cfg(feature = "postgres")]

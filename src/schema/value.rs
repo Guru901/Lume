@@ -1,6 +1,8 @@
 use std::any::Any;
 use std::fmt::{Debug, Display};
 
+use crate::schema::Uuid;
+
 /// A type-erased value that can represent any database column value.
 ///
 /// The `Value` enum provides a way to store and convert between different
@@ -54,6 +56,8 @@ use std::fmt::{Debug, Display};
 pub enum Value {
     /// String/text value
     String(String),
+
+    Uuid(Uuid),
     /// 8-bit signed integer value
     Int8(i8),
     /// 16-bit signed integer value
@@ -107,6 +111,7 @@ impl Display for Value {
             Value::Array(arr) => write!(f, "{:?}", arr),
             Value::Between(min, max) => write!(f, "BETWEEN {} AND {}", min, max),
             Value::Null => write!(f, "NULL"),
+            Value::Uuid(uuid) => write!(f, "{}", uuid),
         }
     }
 }
@@ -477,7 +482,9 @@ impl TryFrom<Value> for bool {
 /// assert_eq!(convert_to_value(&none_val), Value::Null);
 /// ```
 pub fn convert_to_value<T: Any + Debug>(value: &T) -> Value {
-    if let Some(s) = <dyn Any>::downcast_ref::<String>(value) {
+    if let Some(uuid) = <dyn Any>::downcast_ref::<crate::schema::Uuid>(value) {
+        Value::String(uuid.as_str().to_string())
+    } else if let Some(s) = <dyn Any>::downcast_ref::<String>(value) {
         Value::String(s.clone())
     } else if let Some(s) = <dyn Any>::downcast_ref::<&str>(value) {
         Value::String((*s).to_string())

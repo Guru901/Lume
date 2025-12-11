@@ -22,6 +22,9 @@ impl SqlDialect for PostgresDialect {
     fn adapt_sql(&self, sql: String) -> String {
         sql.replace("AUTO_INCREMENT", "GENERATED ALWAYS AS IDENTITY")
             .replace("DEFAULT (UUID())", "DEFAULT gen_random_uuid()")
+            .replace("VARCHAR(255)", "TEXT")
+            .replace("UNSIGNED", "")
+            .replace("DATETIME", "TIMESTAMPTZ")
     }
 
     fn returning_sql(&self, mut sql: String, returning: &Vec<&'static str>) -> String {

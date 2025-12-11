@@ -31,7 +31,7 @@ use lume::define_schema;
 
 define_schema! {
     Users {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         username: String [not_null()],
         email: String,
         age: i32,
@@ -85,7 +85,7 @@ Insert a new record:
 
 ```rust
 db.insert(Users {
-    id: 1,
+    id: None,
     username: "alice".to_string(),
     email: "alice@example.com".to_string(),
     age: 30,
@@ -136,7 +136,7 @@ use lume::{database::Database, define_schema, filter::eq_value};
 
 define_schema! {
     Users {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         username: String [not_null()],
         email: String,
         age: i32,
@@ -154,7 +154,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Insert
     db.insert(Users {
-        id: 1,
+        id: None,
         username: "alice".to_string(),
         email: "alice@example.com".to_string(),
         age: 30,
