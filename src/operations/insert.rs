@@ -450,9 +450,9 @@ impl<T: Schema + Debug> InsertMany<T> {
             .unwrap();
 
             #[cfg(feature = "sqlite")]
-            self.insert_sqlite_row_and_capture_id_or_returning(&mut conn, selected, &values)
+            let _ = self
+                .insert_sqlite_row_and_capture_id_or_returning(&mut conn, selected, &values)
                 .await
-                .unwrap()
                 .unwrap();
         }
 

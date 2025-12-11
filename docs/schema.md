@@ -144,7 +144,7 @@ The main struct representing a row:
 
 ```rust
 Users {
-    id: i32,
+    id: Uuid [primary_key().not_null().default_random()],
     username: String,
     email: String,
     age: i32,
@@ -185,12 +185,12 @@ Define multiple tables in a single macro call:
 ```rust
 define_schema! {
     Users {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         username: String [not_null()],
     }
 
     Posts {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         user_id: i32 [not_null()],
         title: String [not_null()],
         content: String,

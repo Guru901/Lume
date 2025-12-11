@@ -33,7 +33,7 @@ use lume::{database::Database, define_schema, filter::eq_value};
 // Define your database schema
 define_schema! {
     Users {
-        id: i32 [primary_key().not_null()],
+        id: Uuid [primary_key().not_null().default_random()],
         username: String [not_null()],
         email: String,
         age: i32,
@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Insert a new user
     db.insert(Users {
-        id: 0,
+        id: None,
         username: "john_doe".to_string(),
         email: "john.doe@example.com".to_string(),
         age: 25,
