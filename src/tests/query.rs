@@ -177,7 +177,12 @@ mod tests {
         );
 
         assert!(sql.contains("DummySchema._id"));
-        assert!(sql.contains(" FROM DummySchema"));
+        #[cfg(feature = "mysql")]
+        assert!(sql.contains(" FROM `DummySchema`"));
+        #[cfg(feature = "postgres")]
+        assert!(sql.contains(" FROM \"DummySchema\""));
+        #[cfg(feature = "sqlite")]
+        assert!(sql.contains(" FROM \"DummySchema\""));
 
         let sql = Query::<DummySchema, SelectDummySchema>::joins_sql(sql, &query.joins);
 
