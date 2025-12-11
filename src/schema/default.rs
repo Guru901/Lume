@@ -68,6 +68,7 @@ impl DefaultToSql for Column<String> {
     }
 }
 
+#[cfg(not(feature = "postgres"))]
 impl DefaultToSql for Column<Vec<String>> {
     fn default_to_sql(&self) -> Option<DefaultValueEnum<String>> {
         self.__internal_get_default().map(|v| match v {

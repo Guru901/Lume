@@ -341,7 +341,7 @@ macro_rules! define_schema {
 /// use lume::enum_to_sql;
 /// use lume::schema::Value;
 ///
-/// #[derive(Debug, PartialEq)]
+/// #[derive(PartialEq)]
 /// pub enum UserStatus {
 ///     Active,
 ///     Inactive,
