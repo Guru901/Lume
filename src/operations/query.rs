@@ -794,7 +794,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             }
         }
 
-        sql.push_str(format!(" FROM {}", table_name).as_str());
+        sql.push_str(format!(" FROM {}", get_dialect().quote_identifier(table_name)).as_str());
         sql
     }
 

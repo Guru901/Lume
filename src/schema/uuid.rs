@@ -71,13 +71,13 @@ impl From<Uuid> for String {
 
 impl From<Uuid> for Value {
     fn from(uuid: Uuid) -> Self {
-        Value::String(uuid.0)
+        Value::Uuid(uuid)
     }
 }
 
 impl From<&Uuid> for Value {
     fn from(uuid: &Uuid) -> Self {
-        Value::String(uuid.0.clone())
+        Value::Uuid(uuid.clone())
     }
 }
 
@@ -86,6 +86,7 @@ impl TryFrom<Value> for Uuid {
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
         match value {
+            Value::Uuid(uuid) => Ok(uuid),
             Value::String(s) => Ok(Uuid(s)),
             _ => Err(()),
         }
