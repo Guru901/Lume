@@ -56,7 +56,7 @@ use crate::schema::Uuid;
 pub enum Value {
     /// String/text value
     String(String),
-
+    /// UUID value
     Uuid(Uuid),
     /// 8-bit signed integer value
     Int8(i8),
