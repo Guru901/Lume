@@ -748,6 +748,7 @@ impl<T: Schema + Debug, S: Select + Debug> Query<T, S> {
             .acquire()
             .await
             .map_err(DatabaseError::ConnectionError)?;
+
         let mut query = sqlx::query(&sql);
         for v in params {
             query = bind_value(query, v);

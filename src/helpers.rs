@@ -33,6 +33,11 @@ pub(crate) fn get_starting_sql(starting_sql: StartingSql, table_name: &str) -> S
 }
 
 pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) -> String {
+    if filter.is_sql().is_some() {
+        let sql = filter.is_sql().unwrap();
+        return format!("{}", sql);
+    }
+
     // Handle logical combinators (AND/OR)
     if filter.is_or_filter() || filter.is_and_filter() {
         let op = if filter.is_or_filter() { "OR" } else { "AND" };
@@ -64,7 +69,7 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
         return "1=1".to_string();
     };
 
-    // Handle IN / NOT IN array filters
+    // Handle IN / NOT IN array filters (only when explicitly marked as such)
     if let Some(in_array) = filter.is_in_array() {
         if let Some(values) = filter.array_values() {
             if values.is_empty() {
@@ -75,36 +80,47 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
                 };
             }
 
-            #[allow(unused)]
             let start_idx = params.len();
             let mut placeholders: Vec<String> = Vec::with_capacity(values.len());
 
-            for (_i, v) in values.iter().cloned().enumerate() {
+            for (i, v) in values.iter().cloned().enumerate() {
                 params.push(v);
-                placeholders.push(get_dialect().placeholder(start_idx + _i));
+                placeholders.push(get_dialect().placeholder(start_idx + i));
             }
 
+            let dialect = get_dialect();
+            let tbl = dialect.quote_identifier(&col1.0);
+            let col = dialect.quote_identifier(&col1.1);
             let op = if in_array { "IN" } else { "NOT IN" };
 
-            return format!(
-                "{}.{} {} ({})",
-                get_dialect().quote_identifier(&col1.0),
-                get_dialect().quote_identifier(&col1.1),
-                op,
-                placeholders.join(", ")
-            );
+            return format!("{}.{} {} ({})", tbl, col, op, placeholders.join(", "));
         } else if let Some(col2) = filter.column_two() {
             let dialect = get_dialect();
+            let left = format!(
+                "{}.{}",
+                dialect.quote_identifier(&col1.0),
+                dialect.quote_identifier(&col1.1)
+            );
+
+            // Validate that table name is present
+            if col2.0.is_empty() {
+                eprintln!(
+                    "Warning: IN/NOT IN filter column_two missing table name, using tautology"
+                );
+                return if in_array {
+                    "1=0".to_string()
+                } else {
+                    "1=1".to_string()
+                };
+            }
+
+            // Generate proper subquery: (SELECT <quoted_col2> FROM <quoted_table2>)
+            let quoted_table2 = dialect.quote_identifier(&col2.0);
+            let quoted_col2 = dialect.quote_identifier(&col2.1);
+            let subquery = format!("(SELECT {} FROM {})", quoted_col2, quoted_table2);
             let op = if in_array { "IN" } else { "NOT IN" };
 
-            return format!(
-                "{}.{} {} {}.{}",
-                dialect.quote_identifier(&col1.0),
-                dialect.quote_identifier(&col1.1),
-                op,
-                dialect.quote_identifier(&col2.0),
-                dialect.quote_identifier(&col2.1)
-            );
+            return format!("{} {} {}", left, op, subquery);
         } else {
             eprintln!(
                 "Warning: IN/NOT IN filter missing array_values and column_two, using tautology"
@@ -130,7 +146,7 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
                         return "1=0".to_string();
                     }
                 };
-                format!("{}.{} {}", col1.0, col1.1, null_sql)
+                return format!("{}.{} {}", col1.0, col1.1, null_sql);
             }
             Value::Between(min, max) => {
                 params.push((**min).clone());
@@ -138,13 +154,13 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
 
                 let dialect = get_dialect();
                 let base = params.len() - 2;
-                format!(
+                return format!(
                     "{}.{} BETWEEN {} AND {}",
                     dialect.quote_identifier(&col1.0),
                     dialect.quote_identifier(&col1.1),
                     dialect.placeholder(base),
                     dialect.placeholder(base + 1)
-                )
+                );
             }
             _ => {
                 params.push(value.clone());
@@ -156,7 +172,8 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
         }
     }
     // Handle column-to-column comparisons
-    else if let Some(col2) = filter.column_two() {
+
+    if let Some(col2) = filter.column_two() {
         let dialect = get_dialect();
         return format!(
             "{}.{} {} {}.{}",

@@ -55,23 +55,7 @@ pub struct Column<T> {
 
 impl<T: Debug> Display for Column<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Column {{
-    name: {},
-    default_value: {:?},
-    comment: {:?},
-    charset: {:?},
-    collate: {:?},
-    table_name: {}
-}}",
-            self.name,
-            self.default_value,
-            self.comment,
-            self.charset,
-            self.collate,
-            self.table_name
-        )
+        write!(f, "{}.{}", self.table_name, self.name)
     }
 }
 
