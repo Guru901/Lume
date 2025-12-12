@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1] - 2025-12-13
+
+- Added `sql` filter that runs raw unsantisied sql
+- Fixed column to column comparision
+- Fixed bug in postgres arrays
+- Added tests
+
 ## [0.13.0] - 2025-12-12
 
 - Added `uuid` type support.
