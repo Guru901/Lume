@@ -54,6 +54,9 @@ pub enum FilterType {
     Not,
     /// BETWEEN operator (BETWEEN)
     Between,
+
+    /// Raw SQL fragment (passthrough)
+    SQL,
 }
 
 impl FilterType {
@@ -65,6 +68,7 @@ impl FilterType {
     pub(crate) fn to_sql(&self) -> &'static str {
         match self {
             FilterType::Eq => "=",
+            FilterType::SQL => "",
             FilterType::Neq => "!=",
             FilterType::In => "IN",
             FilterType::Gt => ">",
@@ -116,6 +120,13 @@ pub struct Filter {
     pub column_two: Option<(String, String)>,
     /// The type of comparison to perform
     pub filter_type: FilterType,
+}
+
+/// Wrapper for embedding raw SQL into filters.
+#[derive(Debug)]
+pub struct SqlFilter {
+    /// Raw SQL snippet to embed directly
+    pub sql: String,
 }
 
 /// Represents 'OR'  filter condition for query WHERE clauses.
@@ -328,6 +339,11 @@ pub trait Filtered: Debug + Send + Sync {
     fn is_not(&self) -> Option<bool> {
         None
     }
+
+    /// Returns a raw SQL fragment when this filter represents custom SQL.
+    fn is_sql(&self) -> Option<&String> {
+        None
+    }
 }
 
 impl Filtered for Filter {
@@ -349,6 +365,56 @@ impl Filtered for Filter {
 
     fn filter1(&self) -> Option<&dyn Filtered> {
         None
+    }
+}
+
+impl Filtered for SqlFilter {
+    fn array_values(&self) -> Option<&Vec<Value>> {
+        None
+    }
+
+    fn column_one(&self) -> Option<&(String, String)> {
+        None
+    }
+
+    fn column_two(&self) -> Option<&(String, String)> {
+        None
+    }
+
+    fn filter1(&self) -> Option<&dyn Filtered> {
+        None
+    }
+
+    fn filter2(&self) -> Option<&dyn Filtered> {
+        None
+    }
+
+    fn filter_type(&self) -> FilterType {
+        FilterType::SQL
+    }
+
+    fn is_and_filter(&self) -> bool {
+        false
+    }
+
+    fn is_in_array(&self) -> Option<bool> {
+        None
+    }
+
+    fn is_not(&self) -> Option<bool> {
+        None
+    }
+
+    fn is_or_filter(&self) -> bool {
+        false
+    }
+
+    fn value(&self) -> Option<&Value> {
+        None
+    }
+
+    fn is_sql(&self) -> Option<&String> {
+        Some(&self.sql)
     }
 }
 

@@ -3,7 +3,9 @@
 use std::fmt::Debug;
 
 use crate::{
-    filter::{AndFilter, ArrayFilter, Filter, FilterType, Filtered, NotFilter, OrFilter},
+    filter::{
+        AndFilter, ArrayFilter, Filter, FilterType, Filtered, NotFilter, OrFilter, SqlFilter,
+    },
     schema::{Column, Value},
 };
 
@@ -49,6 +51,11 @@ where
         column_two: None,
         filter_type: FilterType::Eq,
     }
+}
+
+/// Creates a raw SQL filter fragment for advanced use-cases.
+pub fn sql(filter: String) -> SqlFilter {
+    SqlFilter { sql: filter }
 }
 
 /// Creates an equality filter (`=`) for joining two columns.
@@ -500,7 +507,7 @@ pub fn not(filter: impl Filtered + 'static) -> NotFilter {
 /// # Arguments
 ///
 /// * `column` - The column to filter on.
-/// * `values` - The array of values to match against.
+/// * `values` - The array of values to match against. Can be any type that implements `Into<Value>`.
 ///
 /// # Returns
 ///
@@ -521,19 +528,20 @@ pub fn not(filter: impl Filtered + 'static) -> NotFilter {
 ///     }
 /// }
 ///
-/// let IDS = vec![Value::Int8(1), Value::Int8(2), Value::Int8(3)];
-/// let filter = in_array(User::id(), IDS);
+/// // Can accept Vec of any type that implements Into<Value>
+/// let ids = vec![1, 2, 3];
+/// let filter = in_array(User::id(), ids);
 /// ```
-pub fn in_array<T: Debug>(
+pub fn in_array<T: Debug, K: Into<Value>>(
     column: &'static Column<T>,
-    values: Vec<Value>,
+    values: Vec<K>,
 ) -> impl Filtered + 'static {
     ArrayFilter {
         column1: Some((
             column.__internal_table_name().to_string(),
             column.__internal_name().to_string(),
         )),
-        values: Some(values),
+        values: Some(values.into_iter().map(|v| v.into()).collect()),
         _column2: None,
         in_array: true,
     }
@@ -547,7 +555,7 @@ pub fn in_array<T: Debug>(
 /// # Arguments
 ///
 /// * `column` - The column to filter on.
-/// * `values` - The array of values to exclude (as `Vec<Value>`).
+/// * `values` - The array of values to exclude. Can be any type that implements `Into<Value>`.
 ///
 /// # Returns
 ///
@@ -568,19 +576,20 @@ pub fn in_array<T: Debug>(
 ///     }
 /// }
 ///
-/// let ids = vec![Value::Int8(1), Value::Int8(2), Value::Int8(3)];
+/// // Can accept Vec of any type that implements Into<Value>
+/// let ids = vec![1, 2, 3];
 /// let filter = not_in_array(User::id(), ids);
 /// ```
-pub fn not_in_array<T: Debug>(
+pub fn not_in_array<T: Debug, K: Into<Value>>(
     column: &'static Column<T>,
-    values: Vec<Value>,
+    values: Vec<K>,
 ) -> impl Filtered + 'static {
     ArrayFilter {
         column1: Some((
             column.__internal_table_name().to_string(),
             column.__internal_name().to_string(),
         )),
-        values: Some(values),
+        values: Some(values.into_iter().map(|v| v.into()).collect()),
         _column2: None,
         in_array: false,
     }
