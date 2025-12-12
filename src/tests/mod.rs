@@ -635,6 +635,71 @@ mod build_filter_expr_tests {
     }
 
     #[test]
+    fn test_in_and_not_in_column() {
+        // IN column: t1.a IN (SELECT t2.b FROM t2)
+        let filter = DummyFilter {
+            col1: Some(("t1".to_owned(), "a".to_owned())),
+            col2: Some(("t2".to_owned(), "b".to_owned())),
+            in_array: Some(true),
+            array_values: None,
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        #[cfg(feature = "mysql")]
+        assert_eq!(sql, "`t1`.`a` IN (SELECT `b` FROM `t2`)");
+        #[cfg(feature = "postgres")]
+        assert_eq!(sql, "\"t1\".\"a\" IN (SELECT \"b\" FROM \"t2\")");
+        #[cfg(feature = "sqlite")]
+        assert_eq!(sql, "\"t1\".\"a\" IN (SELECT \"b\" FROM \"t2\")");
+        assert!(params.is_empty());
+
+        // NOT IN column: t1.a NOT IN (SELECT t2.b FROM t2)
+        let filter = DummyFilter {
+            col1: Some(("t1".to_owned(), "a".to_owned())),
+            col2: Some(("t2".to_owned(), "b".to_owned())),
+            in_array: Some(false),
+            array_values: None,
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        #[cfg(feature = "mysql")]
+        assert_eq!(sql, "`t1`.`a` NOT IN (SELECT `b` FROM `t2`)");
+        #[cfg(feature = "postgres")]
+        assert_eq!(sql, "\"t1\".\"a\" NOT IN (SELECT \"b\" FROM \"t2\")");
+        #[cfg(feature = "sqlite")]
+        assert_eq!(sql, "\"t1\".\"a\" NOT IN (SELECT \"b\" FROM \"t2\")");
+        assert!(params.is_empty());
+
+        // Error case: missing table name in column_two
+        let filter = DummyFilter {
+            col1: Some(("t1".to_owned(), "a".to_owned())),
+            col2: Some(("".to_owned(), "b".to_owned())),
+            in_array: Some(true),
+            array_values: None,
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        assert_eq!(sql, "1=0");
+        assert!(params.is_empty());
+
+        // Error case: missing table name in column_two for NOT IN
+        let filter = DummyFilter {
+            col1: Some(("t1".to_owned(), "a".to_owned())),
+            col2: Some(("".to_owned(), "b".to_owned())),
+            in_array: Some(false),
+            array_values: None,
+            ..DummyFilter::new()
+        };
+        let mut params = vec![];
+        let sql = build_filter_expr(&filter, &mut params);
+        assert_eq!(sql, "1=1");
+        assert!(params.is_empty());
+    }
+
+    #[test]
     fn test_null_comparisons() {
         // IS NULL
         let filter = DummyFilter {

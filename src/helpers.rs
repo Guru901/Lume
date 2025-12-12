@@ -101,16 +101,26 @@ pub(crate) fn build_filter_expr(filter: &dyn Filtered, params: &mut Vec<Value>) 
                 dialect.quote_identifier(&col1.0),
                 dialect.quote_identifier(&col1.1)
             );
-            let right = format!(
-                "{}.{}",
-                dialect.quote_identifier(&col2.0),
-                dialect.quote_identifier(&col2.1)
-            );
-            return if in_array {
-                format!("{} IN ({})", left, right)
-            } else {
-                format!("{} NOT IN ({})", left, right)
-            };
+
+            // Validate that table name is present
+            if col2.0.is_empty() {
+                eprintln!(
+                    "Warning: IN/NOT IN filter column_two missing table name, using tautology"
+                );
+                return if in_array {
+                    "1=0".to_string()
+                } else {
+                    "1=1".to_string()
+                };
+            }
+
+            // Generate proper subquery: (SELECT <quoted_col2> FROM <quoted_table2>)
+            let quoted_table2 = dialect.quote_identifier(&col2.0);
+            let quoted_col2 = dialect.quote_identifier(&col2.1);
+            let subquery = format!("(SELECT {} FROM {})", quoted_col2, quoted_table2);
+            let op = if in_array { "IN" } else { "NOT IN" };
+
+            return format!("{} {} {}", left, op, subquery);
         } else {
             eprintln!(
                 "Warning: IN/NOT IN filter missing array_values and column_two, using tautology"
