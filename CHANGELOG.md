@@ -12,6 +12,10 @@
 - Improved error handling for array filters with missing data
 - Examples updated: All schema examples now use Uuid primary keys with default_random()
 - Removed debug prints
+  
+## [0.12.1] - 2025-12-11
+  
+- Fixed Vec<Strings> not working
 
 ## [0.12.0] - 2025-12-11
 
