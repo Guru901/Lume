@@ -54,6 +54,12 @@ where
 }
 
 /// Creates a raw SQL filter fragment for advanced use-cases.
+///
+/// # Safety
+///
+/// **Warning:** This function embeds raw SQL directly into queries without sanitization.
+/// Never pass untrusted user input to this function. Doing so creates SQL injection vulnerabilities.
+/// Prefer parameterized filters (e.g., `eq_value`, `in_array`) when possible.
 pub fn sql(filter: String) -> SqlFilter {
     SqlFilter { sql: filter }
 }
