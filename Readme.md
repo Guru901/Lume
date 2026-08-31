@@ -6,20 +6,30 @@ A type-safe, ergonomic query builder and ORM for SQL databases, inspired by Driz
 [![Documentation](https://img.shields.io/docsrs/lume)](https://docs.rs/lume)
 [![License](https://img.shields.io/crates/l/lume)](LICENSE)
 
+> **Project Status**
+>
+> Lume is **not abandoned**, but development is currently paused.
+>
+> I've taken a temporary break from working on Lume, but I do plan to come back to the project and continue development. There are still things I want to build and improve, so this isn't the end of the project.
+>
+> In the meantime, the existing version remains available on crates.io and the documentation is still available for anyone who wants to experiment with it.
+>
+> Development will resume when I return to the project.
+
 ## Features
 
-- 🚀 **Type-safe**: Compile-time type checking for all database operations
-- 🎯 **Ergonomic**: Clean, intuitive API inspired by modern ORMs
-- ⚡ **Performance**: Zero-cost abstractions with minimal runtime overhead
-- 🔧 **Flexible**: Support for MySQL, PostgreSQL, and SQLite
-- 🛡️ **Safe**: Parameterized queries by default to prevent SQL injection
-- 📦 **Lightweight**: Minimal dependencies, maximum functionality
+* **Type-safe**: Compile-time type checking for all database operations
+* **Ergonomic**: Clean, intuitive API inspired by modern ORMs
+* **Performance**: Zero-cost abstractions with minimal runtime overhead
+* **Flexible**: Support for MySQL, PostgreSQL, and SQLite
+* **Safe**: Parameterized queries by default to prevent SQL injection
+* **Lightweight**: Minimal dependencies, maximum functionality
 
 ## Quick Start
 
 Add Lume to your `Cargo.toml`:
 
-```toml
+```toml id="9h2k1p"
 [dependencies]
 lume = { version = "0.12", features = ["mysql"] }
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
@@ -27,7 +37,7 @@ tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 
 ### Basic Example
 
-```rust
+```rust id="q4m8tx"
 use lume::{database::Database, define_schema, filter::eq_value};
 
 // Define your database schema
@@ -78,21 +88,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Documentation
 
-- [Getting Started](docs/getting-started.md) - Installation and basic usage
-- [Schema Definition](docs/schema.md) - Defining database schemas
-- [Queries](docs/queries.md) - Building and executing queries
-- [Filters](docs/filters.md) - Filtering and conditions
-- [Inserts & Updates](docs/inserts-updates.md) - Inserting and updating data
-- [Joins](docs/joins.md) - Joining tables
-- [Advanced Topics](docs/advanced.md) - Advanced features and patterns
+* [Getting Started](docs/getting-started.md) - Installation and basic usage
+* [Schema Definition](docs/schema.md) - Defining database schemas
+* [Queries](docs/queries.md) - Building and executing queries
+* [Filters](docs/filters.md) - Filtering and conditions
+* [Inserts & Updates](docs/inserts-updates.md) - Inserting and updating data
+* [Joins](docs/joins.md) - Joining tables
+* [Advanced Topics](docs/advanced.md) - Advanced features and patterns
 
 ## Supported Databases
 
 Lume supports multiple database backends through feature flags:
 
-- **MySQL**: `lume = { version = "0.12", features = ["mysql"] }`
-- **PostgreSQL**: `lume = { version = "0.12", features = ["postgres"] }`
-- **SQLite**: `lume = { version = "0.12", features = ["sqlite"] }`
+* **MySQL**: `lume = { version = "0.12", features = ["mysql"] }`
+* **PostgreSQL**: `lume = { version = "0.12", features = ["postgres"] }`
+* **SQLite**: `lume = { version = "0.12", features = ["sqlite"] }`
 
 ## Type Mapping
 
@@ -116,7 +126,11 @@ Lume automatically maps Rust types to SQL types:
 
 ## Contributing
 
-We are not accepting contributions at this time. We will be accepting pull requests in the future, for now you can open an issue to discuss your ideas.
+Development is currently paused while I take a break from the project.
+
+I plan to resume development in the future, at which point contributions and further improvements can be revisited as the project evolves.
+
+For now, the repository is primarily here as a reference and as a usable starting point for the current version of Lume.
 
 ## License
 
